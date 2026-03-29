@@ -24,7 +24,7 @@ app.get("/health", (_req, res) => {
 });
 
 // React Catch-all
-app.get("*", (_, res) => {
+app.get(/.*/, (_, res) => {
   res.sendFile(path.join(__dirname, "../public/index.html"));
 });
 
