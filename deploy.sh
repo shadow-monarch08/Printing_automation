@@ -16,8 +16,8 @@ cd ..
 echo "📂 Copying frontend build to backend..."
 rm -rf server/public
 mkdir -p server/public
-# Copy the contents of dist directly into public
-cp -r admin-ui/dist/* server/public/
+# Copy the contents of the 'admin' folder directly into public
+cp -r admin/* server/public/
 
 echo "⚙️ Installing and building backend..."
 cd server
