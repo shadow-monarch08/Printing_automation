@@ -1,0 +1,131 @@
+/* src/styles/theme.css */
+
+/* Dark Mode — "The Darkroom" */
+[data-theme="dark"] {
+  --bg-primary:         #121212;
+  --bg-surface:         #1E1E1E;
+  --bg-surface-hover:   #2A2A2A;
+  --bg-surface-alt:     #252525;           /* Alternate row backgrounds */
+  --border-default:     #333333;
+  --border-active:      #00FFFF;
+
+  --text-primary:       #F0F0F0;
+  --text-secondary:     #888888;
+  --text-mono:          #00FFFF;
+  --text-muted:         #555555;
+
+  --accent-primary:     #00FFFF;           /* Neon Cyan */
+  --accent-secondary:   #FF00FF;           /* Magenta glow */
+  --accent-glow:        rgba(0, 255, 255, 0.15);
+
+  --btn-bg:             #00FFFF;
+  --btn-text:           #121212;
+  --btn-shadow:         0 4px 0 #008888;
+  --btn-active-shadow:  0 1px 0 #008888;
+
+  --btn-danger-bg:      #FF4444;
+  --btn-danger-text:    #FFFFFF;
+  --btn-danger-shadow:  0 4px 0 #AA2222;
+
+  --btn-ghost-bg:       transparent;
+  --btn-ghost-text:     var(--text-primary);
+  --btn-ghost-border:   var(--border-default);
+
+  --status-idle:        #00FF88;
+  --status-error:       #FF4444;
+  --status-busy:        #FFAA00;
+
+  /* Modal tokens */
+  --modal-backdrop:     rgba(0, 0, 0, 0.75);
+  --modal-bg:           #1E1E1E;
+  --modal-border:       #444444;
+  --modal-header-bg:    #252525;
+  --modal-shadow:       0 24px 80px rgba(0, 0, 0, 0.6);
+
+  /* Toast tokens */
+  --toast-success-bg:   rgba(0, 255, 136, 0.1);
+  --toast-success-border: rgba(0, 255, 136, 0.3);
+  --toast-success-text: #00FF88;
+  --toast-error-bg:     rgba(255, 68, 68, 0.1);
+  --toast-error-border: rgba(255, 68, 68, 0.3);
+  --toast-error-text:   #FF6666;
+  --toast-info-bg:      rgba(0, 255, 255, 0.08);
+  --toast-info-border:  rgba(0, 255, 255, 0.25);
+  --toast-info-text:    #00FFFF;
+  --toast-warning-bg:   rgba(255, 170, 0, 0.1);
+  --toast-warning-border: rgba(255, 170, 0, 0.3);
+  --toast-warning-text: #FFAA00;
+  --toast-surface:      #1E1E1E;
+  --toast-shadow:       0 8px 32px rgba(0, 0, 0, 0.5);
+
+  /* Input tokens */
+  --input-bg:           #151515;
+  --input-border:       #333333;
+  --input-focus-border: #00FFFF;
+  --input-focus-glow:   rgba(0, 255, 255, 0.15);
+}
+
+/* Light Mode — "The Fresh Ream" */
+[data-theme="light"] {
+  --bg-primary:         #F9F9F6;
+  --bg-surface:         #FFFFFF;
+  --bg-surface-hover:   #F0F0ED;
+  --bg-surface-alt:     #F4F4F1;
+  --border-default:     #222222;
+  --border-active:      #0A2463;
+
+  --text-primary:       #1A1A1A;
+  --text-secondary:     #555555;
+  --text-mono:          #0A2463;
+  --text-muted:         #999999;
+
+  --accent-primary:     #0A2463;           /* Press Blue */
+  --accent-secondary:   #1B4D8C;
+  --accent-glow:        rgba(10, 36, 99, 0.08);
+
+  --btn-bg:             #0A2463;
+  --btn-text:           #FFFFFF;
+  --btn-shadow:         0 4px 0 #061432;
+  --btn-active-shadow:  0 1px 0 #061432;
+
+  --btn-danger-bg:      #DC2626;
+  --btn-danger-text:    #FFFFFF;
+  --btn-danger-shadow:  0 4px 0 #8B1A1A;
+
+  --btn-ghost-bg:       transparent;
+  --btn-ghost-text:     var(--text-primary);
+  --btn-ghost-border:   var(--border-default);
+
+  --status-idle:        #16A34A;
+  --status-error:       #DC2626;
+  --status-busy:        #D97706;
+
+  /* Modal tokens */
+  --modal-backdrop:     rgba(0, 0, 0, 0.45);
+  --modal-bg:           #FFFFFF;
+  --modal-border:       #222222;
+  --modal-header-bg:    #F4F4F1;
+  --modal-shadow:       0 24px 80px rgba(0, 0, 0, 0.2);
+
+  /* Toast tokens */
+  --toast-success-bg:   rgba(22, 163, 74, 0.08);
+  --toast-success-border: rgba(22, 163, 74, 0.3);
+  --toast-success-text: #16A34A;
+  --toast-error-bg:     rgba(220, 38, 38, 0.08);
+  --toast-error-border: rgba(220, 38, 38, 0.3);
+  --toast-error-text:   #DC2626;
+  --toast-info-bg:      rgba(10, 36, 99, 0.06);
+  --toast-info-border:  rgba(10, 36, 99, 0.2);
+  --toast-info-text:    #0A2463;
+  --toast-warning-bg:   rgba(217, 119, 6, 0.08);
+  --toast-warning-border: rgba(217, 119, 6, 0.3);
+  --toast-warning-text: #D97706;
+  --toast-surface:      #FFFFFF;
+  --toast-shadow:       0 8px 32px rgba(0, 0, 0, 0.12);
+
+  /* Input tokens */
+  --input-bg:           #FFFFFF;
+  --input-border:       #CCCCCC;
+  --input-focus-border: #0A2463;
+  --input-focus-glow:   rgba(10, 36, 99, 0.1);
+}

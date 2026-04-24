@@ -1,0 +1,8 @@
+{
+  "bwPerPage": 2,
+  "colorPerPage": 10,
+  "currency": "₹",
+  "duplexDiscount": 10,
+  "bulkThreshold": 50,
+  "bulkDiscount": 15
+}

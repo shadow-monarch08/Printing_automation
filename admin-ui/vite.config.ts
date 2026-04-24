@@ -7,5 +7,8 @@ export default defineConfig({
   build: {
     outDir: '../admin',
     emptyOutDir: true,
+  },
+  server: {
+    allowedHosts: ['dirgelike-superartificially-rachelle.ngrok-free.dev']
   }
 })

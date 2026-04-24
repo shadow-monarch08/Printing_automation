@@ -3,6 +3,10 @@ import cors from "cors";
 import path from "path";
 import printerRoutes from "./routes/printer.routes";
 import printRoutes from "./routes/print.routes";
+import jobsRoutes from "./routes/jobs.routes";
+import configRoutes from "./routes/config.routes";
+import authRoutes from "./routes/auth.routes";
+import utilsRoutes from "./routes/utils.routes";
 
 const app = express();
 
@@ -17,6 +21,10 @@ app.use(express.static(path.join(__dirname, "../public")));
 // API routes
 app.use("/printers", printerRoutes);
 app.use("/print", printRoutes);
+app.use("/jobs", jobsRoutes);
+app.use("/config", configRoutes);
+app.use("/auth", authRoutes);
+app.use("/utils", utilsRoutes);
 
 // Health check
 app.get("/health", (_req, res) => {

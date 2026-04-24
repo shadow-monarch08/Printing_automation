@@ -9,10 +9,12 @@ export async function getPrinters(req: Request, res: Response) {
     const printers = await printerService.listPrinters();
     res.json({ success: true, printers });
   } catch (err: any) {
+    console.error("[getPrinters] Error:", err);
     res.status(500).json({
       success: false,
       message: "Failed to list printers",
       error: err?.error?.message || String(err),
+      stderr: err?.stderr || "",
     });
   }
 }

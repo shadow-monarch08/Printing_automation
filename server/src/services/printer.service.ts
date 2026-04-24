@@ -11,21 +11,65 @@ export interface PrinterInfo {
  * Parses `lpstat -p` output.
  */
 export async function listPrinters(): Promise<PrinterInfo[]> {
-  const { stdout } = await execCommand("lpstat -p");
-  const printers: PrinterInfo[] = [];
-  const lines = stdout.split("\n").filter(Boolean);
+  try {
+    const { stdout, stderr } = await execCommand("lpstat -p");
 
-  for (const line of lines) {
-    const match = line.match(/^printer\s+(\S+)\s+(.*)/);
-    if (match) {
-      printers.push({
-        name: match[1],
-        description: match[2],
-        status: line.includes("idle") ? "idle" : "busy",
-      });
+    if (stderr) {
+      console.warn("[listPrinters] lpstat stderr:", stderr);
     }
+
+    console.log("[listPrinters] raw lpstat output:", JSON.stringify(stdout));
+
+    const printers: PrinterInfo[] = [];
+    const lines = stdout.split("\n").filter(Boolean);
+
+    for (const line of lines) {
+      // Case-insensitive match to handle different CUPS/locale output formats
+      const match = line.match(/^printer\s+(\S+)\s+(.*)/i);
+      if (match) {
+        printers.push({
+          name: match[1],
+          description: match[2],
+          status: line.toLowerCase().includes("idle") ? "idle" : "busy",
+        });
+      }
+    }
+
+    console.log(`[listPrinters] parsed ${printers.length} printer(s)`);
+    return printers;
+  } catch (err: any) {
+    // lpstat returns exit code 1 when no printers are configured,
+    // but may still have useful stdout. Try to parse it.
+    const stdout = err?.stdout || "";
+    const stderr = err?.stderr || "";
+    console.error("[listPrinters] lpstat command failed:", {
+      message: err?.error?.message || String(err),
+      stdout,
+      stderr,
+    });
+
+    // If there IS stdout despite the error, try to parse it anyway
+    if (stdout) {
+      const printers: PrinterInfo[] = [];
+      const lines = stdout.split("\n").filter(Boolean);
+      for (const line of lines) {
+        const match = line.match(/^printer\s+(\S+)\s+(.*)/i);
+        if (match) {
+          printers.push({
+            name: match[1],
+            description: match[2],
+            status: line.toLowerCase().includes("idle") ? "idle" : "busy",
+          });
+        }
+      }
+      if (printers.length > 0) {
+        console.log(`[listPrinters] recovered ${printers.length} printer(s) from error output`);
+        return printers;
+      }
+    }
+
+    throw err;
   }
-  return printers;
 }
 
 /**
