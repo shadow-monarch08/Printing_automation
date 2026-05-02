@@ -1,3 +1,5 @@
+import "./infrastructure/printMaster.queue";
+import "./infrastructure/printMaster.worker";
 import app from "./app";
 
 const PORT = parseInt(process.env.PORT || "3000", 10);

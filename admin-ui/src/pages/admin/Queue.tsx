@@ -12,14 +12,12 @@ export function Queue() {
 
   useEffect(() => {
     loadQueue();
-    const interval = setInterval(() => loadQueue(), 10000);
-    return () => clearInterval(interval);
   }, [loadQueue]);
 
   const handleCancelClick = (id: string) => {
     openModal({
       title: 'Confirm Annihilation',
-      content: <p>Are you sure you want to permanently delete job <span className="data-mono">{id}</span> from the master queue?</p>,
+      content: <p>Are you sure you want to permanently delete job <span className="data-mono" title={id}>{id.substring(0, 8)}...</span> from the master queue?</p>,
       footer: (
         <>
           <button className="btn-ghost" onClick={closeModal}>Abort</button>
@@ -27,7 +25,7 @@ export function Queue() {
              const success = await cancelJob(id);
              closeModal();
              if (success) {
-               addToast({ type: 'success', title: 'Job Annihilated', description: `${id} removed.` });
+               addToast({ type: 'success', title: 'Job Annihilated', description: `${id.substring(0, 8)} removed.` });
              }
           }}>Execute Delete</button>
         </>
@@ -37,13 +35,13 @@ export function Queue() {
 
   const handlePause = async (id: string) => {
       await pauseJob(id);
-      addToast({ type: 'info', title: 'Job Paused', description: `${id} has been suspended.` });
+      addToast({ type: 'info', title: 'Job Paused', description: `${id.substring(0, 8)} has been suspended.` });
   };
 
   const handlePrioritize = async (id: string) => {
       const success = await prioritizeJob(id);
       if (success) {
-          addToast({ type: 'success', title: 'Route Override', description: `${id} moved to front of queue.` });
+          addToast({ type: 'success', title: 'Route Override', description: `${id.substring(0, 8)} moved to front of queue.` });
       }
   };
 
@@ -69,7 +67,7 @@ export function Queue() {
           <tbody>
             {queue.map(job => (
               <tr key={job.id}>
-                <td className="data-mono">{job.id}</td>
+                <td className="data-mono" title={job.id}>{job.id.substring(0, 8)}...</td>
                 <td style={{ maxWidth: '200px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{job.filename}</td>
                 <td>{job.owner}</td>
                 <td>
@@ -77,7 +75,7 @@ export function Queue() {
                     {job.status}
                   </span>
                 </td>
-                <td style={{ color: 'var(--text-secondary)' }}>{job.printer}</td>
+                <td style={{ color: 'var(--text-secondary)' }}>{job.targetPrinter}</td>
                 <td style={{ textAlign: 'right' }}>
                    <div style={{ display: 'inline-flex', gap: '0.5rem' }}>
                       <button 

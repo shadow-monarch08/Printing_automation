@@ -22,21 +22,21 @@ export function Dashboard() {
       </header>
 
       <div className="dashboard-metrics">
-        <MetricCard label="Active Printers" value={`${metrics.activePrinters} / ${metrics.totalPrinters}`} icon={<Printer />} />
-        <MetricCard label="Queued Jobs" value={metrics.queueLength} icon={<Layers />} alert={metrics.queueLength > 10} />
-        <MetricCard label="Jobs Today" value={metrics.totalJobsToday} icon={<Activity />} />
-        <MetricCard label="Gross Revenue" value={`₹${metrics.revenue}`} icon={<DollarSign />} />
+        <MetricCard label="Active Printers" value={`${metrics.activePrinters ?? '?'} / ${metrics.totalPrinters ?? '?'}`} icon={<Printer />} />
+        <MetricCard label="Queued Jobs" value={metrics.waiting + metrics.active} icon={<Layers />} alert={metrics.waiting + metrics.active > 10} />
+        <MetricCard label="Jobs Today" value={metrics.totalJobsToday ?? (metrics.completed + metrics.failed)} icon={<Activity />} />
+        <MetricCard label="Gross Revenue" value={`₹${metrics.revenue ?? '0.00'}`} icon={<DollarSign />} />
       </div>
 
       <div className="dashboard-detail-grid">
          <div className="card">
             <h3 style={{ marginBottom: '1.5rem' }}>System Health</h3>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
-               <HealthMeter label="CPU Load" value={metrics.cpuLoad} />
-               <HealthMeter label="Local Storage" value={Math.round((metrics.storageUsed / metrics.storageTotal) * 100)} />
+               <HealthMeter label="CPU Load" value={metrics.cpuLoad ?? 0} />
+               <HealthMeter label="Failed Jobs (Today)" value={metrics.totalJobsToday ? Math.round((metrics.failed / metrics.totalJobsToday) * 100) : 0} />
                <div style={{ display: 'flex', justifyContent: 'space-between', paddingTop: '1rem', borderTop: '1px solid var(--border-default)' }}>
                   <span style={{ color: 'var(--text-secondary)' }}>Uptime</span>
-                  <span className="data-mono">{metrics.uptime}</span>
+                  <span className="data-mono">{metrics.uptime ?? 'N/A'}</span>
                </div>
             </div>
          </div>

@@ -1,9 +1,10 @@
 import { Request, Response } from "express";
 import * as pricingService from "../services/pricing.service";
-import { printMasterQueue } from "../queues/printMaster.queue";
+import { printMasterQueue } from "../../infrastructure/printMaster.queue";
 import { execCommand } from "../utils/exec";
 import path from "path";
 import { v4 as uuidv4 } from "uuid";
+import { eventBus } from "../utils/eventBus";
 
 /**
  * POST /print
@@ -47,6 +48,8 @@ export async function printFile(req: Request, res: Response) {
 
     // Enqueue job via BullMQ
     await printMasterQueue.add("print", jobData as any, { jobId });
+    
+    eventBus.emit("job_queued", jobData);
 
     res.json({
       success: true,

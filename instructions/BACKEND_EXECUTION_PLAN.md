@@ -2,7 +2,7 @@
 
 > **Target:** Raspberry Pi (headless, local LAN, no internet)  
 > **Stack:** Express.js + Redis + BullMQ + SSE  
-> **Status:** Awaiting approval before coding begins
+> **Status:** Phase 1 ✅ complete | Architecture refactor ✅ complete | Phases 2-6 pending
 
 ---
 
@@ -21,32 +21,32 @@ I have fully reviewed `instructions_4.md` and `INTEGRATION_REPORT.md`. I underst
 
 ### What Exists Today (3 files, 4 endpoints)
 
-| File | What It Does | Verdict |
-|---|---|---|
-| `printer.service.ts` | `lpstat -p`, `lpstat -d`, `lpoptions -d`, `lp` | **Keep & extend.** Core CUPS wrapper functions are solid. |
-| `printer.controller.ts` | GET `/printers`, GET/POST `/printers/default` | **Keep.** Will add new routes alongside. |
-| `print.controller.ts` | POST `/print` (basic file upload + `lp`) | **Rewrite.** Must route through BullMQ instead of direct `lp`. |
-| `utils/exec.ts` | `child_process.exec` wrapper | **Keep as-is.** All CUPS commands use this. |
+| File                    | What It Does                                   | Verdict                                                        |
+| ----------------------- | ---------------------------------------------- | -------------------------------------------------------------- |
+| `printer.service.ts`    | `lpstat -p`, `lpstat -d`, `lpoptions -d`, `lp` | **Keep & extend.** Core CUPS wrapper functions are solid.      |
+| `printer.controller.ts` | GET `/printers`, GET/POST `/printers/default`  | **Keep.** Will add new routes alongside.                       |
+| `print.controller.ts`   | POST `/print` (basic file upload + `lp`)       | **Rewrite.** Must route through BullMQ instead of direct `lp`. |
+| `utils/exec.ts`         | `child_process.exec` wrapper                   | **Keep as-is.** All CUPS commands use this.                    |
 
 ### What Gets Added
 
-| New Module | Purpose |
-|---|---|
-| `config/redis.ts` | Redis connection factory + health check |
-| `queues/printMaster.queue.ts` | BullMQ Queue definition ("PrintMasterQueue") |
-| `workers/printMaster.worker.ts` | The Drip-Feed worker with matchmaking + failover |
-| `config/capabilities.json` | Printer capabilities matrix (static JSON) |
-| `services/matchmaker.service.ts` | Intersects job requirements with idle+capable printers |
-| `services/supplies.service.ts` | Deterministic ink/toner polling via URI routing |
-| `services/job.service.ts` | Job CRUD: list, status, cancel, pause, resume, prioritize |
-| `services/metrics.service.ts` | CPU, uptime, storage, queue depth, revenue aggregation |
-| `services/pricing.service.ts` | Read/write `config/pricing.json` + quote calculation |
-| `services/auth.service.ts` | PIN hashing + JWT generation/verification |
-| `routes/events.routes.ts` | SSE endpoint `GET /events/jobs` |
-| `routes/jobs.routes.ts` | Job management endpoints |
-| `routes/config.routes.ts` | Pricing + capabilities config endpoints |
-| `routes/auth.routes.ts` | Login/logout/verify endpoints |
-| `middleware/auth.middleware.ts` | JWT verification guard for admin routes |
+| New Module                       | Purpose                                                   |
+| -------------------------------- | --------------------------------------------------------- |
+| `config/redis.ts`                | Redis connection factory + health check                   |
+| `queues/printMaster.queue.ts`    | BullMQ Queue definition ("PrintMasterQueue")              |
+| `workers/printMaster.worker.ts`  | The Drip-Feed worker with matchmaking + failover          |
+| `config/capabilities.json`       | Printer capabilities matrix (static JSON)                 |
+| `services/matchmaker.service.ts` | Intersects job requirements with idle+capable printers    |
+| `services/supplies.service.ts`   | Deterministic ink/toner polling via URI routing           |
+| `services/job.service.ts`        | Job CRUD: list, status, cancel, pause, resume, prioritize |
+| `services/metrics.service.ts`    | CPU, uptime, storage, queue depth, revenue aggregation    |
+| `services/pricing.service.ts`    | Read/write `config/pricing.json` + quote calculation      |
+| `services/auth.service.ts`       | PIN hashing + JWT generation/verification                 |
+| `routes/events.routes.ts`        | SSE endpoint `GET /events/jobs`                           |
+| `routes/jobs.routes.ts`          | Job management endpoints                                  |
+| `routes/config.routes.ts`        | Pricing + capabilities config endpoints                   |
+| `routes/auth.routes.ts`          | Login/logout/verify endpoints                             |
+| `middleware/auth.middleware.ts`  | JWT verification guard for admin routes                   |
 
 ---
 
@@ -233,34 +233,90 @@ This phase addresses:
 
 ---
 
-### PHASE 5: Deterministic Hardware Polling (Ink/Toner)
+### PHASE 5: DETERMINISTIC HARDWARE POLLING (Ink & Paper)
 
-**Goal:** Read printer supply levels using vendor-specific CLI commands.
+**Goal:** Read printer supply levels AND paper availability using the exact protocol required by the hardware.
 
 #### 5.1 URI-Based Routing
 - `services/supplies.service.ts`
 - **Step 1:** `lpstat -v <printer_name>` → extract device URI.
 - **Step 2:** Route based on URI content:
 
-| URI Contains | Command | Parses |
-|---|---|---|
-| `HP` | `hp-levels` | Ink percentages per cartridge |
-| `EPSON` | `sudo escputil -i -u -r /dev/usb/lp0` | Ink level data |
-| Other USB brands | `ink -p usb` | Generic ink query |
-| `ipp://` or `socket://` | Skip (no CLI) | Return `null` |
+| URI Contains                      | Protocol/Command                                      | Parses                                        |
+| --------------------------------- | ----------------------------------------------------- | --------------------------------------------- |
+| `ipp://<ip>` or `ipp://localhost` | `ipptool -tv "<uri>" get-printer-attributes.test`     | `marker-levels` (ink) & `media-empty` (paper) |
+| `socket://` or `lpd://`           | `snmpwalk -v1 -c public <ip> 1.3.6.1.2.1.43.11.1.1.9` | Legacy SNMP ink levels                        |
+| `usb://HP`                        | `hp-levels`                                           | Ink percentages & "out of paper" status       |
+| `usb://EPSON`                     | `sudo escputil -i -u -r /dev/usb/lp0`                 | Ink level data                                |
+| Other `usb://`                    | `ink -p usb`                                          | Generic USB ink query                         |
 
-#### 5.2 Graceful Fallback
-- If any command fails, times out (5s), or returns unparseable output → return `null`.
-- Frontend displays "Supplies Unknown" badge instead of crashing.
+#### 5.2 Universal Return Object
+- The service MUST parse the disparate CLI outputs into one strictly typed, unified JSON object for the frontend:
+  `{ status: 'online'|'offline', paper: 'ready'|'empty'|'unknown', supplies: { black: number|null, color: number|null } }`
+- **Graceful Fallback:** Wrap all `child_process.exec` calls with a strict 4000ms timeout. If any command fails, times out, or returns unparseable output → catch the error and gracefully return `null` for the supplies instead of crashing the server.
 
 #### 5.3 Caching
-- Supply levels don't change rapidly. Cache results for **5 minutes** in Redis.
-- The SSE heartbeat can optionally refresh supply data and push updates.
+- Hardware polling is expensive. Cache the result object in Redis for **5 minutes** per printer.
+- The SSE heartbeat will read from this Redis cache to push updates to the UI.
+
+---
+
+### PHASE 6: HP Legacy Auto-Configuration
+
+**Goal:** Automatically detect plugged-in but unconfigured HP USB printers and programmatically build their CUPS queues using `hp-setup`.
+
+> **Constraint:** Only `hplip` drivers are currently installed on the host machine. This phase strictly targets HP devices. Support for other vendors can be added later by following the same pattern.
+
+#### 6.1 Discovery Service — `getUnconfiguredHpPrinters()`
+Add to `src/app/services/printer.service.ts`:
+- **Step 1:** Run `lpinfo -v` → collect all physically connected hardware URIs (raw devices).
+- **Step 2:** Run `lpstat -v` → collect all currently configured CUPS printer URIs.
+- **Step 3:** Diff the two lists → find "orphans" (plugged in, but no CUPS queue exists).
+- **Step 4:** Strictly filter orphans to only those matching `usb://HP`.
+- **Step 5:** Parse each URI to extract a `makeModel` string (e.g., `"HP LaserJet M1005"`).
+- **Return:** `Array<{ uri: string; makeModel: string }>`
+
+#### 6.2 Configuration Service — `configureHpPrinter()`
+Add to `src/app/services/printer.service.ts`:
+- **Input:** `uri: string`, `modelName: string`
+- **Step 1:** Sanitize `modelName` to create a valid CUPS queue name:
+  ```typescript
+  const queueName = modelName.replace(/[^a-zA-Z0-9_-]/g, "_");
+  ```
+- **Step 2:** Execute the HP auto-configuration command:
+  ```bash
+  sudo hp-setup -i -a -q "<uri>"
+  ```
+  - `-i` = non-interactive (disables GUI prompts)
+  - `-a` = auto-accept defaults
+  - `-q` = quiet mode
+- **Step 3:** Wrap in try/catch. Return `{ success: boolean; queueName?: string; error?: string }`.
+
+> [!CAUTION]
+> **Deployment Requirement:** The `visudo` file on the Raspberry Pi **must** be updated to allow the Node.js process user to execute `/usr/bin/hp-setup` without a password prompt. Without this, the `sudo hp-setup` command will hang indefinitely and the worker will stall.
+> ```
+> nodeuser ALL=(ALL) NOPASSWD: /usr/bin/hp-setup
+> ```
+
+#### 6.3 Controller & Routes
+- **`GET /printers/detect-legacy`** — Calls `getUnconfiguredHpPrinters()`. Returns the orphan list.
+  - Modify: `src/app/controllers/printer.controller.ts`
+  - Modify: `src/app/routes/printer.routes.ts`
+- **`POST /printers/configure`** — Accepts `{ uri, modelName }` body. Calls `configureHpPrinter()`. Returns success/failure.
+  - Modify: `src/app/controllers/printer.controller.ts`
+  - Modify: `src/app/routes/printer.routes.ts`
+
+#### 6.4 Post-Configuration Hook
+After a successful `hp-setup`, the system should:
+1. Re-run `lpstat -p` to confirm the new queue appeared.
+2. Auto-add a default entry to `capabilities.json` with `"capabilities": ["bw", "single"]` and `"type": "usb"`.
+3. Broadcast a `PRINTER_DISCOVERED` SSE event (when Phase 4 is wired).
 
 #### Integration Report Coverage
 This phase addresses:
-- **Endpoint #5** (`GET /printers/:name/supplies`) — vendor-specific supply polling
-- **Fleet page ink/toner bars** — real data instead of hardcoded values
+- **Endpoint #6** (`POST /printers/detect`) — now specifically targets HP USB orphans
+- **Frontend Fleet page "Detect Legacy Hardware"** button — replaces the 3.5s mock with real `lpinfo`
+- Closes the loop on **Printer Aliasing** — newly configured printers get a default alias from `modelName`
 
 ---
 
@@ -268,62 +324,67 @@ This phase addresses:
 
 These endpoints are required by the frontend but are not explicitly part of the 5 phases above. They will be implemented as lightweight layers during the relevant phase:
 
-| # | Endpoint | Implemented During | Notes |
-|---|---|---|---|
-| 9 | `GET /jobs` | Phase 1 | Query BullMQ queue + completed set |
-| 11 | `DELETE /jobs/:jobId` | Phase 1 | `cancel` CUPS job + remove from BullMQ |
-| 15 | `GET /metrics` | Phase 4 | `os.loadavg()`, `process.uptime()`, `df`, queue stats |
-| 16 | `GET /config/pricing` | Phase 1 | Read `config/pricing.json` |
-| 17 | `PUT /config/pricing` | Phase 1 | Write `config/pricing.json` |
-| 18 | `POST /config/pricing/reset` | Phase 1 | Overwrite with defaults |
-| 19 | `POST /auth/login` | Phase 1 | bcrypt PIN + JWT |
-| 20 | `POST /auth/logout` | Phase 1 | Token blacklist (Redis SET) |
-| 21 | `GET /auth/verify` | Phase 1 | JWT decode + blacklist check |
-| 22 | `POST /utils/pagecount` | Phase 1 | `pdfinfo` for PDFs |
+| #   | Endpoint                     | Implemented During | Notes                                                 |
+| --- | ---------------------------- | ------------------ | ----------------------------------------------------- |
+| 9   | `GET /jobs`                  | Phase 1            | Query BullMQ queue + completed set                    |
+| 11  | `DELETE /jobs/:jobId`        | Phase 1            | `cancel` CUPS job + remove from BullMQ                |
+| 15  | `GET /metrics`               | Phase 4            | `os.loadavg()`, `process.uptime()`, `df`, queue stats |
+| 16  | `GET /config/pricing`        | Phase 1            | Read `config/pricing.json`                            |
+| 17  | `PUT /config/pricing`        | Phase 1            | Write `config/pricing.json`                           |
+| 18  | `POST /config/pricing/reset` | Phase 1            | Overwrite with defaults                               |
+| 19  | `POST /auth/login`           | Phase 1            | bcrypt PIN + JWT                                      |
+| 20  | `POST /auth/logout`          | Phase 1            | Token blacklist (Redis SET)                           |
+| 21  | `GET /auth/verify`           | Phase 1            | JWT decode + blacklist check                          |
+| 22  | `POST /utils/pagecount`      | Phase 1            | `pdfinfo` for PDFs                                    |
 
 ---
 
-## Final File Tree (After All 5 Phases)
+## Final File Tree (After All 6 Phases)
+
+> **Note:** The codebase has been refactored into the `src/app/` architecture per `instruction_5.md`.
 
 ```
 server/src/
-├── app.ts                          ← Extended with new route mounts
-├── server.ts                       ← Unchanged
+├── app.ts                              ← Extended with new route mounts
+├── server.ts                           ← Boots infrastructure then Express
 ├── config/
-│   ├── redis.ts                    ← Redis connection singleton
-│   ├── capabilities.json           ← Printer capabilities matrix
-│   └── pricing.json                ← Persisted pricing config
-├── queues/
-│   └── printMaster.queue.ts        ← BullMQ Queue definition
-├── workers/
-│   └── printMaster.worker.ts       ← Drip-feed worker + failover
-├── middleware/
-│   └── auth.middleware.ts          ← JWT guard
-├── routes/
-│   ├── print.routes.ts             ← Extended (quote endpoint)
-│   ├── printer.routes.ts           ← Extended (supplies, detect, alias)
-│   ├── jobs.routes.ts              ← NEW: Job CRUD
-│   ├── events.routes.ts            ← NEW: SSE stream
-│   ├── config.routes.ts            ← NEW: Pricing + capabilities
-│   └── auth.routes.ts              ← NEW: Login/logout/verify
-├── controllers/
-│   ├── print.controller.ts         ← Rewritten to enqueue via BullMQ
-│   ├── printer.controller.ts       ← Extended
-│   ├── jobs.controller.ts          ← NEW
-│   ├── events.controller.ts        ← NEW
-│   ├── config.controller.ts        ← NEW
-│   └── auth.controller.ts          ← NEW
-├── services/
-│   ├── printer.service.ts          ← Extended (detect, capabilities)
-│   ├── matchmaker.service.ts       ← NEW: Smart routing engine
-│   ├── supplies.service.ts         ← NEW: Vendor-specific ink polling
-│   ├── job.service.ts              ← NEW: BullMQ job CRUD
-│   ├── metrics.service.ts          ← NEW: System telemetry
-│   ├── pricing.service.ts          ← NEW: Config file CRUD
-│   ├── auth.service.ts             ← NEW: PIN + JWT
-│   └── eventBus.ts                 ← NEW: SSE client manager
-└── utils/
-    └── exec.ts                     ← Unchanged
+│   ├── capabilities.json               ← Printer capabilities matrix
+│   └── pricing.json                    ← Persisted pricing config
+├── infrastructure/
+│   ├── redis.ts                        ← Redis connection singleton
+│   ├── printMaster.queue.ts            ← BullMQ Queue definition
+│   └── printMaster.worker.ts           ← Drip-feed worker + failover
+├── app/
+│   ├── controllers/
+│   │   ├── print.controller.ts         ← Rewritten to enqueue via BullMQ
+│   │   ├── printer.controller.ts       ← Extended (detect-legacy, configure)
+│   │   ├── jobs.controller.ts          ← Job CRUD
+│   │   ├── events.controller.ts        ← SSE stream
+│   │   ├── config.controller.ts        ← Pricing CRUD
+│   │   └── auth.controller.ts          ← Login/logout/verify
+│   ├── routes/
+│   │   ├── print.routes.ts             ← Extended (quote endpoint)
+│   │   ├── printer.routes.ts           ← Extended (supplies, detect-legacy, configure, alias)
+│   │   ├── jobs.routes.ts              ← Job CRUD
+│   │   ├── events.routes.ts            ← SSE stream
+│   │   ├── config.routes.ts            ← Pricing + capabilities
+│   │   ├── utils.routes.ts             ← Page count utility
+│   │   └── auth.routes.ts              ← Login/logout/verify
+│   ├── services/
+│   │   ├── printer.service.ts          ← Extended (detect orphans, configure HP)
+│   │   ├── matchmaker.service.ts       ← Smart routing engine
+│   │   ├── supplies.service.ts         ← Vendor-specific ink polling
+│   │   ├── job.service.ts              ← BullMQ job CRUD
+│   │   ├── metrics.service.ts          ← System telemetry
+│   │   ├── pricing.service.ts          ← Config file CRUD
+│   │   ├── auth.service.ts             ← PIN + JWT
+│   │   └── eventBus.ts                 ← SSE client manager
+│   ├── middlewares/
+│   │   └── auth.middleware.ts          ← JWT guard
+│   ├── utils/
+│   │   └── exec.ts                     ← child_process wrapper
+│   └── types/
+│       └── (future shared interfaces)
 ```
 
 ---
@@ -331,7 +392,7 @@ server/src/
 ## Execution Order
 
 ```
-Phase 1 ──────────────────────────────────────────────────►
+Phase 1 ✅ COMPLETE ───────────────────────────────────────►
   ├── Redis + BullMQ setup
   ├── Auth (PIN + JWT)
   ├── Pricing config CRUD
@@ -363,8 +424,15 @@ Phase 5 ────────────────────────
   ├── Vendor-specific CLI parsers
   ├── Redis caching (5 min TTL)
   └── Frontend Fleet page wiring
+
+Phase 6 ──────────────────────────────────────────────────►
+  ├── getUnconfiguredHpPrinters() discovery
+  ├── configureHpPrinter() via hp-setup
+  ├── GET /printers/detect-legacy endpoint
+  ├── POST /printers/configure endpoint
+  └── Post-config hook → capabilities.json + SSE event
 ```
 
 ---
 
-> **Awaiting your command to begin Phase 1.**
+> **Phase 1 is complete. Awaiting your command to begin Phase 2.**

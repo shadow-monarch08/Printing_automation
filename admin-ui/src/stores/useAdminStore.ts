@@ -1,45 +1,80 @@
 // src/stores/useAdminStore.ts
 import { create } from 'zustand';
 import { api } from '../services/api';
-import type { Printer, QueueJob, DashboardMetrics, PricingConfig } from '../data/mockData';
+import { apiClient } from '../services/apiClient';
+import type { BackendPrinter, BackendJob, BackendMetrics, PricingConfig, SSEEvent } from '../types';
 
 interface AdminState {
   isAuthenticated: boolean;
-  authenticate: (pin: string) => boolean;
-  logout: () => void;
+  authenticate: (pin: string) => Promise<boolean>;
+  logout: () => Promise<void>;
+  checkAuth: () => Promise<boolean>;
 
-  printers: Printer[];
+  printers: BackendPrinter[];
   loadPrinters: () => Promise<void>;
   setDefaultPrinter: (name: string) => Promise<boolean>;
 
-  queue: QueueJob[];
+  queue: BackendJob[];
   loadQueue: () => Promise<void>;
   cancelJob: (id: string) => Promise<boolean>;
   pauseJob: (id: string) => Promise<boolean>;
   prioritizeJob: (id: string) => Promise<boolean>;
 
-  metrics: DashboardMetrics | null;
+  metrics: BackendMetrics | null;
   loadMetrics: () => Promise<void>;
 
   isDetecting: boolean;
-  detectedUri: string | null;
-  detectLegacyPrinter: () => Promise<string | null>;
+  detectedDevices: { uri: string; makeModel: string }[];
+  detectLegacyPrinter: () => Promise<void>;
 
   pricingConfig: PricingConfig | null;
   loadPricingConfig: () => Promise<void>;
   updatePricingConfig: (config: Partial<PricingConfig>) => Promise<boolean>;
+
+  handleSSEEvent: (event: SSEEvent) => void;
 }
 
-export const useAdminStore = create<AdminState>((set) => ({
+export const useAdminStore = create<AdminState>((set, get) => ({
   isAuthenticated: false,
-  authenticate: (pin: string) => {
-    if (pin === '1234') {
-      set({ isAuthenticated: true });
-      return true;
+  authenticate: async (pin: string) => {
+    try {
+      const res = await apiClient.post<{ success: boolean; token: string }>('/auth/login', { pin });
+      if (res.success && res.token) {
+        localStorage.setItem('auth_token', res.token);
+        set({ isAuthenticated: true });
+        return true;
+      }
+    } catch (e) {
+      console.error('Authentication failed:', e);
     }
     return false;
   },
-  logout: () => set({ isAuthenticated: false }),
+  logout: async () => {
+    try {
+      await apiClient.post('/auth/logout');
+    } catch (e) {
+      console.error('Logout request failed:', e);
+    } finally {
+      localStorage.removeItem('auth_token');
+      set({ isAuthenticated: false });
+    }
+  },
+  checkAuth: async () => {
+    const token = localStorage.getItem('auth_token');
+    if (!token) {
+      set({ isAuthenticated: false });
+      return false;
+    }
+    try {
+      await apiClient.get('/auth/verify');
+      set({ isAuthenticated: true });
+      return true;
+    } catch (e) {
+      localStorage.removeItem('auth_token');
+      set({ isAuthenticated: false });
+      return false;
+    }
+  },
 
   printers: [],
   loadPrinters: async () => {
@@ -105,16 +140,18 @@ export const useAdminStore = create<AdminState>((set) => ({
   },
 
   isDetecting: false,
-  detectedUri: null,
+  detectedDevices: [],
   detectLegacyPrinter: async () => {
-    set({ isDetecting: true, detectedUri: null });
+    set({ isDetecting: true, detectedDevices: [] });
     try {
       const res = await api.detectLegacyPrinter();
-      set({ isDetecting: false, detectedUri: res.uri });
-      return res.uri;
+      if (res.success && res.devices) {
+        set({ isDetecting: false, detectedDevices: res.devices });
+      } else {
+        set({ isDetecting: false });
+      }
     } catch(e) {
       set({ isDetecting: false });
-      return null;
     }
   },
 
@@ -135,5 +172,26 @@ export const useAdminStore = create<AdminState>((set) => ({
       }
     } catch(e) { console.error(e) }
     return false;
+  },
+
+  handleSSEEvent: (event) => {
+    const state = get();
+    switch (event.type) {
+      case 'QUEUE_UPDATE':
+      case 'JOB_STATUS':
+      case 'JOB_CREATED':
+      case 'JOB_FAILED':
+        state.loadQueue();
+        break;
+      case 'PRINTER_DISCOVERED':
+      case 'PRINTER_STATUS':
+        state.loadPrinters();
+        break;
+      case 'METRICS_UPDATE':
+        if (event.metrics) {
+          set({ metrics: event.metrics });
+        }
+        break;
+    }
   }
 }));

@@ -4,8 +4,8 @@ import { useAdminStore } from '../../stores/useAdminStore';
 import { useToast } from '../../context/ToastContext';
 import { useModal } from '../../context/ModalContext';
 import { Settings as SettingsIcon, Save, RefreshCw } from 'lucide-react';
-import { MOCK_PRICING } from '../../data/mockData';
-import type { PricingConfig } from '../../data/mockData';
+import { api } from '../../services/api';
+import type { PricingConfig } from '../../types';
 
 export function Settings() {
   const { pricingConfig, loadPricingConfig, updatePricingConfig } = useAdminStore();
@@ -43,8 +43,8 @@ export function Settings() {
               <>
                 <button className="btn-ghost" onClick={closeModal}>Cancel</button>
                 <button className="btn-danger" onClick={async () => {
-                    await updatePricingConfig(MOCK_PRICING);
-                    setLocalConfig({ ...MOCK_PRICING });
+                    await api.resetPricingConfig();
+                    loadPricingConfig();
                     closeModal();
                     addToast({ type: 'warning', title: 'Factory Reset', description: 'Defaults applied.' });
                 }}>Reset</button>

@@ -1,7 +1,7 @@
 import fs from "fs/promises";
 import path from "path";
 
-const configPath = path.resolve(__dirname, "../config/pricing.json");
+const configPath = path.resolve(__dirname, "../../config/pricing.json");
 
 export interface PricingConfig {
   bwPerPage: number;

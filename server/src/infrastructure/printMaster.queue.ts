@@ -1,5 +1,5 @@
 import { Queue } from "bullmq";
-import { redisConnection } from "../config/redis";
+import { redisConnection } from "./redis";
 
 export interface PrintJobData {
   id: string;              // UUID
@@ -15,11 +15,13 @@ export interface PrintJobData {
   cost: number;
   attemptedPrinters: string[];  // Failover blacklist
   submittedAt: string;
+  cupsJobId?: string; // Phase 3: track CUPS job ID
 }
 
 export const printMasterQueue = new Queue<PrintJobData>("print-master", {
   connection: redisConnection,
   defaultJobOptions: {
+    attempts: 4, // 1 initial try + 3 failover retries
     removeOnComplete: 100,
     removeOnFail: 500,
   },

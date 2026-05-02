@@ -1,6 +1,6 @@
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
-import { redisConnection } from "../config/redis";
+import { redisConnection } from "../../infrastructure/redis";
 
 const JWT_SECRET = process.env.JWT_SECRET || "super_secret_dev_key";
 // Default PIN is "1234". In a real app, this hash would come from a DB or env var.

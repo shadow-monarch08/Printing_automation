@@ -1,20 +1,27 @@
 // src/layouts/AdminLayout.tsx
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import type { ReactNode } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import { Lock, LayoutDashboard, Printer, ListOrdered, Settings, LogOut, Menu, X } from 'lucide-react';
 import { useAdminStore } from '../stores/useAdminStore';
 
 export function AdminLayout({ children }: { children: ReactNode }) {
-  const { isAuthenticated, authenticate, logout } = useAdminStore();
+  const { isAuthenticated, authenticate, logout, checkAuth } = useAdminStore();
   const [pinInput, setPinInput] = useState('');
   const [error, setError] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const navigate = useNavigate();
 
-  const handleLogin = (e: React.FormEvent) => {
+  const [isChecking, setIsChecking] = useState(true);
+
+  useEffect(() => {
+    checkAuth().finally(() => setIsChecking(false));
+  }, [checkAuth]);
+
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (authenticate(pinInput)) {
+    const success = await authenticate(pinInput);
+    if (success) {
       setError(false);
     } else {
       setError(true);
@@ -29,13 +36,21 @@ export function AdminLayout({ children }: { children: ReactNode }) {
 
   const closeSidebar = () => setSidebarOpen(false);
 
+  if (isChecking) {
+    return (
+      <div style={{ height: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--bg-primary)' }}>
+        <p style={{ color: 'var(--text-muted)' }}>Verifying session...</p>
+      </div>
+    );
+  }
+
   if (!isAuthenticated) {
     return (
       <div style={{ height: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--bg-primary)', padding: '1rem' }}>
         <form onSubmit={handleLogin} className="card" style={{ maxWidth: '400px', width: '100%', textAlign: 'center' }}>
           <Lock size={48} color="var(--text-muted)" style={{ marginBottom: '1.5rem' }} />
           <h2 style={{ marginBottom: '0.5rem', fontSize: '1.5rem' }}>Admin Access</h2>
-          <p style={{ color: 'var(--text-secondary)', marginBottom: '2rem' }}>Authentication required (Use PIN: 1234)</p>
+          <p style={{ color: 'var(--text-secondary)', marginBottom: '2rem' }}>Authentication required</p>
           
           <input 
             type="password" 

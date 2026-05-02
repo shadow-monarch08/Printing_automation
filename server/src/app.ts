@@ -1,12 +1,13 @@
 import express from "express";
 import cors from "cors";
 import path from "path";
-import printerRoutes from "./routes/printer.routes";
-import printRoutes from "./routes/print.routes";
-import jobsRoutes from "./routes/jobs.routes";
-import configRoutes from "./routes/config.routes";
-import authRoutes from "./routes/auth.routes";
-import utilsRoutes from "./routes/utils.routes";
+import printerRoutes from "./app/routes/printer.routes";
+import printRoutes from "./app/routes/print.routes";
+import jobsRoutes from "./app/routes/jobs.routes";
+import configRoutes from "./app/routes/config.routes";
+import authRoutes from "./app/routes/auth.routes";
+import utilsRoutes from "./app/routes/utils.routes";
+import eventsRoutes from "./app/routes/events.routes";
 
 const app = express();
 
@@ -25,6 +26,7 @@ app.use("/jobs", jobsRoutes);
 app.use("/config", configRoutes);
 app.use("/auth", authRoutes);
 app.use("/utils", utilsRoutes);
+app.use("/", eventsRoutes);
 
 // Health check
 app.get("/health", (_req, res) => {

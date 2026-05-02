@@ -1,115 +1,126 @@
 // src/services/api.ts
-import { MOCK_PRINTERS, MOCK_QUEUE, MOCK_METRICS, MOCK_PRICING } from '../data/mockData';
-import type { QueueJob, DashboardMetrics, PricingConfig } from '../data/mockData';
-
-// Helper to simulate network latency
-const delay = <T>(data: T, ms = 400): Promise<T> => {
-  return new Promise((resolve) => setTimeout(() => resolve(data), ms));
-};
-
-// State held in memory for the mock service
-let printers = [...MOCK_PRINTERS];
-let queue = [...MOCK_QUEUE];
-let pricingContext = { ...MOCK_PRICING };
+import { apiClient } from './apiClient';
+import type { BackendPrinter, BackendJob, BackendMetrics, PricingConfig, BackendSupplies } from '../types';
 
 export const api = {
-  fetchPrinters: () => delay(printers),
-  
-  fetchDefaultPrinter: () => {
-    const defaultP = printers.find((p) => p.isDefault);
-    return delay(defaultP ? defaultP.name : '');
-  },
-
-  setDefaultPrinter: (name: string) => {
-    printers = printers.map(p => ({
-      ...p,
-      isDefault: p.name === name
+  fetchPrinters: async () => {
+    const data = await apiClient.get<{ success: boolean; printers: BackendPrinter[] }>('/printers');
+    // Fetch supplies for each printer in parallel
+    const printersWithSupplies = await Promise.all(data.printers.map(async (p) => {
+      try {
+        const suppliesRes = await apiClient.get<{ success: boolean; data: BackendSupplies }>(`/printers/${encodeURIComponent(p.name)}/supplies`);
+        if (suppliesRes.success) {
+          return {
+            ...p,
+            paper: suppliesRes.data.paper,
+            supplyBlack: suppliesRes.data.supplies.black,
+            supplyColor: suppliesRes.data.supplies.color,
+          };
+        }
+      } catch (err) {
+        console.error(`Failed to fetch supplies for ${p.name}`, err);
+      }
+      return {
+        ...p,
+        paper: 'unknown' as const,
+        supplyBlack: null,
+        supplyColor: null,
+      };
     }));
-    return delay({ success: true });
+    return printersWithSupplies;
+  },
+  
+  fetchDefaultPrinter: async () => {
+    const data = await apiClient.get<{ success: boolean; default?: string }>('/printers/default');
+    return data.default || '';
   },
 
-  submitPrintJob: (config: any) => {
-    const newJob: QueueJob = {
-      id: `JOB-${Math.floor(Math.random() * 1000) + 5000}`,
-      filename: config.file?.name || 'document.pdf',
-      owner: 'Guest User',
-      pages: config.quote?.totalPages || 1,
-      printer: printers.find(p => p.isDefault)?.name || printers[0].name,
-      status: 'queued',
-      cost: config.quote?.totalCost || 0,
-      submittedAt: new Date().toISOString()
-    };
-    queue = [newJob, ...queue];
-    return delay({ jobId: newJob.id, eta: config.quote?.eta || '~2 minutes' }, 1200);
+  setDefaultPrinter: async (name: string) => {
+    return apiClient.post<{ success: boolean; message: string }>('/printers/default', { printerName: name });
   },
 
-  fetchDashboardMetrics: () => delay<DashboardMetrics>({
-    ...MOCK_METRICS,
-    queueLength: queue.filter(q => q.status === 'queued' || q.status === 'spooling').length
-  }),
+  submitPrintJob: async (config: any) => {
+    const formData = new FormData();
+    formData.append('file', config.file); // actual File object
+    formData.append('copies', config.quote?.copies?.toString() || '1');
+    formData.append('colorMode', config.quote?.colorMode || 'grayscale');
+    formData.append('duplex', config.quote?.duplex || 'single');
+    formData.append('orientation', config.quote?.orientation || 'portrait');
+    formData.append('owner', 'Guest User');
 
-  fetchPrintQueue: () => delay(queue),
-
-  cancelJob: (id: string) => {
-    queue = queue.filter(q => q.id !== id);
-    return delay({ success: true }, 600);
+    const res = await apiClient.post<{ success: boolean; jobId: string; message: string }>('/print', formData, true);
+    return { jobId: res.jobId, eta: '~2 minutes' };
   },
 
-  pauseJob: (_id: string) => {
-    // Just mock functionality
-    return delay({ success: true }, 400);
+  fetchDashboardMetrics: async () => {
+    const res = await apiClient.get<{ success: boolean; metrics: BackendMetrics }>('/metrics');
+    return res.metrics;
   },
 
-  prioritizeJob: (id: string) => {
-    const jobIdx = queue.findIndex(q => q.id === id);
-    if (jobIdx > -1) {
-      const job = queue[jobIdx];
-      queue.splice(jobIdx, 1);
-      queue.unshift(job);
-    }
-    return delay({ success: true }, 500);
+  fetchPrintQueue: async () => {
+    const res = await apiClient.get<{ success: boolean; jobs: BackendJob[] }>('/jobs');
+    // Map targetPrinter to printer to match expected frontend interface structure
+    return res.jobs.map(j => ({ ...j, printer: j.targetPrinter }));
   },
 
-  detectLegacyPrinter: () => {
-    return delay({ uri: 'usb://EPSON/Stylus%20CX3700?serial=L12345' }, 3500); // long delay to simulate hardware discovery
+  cancelJob: async (id: string) => {
+    return apiClient.delete<{ success: boolean; message: string }>(`/jobs/${id}`);
   },
 
-  fetchPricingConfig: () => delay(pricingContext),
-
-  updatePricingConfig: (config: Partial<PricingConfig>) => {
-    pricingContext = { ...pricingContext, ...config };
-    return delay({ success: true }, 800);
+  pauseJob: async (id: string) => {
+    return apiClient.post<{ success: boolean; message: string }>(`/jobs/${id}/pause`);
   },
 
-  calculateQuote: (config: {
+  prioritizeJob: async (id: string) => {
+    return apiClient.post<{ success: boolean; message: string }>(`/jobs/${id}/priority`, { priority: 1 });
+  },
+
+  detectLegacyPrinter: async () => {
+    const res = await apiClient.get<{ success: boolean; devices: { uri: string; makeModel: string }[] }>('/printers/detect-legacy');
+    return res;
+  },
+
+  fetchPricingConfig: async () => {
+    const res = await apiClient.get<{ success: boolean; config: PricingConfig }>('/config/pricing');
+    return res.config;
+  },
+
+  updatePricingConfig: async (config: Partial<PricingConfig>) => {
+    return apiClient.put<{ success: boolean; config: PricingConfig }>('/config/pricing', config);
+  },
+
+  calculateQuote: async (config: {
     pages: number;
     copies: number;
     colorMode: 'color' | 'grayscale';
     duplex: 'single' | 'double';
   }) => {
-    const totalPages = config.pages * config.copies;
-    let costPerPage = config.colorMode === 'color' ? pricingContext.colorPerPage : pricingContext.bwPerPage;
-    
-    let totalCost = totalPages * costPerPage;
+    const res = await apiClient.post<{ success: boolean; cost: number; breakdown: any }>('/print/quote', config);
+    return {
+      totalPages: res.breakdown.totalPages,
+      costPerPage: res.breakdown.basePricePerSheet,
+      totalCost: res.cost,
+      eta: `~${Math.ceil((res.breakdown.totalPages * 2) / 60)} minutes`,
+      // retain these for submitPrintJob
+      copies: config.copies,
+      colorMode: config.colorMode,
+      duplex: config.duplex,
+    };
+  },
 
-    if (config.duplex === 'double') {
-        const discountMultiplier = (100 - pricingContext.duplexDiscount) / 100;
-        totalCost = totalCost * discountMultiplier;
-    }
+  getPageCount: async (file: File) => {
+    const formData = new FormData();
+    formData.append('file', file);
+    const res = await apiClient.post<{ success: boolean; pages: number }>('/utils/pagecount', formData, true);
+    return res.pages;
+  },
 
-    if (totalPages > pricingContext.bulkThreshold) {
-        const bulkMultiplier = (100 - pricingContext.bulkDiscount) / 100;
-        totalCost = totalCost * bulkMultiplier;
-    }
+  configurePrinter: async (uri: string, modelName: string) => {
+    return apiClient.post<{ success: boolean; queueName?: string; error?: string }>('/printers/configure', { uri, modelName });
+  },
 
-    // round up cost
-    totalCost = Math.ceil(totalCost);
-
-    return delay({
-      totalPages,
-      costPerPage,
-      totalCost,
-      eta: `~${Math.ceil((totalPages * 2) / 60)} minutes`
-    }, 200);
+  resetPricingConfig: async () => {
+    const res = await apiClient.post<{ success: boolean; config: PricingConfig }>('/config/pricing/reset');
+    return res.config;
   }
 };

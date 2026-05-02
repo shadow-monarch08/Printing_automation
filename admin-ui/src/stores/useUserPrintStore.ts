@@ -1,6 +1,7 @@
 // src/stores/useUserPrintStore.ts
 import { create } from 'zustand';
 import { api } from '../services/api';
+import type { SSEEvent } from '../types';
 
 interface FilePreview {
   name: string;
@@ -33,12 +34,12 @@ interface UserPrintState {
   jobStatus: 'queued' | 'spooling' | 'printing' | 'done' | 'failed' | null;
   jobsAhead: number;
 
-  setFile: (file: File) => void;
+  setFile: (file: File) => Promise<void>;
   updateConfig: (partial: Partial<Pick<UserPrintState, 'copies' | 'colorMode' | 'duplex' | 'orientation'>>) => void;
   generateQuote: () => Promise<void>;
   submitJob: () => Promise<void>;
   goToStep: (step: 1 | 2 | 3 | 4) => void;
-  startTracking: () => void;
+  handleSSEEvent: (event: SSEEvent) => void;
   reset: () => void;
 }
 
@@ -59,19 +60,33 @@ export const useUserPrintStore = create<UserPrintState>((set, get) => ({
   jobStatus: null,
   jobsAhead: 0,
 
-  setFile: (file) => {
-    // mock page count based on size
-    const mockPages = Math.max(1, Math.floor(file.size / (1024 * 50)));
-    set({
-      file,
-      filePreview: {
-        name: file.name,
-        size: file.size,
-        type: file.type || 'unknown',
-        pages: mockPages,
-      },
-      currentStep: 2
-    });
+  setFile: async (file) => {
+    try {
+      const pages = await api.getPageCount(file);
+      set({
+        file,
+        filePreview: {
+          name: file.name,
+          size: file.size,
+          type: file.type || 'unknown',
+          pages: pages,
+        },
+        currentStep: 2
+      });
+    } catch (e) {
+      console.error('Failed to get page count', e);
+      // Fallback
+      set({
+        file,
+        filePreview: {
+          name: file.name,
+          size: file.size,
+          type: file.type || 'unknown',
+          pages: 1,
+        },
+        currentStep: 2
+      });
+    }
   },
 
   updateConfig: (partial) => {
@@ -99,19 +114,17 @@ export const useUserPrintStore = create<UserPrintState>((set, get) => ({
     const state = get();
     try {
       const result = await api.submitPrintJob({
-        file: state.filePreview,
+        file: state.file,
         quote: state.quote
       });
       
       set({
         jobId: result.jobId,
         jobStatus: 'queued',
-        jobsAhead: Math.floor(Math.random() * 3) + 1, // mock 1-3 jobs ahead
+        jobsAhead: 0, // In full integration, the backend could send this in the queue payload
         currentStep: 4
       });
-      
-      get().startTracking();
-      
+      // SSE will handle further status transitions automatically
     } catch (e) {
       console.error(e);
     }
@@ -119,23 +132,15 @@ export const useUserPrintStore = create<UserPrintState>((set, get) => ({
 
   goToStep: (step) => set({ currentStep: step }),
 
-  startTracking: () => {
-     let progress = 0;
-     const interval = setInterval(() => {
-         progress++;
-         const currentStatus = get().jobStatus;
-         if (currentStatus === 'done' || currentStatus === 'failed') {
-             clearInterval(interval);
-             return;
-         }
+  handleSSEEvent: (event) => {
+     const { jobId } = get();
+     if (!jobId) return;
 
-         if (progress === 1) set({ jobStatus: 'spooling', jobsAhead: Math.max(0, get().jobsAhead - 1) });
-         if (progress === 2) set({ jobStatus: 'printing', jobsAhead: 0 });
-         if (progress === 3) {
-             set({ jobStatus: 'done' });
-             clearInterval(interval);
-         }
-     }, 4000); // Transition every 4 secs
+     if (event.type === 'JOB_STATUS' && event.jobId === jobId) {
+        set({ jobStatus: event.status as any });
+     } else if (event.type === 'JOB_FAILED' && event.jobId === jobId) {
+        set({ jobStatus: 'failed' });
+     }
   },
 
   reset: () => {

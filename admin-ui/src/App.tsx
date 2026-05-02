@@ -29,7 +29,10 @@ function UserKioskPage() {
   );
 }
 
+import { useSSE } from './hooks/useSSE';
+
 function App() {
+  useSSE();
   return (
     <>
       <Routes>
