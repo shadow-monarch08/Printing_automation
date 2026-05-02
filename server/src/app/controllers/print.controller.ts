@@ -74,7 +74,7 @@ export async function calculateQuote(req: Request, res: Response) {
 
   try {
     const quote = await pricingService.calculateQuote(pages, copies, colorMode, duplex);
-    res.json({ success: true, quote });
+    res.json({ success: true, ...quote });
   } catch (err: any) {
     res.status(500).json({ success: false, message: "Quote calculation failed", error: String(err) });
   }
@@ -86,13 +86,32 @@ export async function getPageCount(req: Request, res: Response) {
   }
 
   const filePath = path.resolve(req.file.path);
+  const mimeType = req.file.mimetype;
+
   try {
-    // Attempt to use pdfinfo. Note: this requires poppler-utils on the system.
-    const { stdout } = await execCommand(`pdfinfo "${filePath}"`);
-    const match = stdout.match(/^Pages:\s+(\d+)/m);
-    const pages = match ? parseInt(match[1], 10) : 1;
-    
-    // Clean up temporary file since frontend will upload again for actual printing
+    let pages = 1;
+
+    // 1. If it's an image, it's always 1 page
+    if (mimeType.startsWith('image/')) {
+      pages = 1;
+    } 
+    // 2. Only run pdfinfo if it's actually a PDF
+    else if (mimeType === 'application/pdf' || req.file.originalname.toLowerCase().endsWith('.pdf')) {
+      try {
+        const { stdout } = await execCommand(`pdfinfo "${filePath}"`);
+        const match = stdout.match(/^Pages:\s+(\d+)/m);
+        pages = match ? parseInt(match[1], 10) : 1;
+      } catch (pdfErr) {
+        console.warn("[getPageCount] pdfinfo failed, falling back to 1 page.", pdfErr);
+        pages = 1;
+      }
+    }
+    // 3. For Word docs or other types, we fallback to 1 (or you can add more logic here)
+    else {
+      pages = 1;
+    }
+
+    // Clean up temporary file
     const fs = require('fs');
     if (fs.existsSync(filePath)) {
       fs.unlinkSync(filePath);
@@ -100,7 +119,7 @@ export async function getPageCount(req: Request, res: Response) {
     
     res.json({ success: true, pages });
   } catch (err: any) {
-    console.error("getPageCount Error:", err);
+    console.error("getPageCount Critical Error:", err);
     
     // Clean up temporary file
     const fs = require('fs');
@@ -108,7 +127,6 @@ export async function getPageCount(req: Request, res: Response) {
       fs.unlinkSync(filePath);
     }
 
-    // Fallback: estimation or 1
     res.json({ success: true, pages: 1, estimated: true, error: String(err) });
   }
 }
