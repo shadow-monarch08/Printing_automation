@@ -40,6 +40,7 @@ export interface BackendMetrics {
   // Extended fields for phase 7:
   cpuLoad?: number;
   uptime?: string;
+  uptimeSeconds?: number;
   totalJobsToday?: number;
   revenue?: number;
   activePrinters?: number;

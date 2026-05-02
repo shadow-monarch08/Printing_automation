@@ -1,12 +1,12 @@
-// src/pages/admin/Fleet.tsx
 import { useEffect } from 'react';
 import { useAdminStore } from '../../stores/useAdminStore';
 import { useToast } from '../../context/ToastContext';
 import { Printer, Usb, Wifi, Search, PlusCircle } from 'lucide-react';
 import { api } from '../../services/api';
+import { LoadingNet } from '../../components/shared/LoadingNet';
 
 export function Fleet() {
-  const { printers, loadPrinters, setDefaultPrinter, detectLegacyPrinter, isDetecting } = useAdminStore();
+  const { printers, isLoadingPrinters, loadPrinters, setDefaultPrinter, detectLegacyPrinter, isDetecting } = useAdminStore();
   const { addToast } = useToast();
 
   useEffect(() => {
@@ -67,8 +67,11 @@ export function Fleet() {
         </button>
       </div>
 
-      <div className="fleet-grid">
-        {printers.map(printer => (
+      {isLoadingPrinters ? (
+        <LoadingNet message="Scanning hardware topology..." />
+      ) : (
+        <div className="fleet-grid">
+          {printers.map(printer => (
            <div key={printer.name} className="card" style={{ display: 'flex', flexDirection: 'column', position: 'relative', overflow: 'hidden' }}>
               {printer.isDefault && (
                  <div style={{ position: 'absolute', top: 0, right: 0, background: 'var(--accent-primary)', color: 'var(--bg-primary)', fontSize: '0.75rem', fontWeight: 700, padding: '0.25rem 1rem', borderBottomLeftRadius: '2px' }}>
@@ -134,6 +137,7 @@ export function Fleet() {
            </div>
         ))}
       </div>
+      )}
 
       {useAdminStore.getState().detectedDevices.length > 0 && (
         <div style={{ marginTop: '3rem' }}>

@@ -14,10 +14,12 @@ interface AdminState {
   checkSetupMode: () => Promise<void>;
 
   printers: BackendPrinter[];
+  isLoadingPrinters: boolean;
   loadPrinters: () => Promise<void>;
   setDefaultPrinter: (name: string) => Promise<boolean>;
 
   queue: BackendJob[];
+  isLoadingQueue: boolean;
   loadQueue: () => Promise<void>;
   cancelJob: (id: string) => Promise<boolean>;
   pauseJob: (id: string) => Promise<boolean>;
@@ -31,6 +33,7 @@ interface AdminState {
   detectLegacyPrinter: () => Promise<void>;
 
   pricingConfig: PricingConfig | null;
+  isLoadingPricing: boolean;
   loadPricingConfig: () => Promise<void>;
   updatePricingConfig: (config: Partial<PricingConfig>) => Promise<boolean>;
 
@@ -90,11 +93,16 @@ export const useAdminStore = create<AdminState>((set, get) => ({
   },
 
   printers: [],
+  isLoadingPrinters: false,
   loadPrinters: async () => {
+    set({ isLoadingPrinters: true });
     try {
       const printers = await api.fetchPrinters();
-      set({ printers });
-    } catch(e) { console.error(e) }
+      set({ printers, isLoadingPrinters: false });
+    } catch(e) { 
+      console.error(e);
+      set({ isLoadingPrinters: false });
+    }
   },
   setDefaultPrinter: async (name: string) => {
       try {
@@ -109,11 +117,16 @@ export const useAdminStore = create<AdminState>((set, get) => ({
   },
 
   queue: [],
+  isLoadingQueue: false,
   loadQueue: async () => {
+    set({ isLoadingQueue: true });
     try {
       const queue = await api.fetchPrintQueue();
-      set({ queue });
-    } catch(e) { console.error(e) }
+      set({ queue, isLoadingQueue: false });
+    } catch(e) { 
+      console.error(e);
+      set({ isLoadingQueue: false });
+    }
   },
   cancelJob: async (id: string) => {
     try {
@@ -169,11 +182,16 @@ export const useAdminStore = create<AdminState>((set, get) => ({
   },
 
   pricingConfig: null,
+  isLoadingPricing: false,
   loadPricingConfig: async () => {
+    set({ isLoadingPricing: true });
     try {
       const config = await api.fetchPricingConfig();
-      set({ pricingConfig: config });
-    } catch(e) { console.error(e) }
+      set({ pricingConfig: config, isLoadingPricing: false });
+    } catch(e) { 
+      console.error(e);
+      set({ isLoadingPricing: false });
+    }
   },
   updatePricingConfig: async (config: Partial<PricingConfig>) => {
     try {

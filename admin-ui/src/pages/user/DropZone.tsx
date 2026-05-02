@@ -1,22 +1,30 @@
 // src/pages/user/DropZone.tsx
-import { useRef } from 'react';
+import { useRef, useState } from 'react';
 import { UploadCloud } from 'lucide-react';
 import { useUserPrintStore } from '../../stores/useUserPrintStore';
 import { useToast } from '../../context/ToastContext';
+import { LoadingNet } from '../../components/shared/LoadingNet';
 
 export function DropZone() {
   const { setFile } = useUserPrintStore();
   const { addToast } = useToast();
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [isUploading, setIsUploading] = useState(false);
+
+  const processFile = async (file: File) => {
+    if (file.size > 50 * 1024 * 1024) {
+      addToast({ type: 'error', title: 'File too large', description: 'Maximum permitted file size is 50MB.' });
+      return;
+    }
+    setIsUploading(true);
+    await setFile(file);
+    setIsUploading(false);
+  };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      if (file.size > 50 * 1024 * 1024) {
-        addToast({ type: 'error', title: 'File too large', description: 'Maximum permitted file size is 50MB.' });
-        return;
-      }
-      setFile(file);
+      processFile(file);
     }
   };
 
@@ -26,13 +34,17 @@ export function DropZone() {
     e.preventDefault();
     const file = e.dataTransfer.files?.[0];
     if (file) {
-       if (file.size > 50 * 1024 * 1024) {
-        addToast({ type: 'error', title: 'File too large', description: 'Maximum permitted file size is 50MB.' });
-        return;
-      }
-      setFile(file);
+      processFile(file);
     }
   };
+
+  if (isUploading) {
+    return (
+      <div className="dropzone-container" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <LoadingNet message="Analyzing Document Topology..." />
+      </div>
+    );
+  }
 
   return (
     <div className="dropzone-container">

@@ -4,9 +4,10 @@ import { useAdminStore } from '../../stores/useAdminStore';
 import { useModal } from '../../context/ModalContext';
 import { useToast } from '../../context/ToastContext';
 import { X, Pause, ArrowUpFromLine } from 'lucide-react';
+import { LoadingNet } from '../../components/shared/LoadingNet';
 
 export function Queue() {
-  const { queue, loadQueue, cancelJob, pauseJob, prioritizeJob } = useAdminStore();
+  const { queue, isLoadingQueue, loadQueue, cancelJob, pauseJob, prioritizeJob } = useAdminStore();
   const { openModal, closeModal } = useModal();
   const { addToast } = useToast();
 
@@ -65,7 +66,13 @@ export function Queue() {
             </tr>
           </thead>
           <tbody>
-            {queue.map(job => (
+            {isLoadingQueue ? (
+              <tr>
+                <td colSpan={6} style={{ padding: '3rem 0' }}>
+                  <LoadingNet message="Synchronizing print queue..." />
+                </td>
+              </tr>
+            ) : queue.map(job => (
               <tr key={job.id}>
                 <td className="data-mono" title={job.id}>{job.id.substring(0, 8)}...</td>
                 <td style={{ maxWidth: '200px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{job.filename}</td>
@@ -108,7 +115,7 @@ export function Queue() {
                 </td>
               </tr>
             ))}
-            {queue.length === 0 && (
+            {!isLoadingQueue && queue.length === 0 && (
               <tr>
                 <td colSpan={6} style={{ textAlign: 'center', padding: '3rem', color: 'var(--text-muted)' }}>
                   Queue is completely empty.

@@ -95,6 +95,7 @@ export async function getMetrics(req: Request, res: Response) {
          failed,
          cpuLoad: os.loadavg()[0],
          uptime: uptimeStr,
+         uptimeSeconds: ut,
          totalJobsToday: completedToday + failed,
          revenue,
          activePrinters,

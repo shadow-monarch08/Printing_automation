@@ -91,9 +91,23 @@ export async function getPageCount(req: Request, res: Response) {
     const { stdout } = await execCommand(`pdfinfo "${filePath}"`);
     const match = stdout.match(/^Pages:\s+(\d+)/m);
     const pages = match ? parseInt(match[1], 10) : 1;
+    
+    // Clean up temporary file since frontend will upload again for actual printing
+    const fs = require('fs');
+    if (fs.existsSync(filePath)) {
+      fs.unlinkSync(filePath);
+    }
+    
     res.json({ success: true, pages });
   } catch (err: any) {
     console.error("getPageCount Error:", err);
+    
+    // Clean up temporary file
+    const fs = require('fs');
+    if (fs.existsSync(filePath)) {
+      fs.unlinkSync(filePath);
+    }
+
     // Fallback: estimation or 1
     res.json({ success: true, pages: 1, estimated: true, error: String(err) });
   }

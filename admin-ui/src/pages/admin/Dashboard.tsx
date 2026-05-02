@@ -1,5 +1,5 @@
 // src/pages/admin/Dashboard.tsx
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useAdminStore } from '../../stores/useAdminStore';
 import { Activity, Printer, Layers, DollarSign } from 'lucide-react';
 import type { ReactNode } from 'react';
@@ -7,10 +7,35 @@ import { LoadingScreen } from '../../components/shared/LoadingScreen';
 
 export function Dashboard() {
   const { metrics, loadMetrics } = useAdminStore();
+  const [liveUptime, setLiveUptime] = useState<number>(0);
 
   useEffect(() => {
     loadMetrics();
+    // 25s Poll for metrics (CPU Load, Revenue, Job counts etc)
+    const metricsInterval = setInterval(loadMetrics, 25000);
+    return () => clearInterval(metricsInterval);
   }, [loadMetrics]);
+
+  // Handle Uptime Tick (Every 1s)
+  useEffect(() => {
+    if (metrics?.uptimeSeconds) {
+      setLiveUptime(metrics.uptimeSeconds);
+    }
+  }, [metrics?.uptimeSeconds]);
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setLiveUptime(prev => prev + 1);
+    }, 1000);
+    return () => clearInterval(timer);
+  }, []);
+
+  const formatUptime = (totalSeconds: number) => {
+    const h = Math.floor(totalSeconds / 3600);
+    const m = Math.floor((totalSeconds % 3600) / 60);
+    const s = Math.floor(totalSeconds % 60);
+    return `${h}h ${m}m ${s}s`;
+  };
 
   if (!metrics) return <LoadingScreen message="Linking to hardware layer..." />;
 
@@ -36,7 +61,7 @@ export function Dashboard() {
                <HealthMeter label="Failed Jobs (Today)" value={metrics.totalJobsToday ? Math.round((metrics.failed / metrics.totalJobsToday) * 100) : 0} />
                <div style={{ display: 'flex', justifyContent: 'space-between', paddingTop: '1rem', borderTop: '1px solid var(--border-default)' }}>
                   <span style={{ color: 'var(--text-secondary)' }}>Uptime</span>
-                  <span className="data-mono">{metrics.uptime ?? 'N/A'}</span>
+                  <span className="data-mono">{formatUptime(liveUptime)}</span>
                </div>
             </div>
          </div>

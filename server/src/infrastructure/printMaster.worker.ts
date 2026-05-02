@@ -105,6 +105,12 @@ printMasterWorker.on("completed", async (job) => {
   console.log(`[Worker] Job ${job.id} has completed! Printer is now free.`);
   eventBus.emit("job_completed", { id: job.id, data: job.data });
   
+  // Clean up the printed file
+  const fs = require('fs');
+  if (job.data.filePath && fs.existsSync(job.data.filePath)) {
+    try { fs.unlinkSync(job.data.filePath); } catch(e) { console.error('Cleanup error:', e); }
+  }
+
   // A printer just became idle. Instantly wake up waiting jobs!
   await wakeUpDelayedJobs(); 
 });
@@ -113,6 +119,14 @@ printMasterWorker.on("failed", async (job, err) => {
   console.log(`[Worker] Job ${job?.id} has failed with ${err.message}`);
   eventBus.emit("job_failed", { id: job?.id, reason: err.message });
   
+  // Clean up the printed file
+  if (job) {
+    const fs = require('fs');
+    if (job.data.filePath && fs.existsSync(job.data.filePath)) {
+      try { fs.unlinkSync(job.data.filePath); } catch(e) { console.error('Cleanup error:', e); }
+    }
+  }
+
   // Even if a job fails (e.g., gets cancelled), that printer is now free. Wake up the queue!
   if (job) await wakeUpDelayedJobs();
 });

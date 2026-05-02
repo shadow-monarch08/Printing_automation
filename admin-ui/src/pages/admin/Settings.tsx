@@ -6,9 +6,10 @@ import { useModal } from '../../context/ModalContext';
 import { Settings as SettingsIcon, Save, RefreshCw } from 'lucide-react';
 import { api } from '../../services/api';
 import type { PricingConfig } from '../../types';
+import { LoadingNet } from '../../components/shared/LoadingNet';
 
 export function Settings() {
-  const { pricingConfig, loadPricingConfig, updatePricingConfig } = useAdminStore();
+  const { pricingConfig, isLoadingPricing, loadPricingConfig, updatePricingConfig } = useAdminStore();
   const { addToast } = useToast();
   const { openModal, closeModal } = useModal();
   
@@ -21,6 +22,14 @@ export function Settings() {
   useEffect(() => {
     if (pricingConfig) setLocalConfig({ ...pricingConfig });
   }, [pricingConfig]);
+
+  if (isLoadingPricing && !localConfig) {
+    return (
+      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '50vh' }}>
+        <LoadingNet message="Loading pricing rules..." />
+      </div>
+    );
+  }
 
   if (!localConfig) return null;
 
