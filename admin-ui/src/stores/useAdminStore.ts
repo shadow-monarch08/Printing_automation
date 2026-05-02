@@ -9,6 +9,9 @@ interface AdminState {
   authenticate: (pin: string) => Promise<boolean>;
   logout: () => Promise<void>;
   checkAuth: () => Promise<boolean>;
+  
+  isSetupMode: boolean;
+  checkSetupMode: () => Promise<void>;
 
   printers: BackendPrinter[];
   loadPrinters: () => Promise<void>;
@@ -73,6 +76,16 @@ export const useAdminStore = create<AdminState>((set, get) => ({
       localStorage.removeItem('auth_token');
       set({ isAuthenticated: false });
       return false;
+    }
+  },
+  
+  isSetupMode: false,
+  checkSetupMode: async () => {
+    try {
+      const res = await apiClient.get<{ isSetupMode: boolean }>('/wifi/setup-mode');
+      set({ isSetupMode: res.isSetupMode });
+    } catch (e) {
+      console.error('Failed to check setup mode:', e);
     }
   },
 

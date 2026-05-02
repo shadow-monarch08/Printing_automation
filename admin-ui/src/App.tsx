@@ -30,9 +30,25 @@ function UserKioskPage() {
 }
 
 import { useSSE } from './hooks/useSSE';
+import { WifiSetup } from './components/user/WifiSetup';
+import { useAdminStore } from './stores/useAdminStore';
+import { useEffect, useState } from 'react';
 
 function App() {
   useSSE();
+  const { isSetupMode, checkSetupMode } = useAdminStore();
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    checkSetupMode().finally(() => setLoading(false));
+  }, [checkSetupMode]);
+
+  if (loading) return null;
+
+  if (isSetupMode) {
+    return <WifiSetup />;
+  }
+
   return (
     <>
       <Routes>

@@ -8,6 +8,7 @@ import configRoutes from "./app/routes/config.routes";
 import authRoutes from "./app/routes/auth.routes";
 import utilsRoutes from "./app/routes/utils.routes";
 import eventsRoutes from "./app/routes/events.routes";
+import wifiRoutes from "./app/routes/wifi.routes";
 
 const app = express();
 
@@ -26,6 +27,7 @@ app.use("/jobs", jobsRoutes);
 app.use("/config", configRoutes);
 app.use("/auth", authRoutes);
 app.use("/utils", utilsRoutes);
+app.use("/wifi", wifiRoutes);
 app.use("/", eventsRoutes);
 
 // Health check
