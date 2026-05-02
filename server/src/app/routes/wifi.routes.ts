@@ -13,11 +13,7 @@ router.get("/scan", async (_req, res) => {
 });
 
 router.get("/setup-mode", async (_req, res) => {
-  // Logic: If the Pi is in Hotspot mode, we are in setup mode.
-  // For this project, we can check if a specific flag file exists or check network interface.
-  // We'll mock it for now or check for 'wlan0' being in hotspot mode.
-  // As per instruction 7, the boot script has placed the Pi into Hotspot Mode.
-  res.json({ isSetupMode: process.env.NODE_ENV === 'production' || true }); 
+  res.json({ isSetupMode: process.env.SETUP_MODE === "true" }); 
 });
 
 router.post("/connect", async (req, res) => {
