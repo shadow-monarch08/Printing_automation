@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Wifi, Loader2, ShieldCheck, AlertCircle } from 'lucide-react';
+import '../../styles/wifi-setup.css';
 
 interface Network {
   ssid: string;
@@ -54,17 +55,17 @@ export function WifiSetup() {
 
   if (status === 'connecting') {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
-        <div className="max-w-md w-full bg-white rounded-lg shadow-md p-8 text-center border-t-4 border-indigo-500">
-          <div className="inline-flex items-center justify-center w-16 h-16 bg-indigo-100 text-indigo-600 rounded-full mb-6">
+      <div className="wifi-setup-container">
+        <div className="wifi-connecting-card">
+          <div className="wifi-connecting-icon">
             <ShieldCheck size={32} />
           </div>
-          <h2 className="text-2xl font-bold text-gray-900 mb-4">Applying Credentials</h2>
-          <p className="text-gray-600 leading-relaxed">
+          <h2>Applying Credentials</h2>
+          <p>
             The Spooler will now reboot its network. Please close this window and reconnect your phone to your main Wi-Fi.
           </p>
-          <div className="mt-8 flex justify-center">
-            <Loader2 className="animate-spin text-indigo-500" size={24} />
+          <div style={{ display: 'flex', justifyContent: 'center' }}>
+            <Loader2 className="animate-spin" size={24} style={{ color: 'var(--accent-primary)' }} />
           </div>
         </div>
       </div>
@@ -72,48 +73,49 @@ export function WifiSetup() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col p-4">
-      <div className="max-w-md w-full mx-auto mt-12">
-        <div className="bg-white rounded-lg shadow-md overflow-hidden border border-gray-200">
-          <div className="bg-indigo-600 p-6 text-white">
-            <div className="flex items-center gap-3 mb-2">
+    <div className="wifi-setup-container">
+      <div className="wifi-setup-content">
+        <div className="wifi-setup-card">
+          <div className="wifi-setup-header">
+            <div className="wifi-setup-header-title">
               <Wifi size={24} />
-              <h1 className="text-xl font-bold">Network Setup</h1>
+              <h1>Network Setup</h1>
             </div>
-            <p className="text-indigo-100 text-sm">
+            <p>
               Connect the Smart Spooler to your local Wi-Fi network.
             </p>
           </div>
 
-          <div className="p-6">
+          <div className="wifi-setup-body">
             {status === 'scanning' ? (
-              <div className="py-12 flex flex-col items-center justify-center">
-                <Loader2 className="animate-spin text-indigo-500 mb-4" size={32} />
-                <p className="text-gray-500 font-medium">Scanning for networks...</p>
+              <div className="wifi-setup-scanning">
+                <Loader2 className="animate-spin" size={32} style={{ color: 'var(--accent-primary)' }} />
+                <p>Scanning for networks...</p>
               </div>
             ) : status === 'error' ? (
-              <div className="py-8 text-center">
-                <div className="inline-flex items-center justify-center w-12 h-12 bg-red-100 text-red-600 rounded-full mb-4">
+              <div className="wifi-setup-error">
+                <div className="wifi-setup-error-icon">
                   <AlertCircle size={24} />
                 </div>
-                <p className="text-gray-800 mb-6">{errorMsg}</p>
+                <p>{errorMsg}</p>
                 <button 
                   onClick={fetchNetworks}
-                  className="w-full bg-gray-100 text-gray-700 font-bold py-3 px-4 rounded-md hover:bg-gray-200 transition-colors"
+                  className="btn-mechanical"
+                  style={{ width: '100%' }}
                 >
                   Retry Scan
                 </button>
               </div>
             ) : (
-              <form onSubmit={handleSubmit} className="space-y-6">
-                <div>
-                  <label className="block text-sm font-bold text-gray-700 mb-2">
+              <form onSubmit={handleSubmit}>
+                <div className="wifi-form-group">
+                  <label className="wifi-form-label">
                     Select Network
                   </label>
                   <select 
                     value={selectedSsid}
                     onChange={(e) => setSelectedSsid(e.target.value)}
-                    className="w-full bg-white border border-gray-300 rounded-md py-3 px-4 text-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all"
+                    className="select-field"
                   >
                     <option value="" disabled>Choose a Wi-Fi network...</option>
                     {networks.map((net) => (
@@ -125,8 +127,8 @@ export function WifiSetup() {
                 </div>
 
                 {selectedSsid && (
-                  <div className="animate-in fade-in slide-in-from-top-2 duration-300">
-                    <label className="block text-sm font-bold text-gray-700 mb-2">
+                  <div className="wifi-form-group" style={{ animation: 'slideDown 0.3s ease-out' }}>
+                    <label className="wifi-form-label">
                       Wi-Fi Password
                     </label>
                     <input 
@@ -134,9 +136,9 @@ export function WifiSetup() {
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
                       placeholder="Enter network password"
-                      className="w-full bg-white border border-gray-300 rounded-md py-3 px-4 text-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all"
+                      className="input-field"
                     />
-                    <p className="mt-2 text-xs text-gray-500 italic">
+                    <p className="wifi-form-hint">
                       Leave blank if the network is open.
                     </p>
                   </div>
@@ -145,11 +147,7 @@ export function WifiSetup() {
                 <button 
                   type="submit"
                   disabled={!selectedSsid}
-                  className={`w-full font-bold py-4 px-4 rounded-md transition-all ${
-                    selectedSsid 
-                      ? 'bg-indigo-600 text-white shadow-lg hover:bg-indigo-700 active:transform active:scale-[0.98]' 
-                      : 'bg-gray-200 text-gray-400 cursor-not-allowed'
-                  }`}
+                  className="btn-mechanical wifi-btn-submit"
                 >
                   Connect Spooler
                 </button>
@@ -158,7 +156,7 @@ export function WifiSetup() {
           </div>
         </div>
 
-        <div className="mt-8 text-center text-gray-400 text-xs">
+        <div className="wifi-setup-footer">
           <p>© 2024 Smart Spooler Appliance • Version 2.1</p>
         </div>
       </div>

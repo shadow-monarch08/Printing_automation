@@ -1,4 +1,5 @@
 import { execCommand } from "../utils/exec";
+import { execFile } from "child_process";
 
 export interface WiFiNetwork {
   ssid: string;
@@ -51,13 +52,20 @@ export async function connectToNetwork(ssid: string, password?: string): Promise
   try {
     console.log(`[WiFi Service] Attempting connection to "${ssid}"...`);
     
-    // sudo nmcli device wifi connect "<ssid>" password "<password>"
-    const cmd = password 
-      ? `sudo nmcli device wifi connect "${ssid}" password "${password}"`
-      : `sudo nmcli device wifi connect "${ssid}"`;
-    
-    await execCommand(cmd);
-    return true;
+    return new Promise((resolve) => {
+      const args = password 
+        ? ['nmcli', 'device', 'wifi', 'connect', ssid, 'password', password]
+        : ['nmcli', 'device', 'wifi', 'connect', ssid];
+        
+      execFile('sudo', args, { timeout: 20000 }, (error, stdout, stderr) => {
+        if (error) {
+          console.error(`[WiFi Service] Connection to "${ssid}" failed:`, error.message, stderr);
+          resolve(false);
+          return;
+        }
+        resolve(true);
+      });
+    });
   } catch (error) {
     console.error(`[WiFi Service] Connection to "${ssid}" failed:`, error);
     return false;
