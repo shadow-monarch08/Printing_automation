@@ -2,7 +2,7 @@ import { execCommand } from "../utils/exec";
 import fs from "fs/promises";
 import path from "path";
 
-const capabilitiesPath = path.resolve(__dirname, "../../../config/capabilities.json");
+const capabilitiesPath = path.resolve(__dirname, "../../config/capabilities.json");
 
 export interface PrinterInfo {
   name: string;
