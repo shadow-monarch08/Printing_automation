@@ -130,3 +130,7 @@ printMasterWorker.on("failed", async (job, err) => {
   // Even if a job fails (e.g., gets cancelled), that printer is now free. Wake up the queue!
   if (job) await wakeUpDelayedJobs();
 });
+
+printMasterWorker.on("ready", () => {
+  console.log(`🚀 Print Master worker ready`);
+});
