@@ -17,6 +17,7 @@ interface AdminState {
   isLoadingPrinters: boolean;
   loadPrinters: () => Promise<void>;
   setDefaultPrinter: (name: string) => Promise<boolean>;
+  updatePrinterAlias: (name: string, alias: string) => Promise<boolean>;
 
   queue: BackendJob[];
   isLoadingQueue: boolean;
@@ -105,15 +106,32 @@ export const useAdminStore = create<AdminState>((set, get) => ({
     }
   },
   setDefaultPrinter: async (name: string) => {
-      try {
-          const res = await api.setDefaultPrinter(name);
-          if (res.success) {
-              const printers = await api.fetchPrinters(); // refresh
-              set({ printers });
-              return true;
-          }
-      } catch(e) { console.error(e) }
+    try {
+      const res = await api.setDefaultPrinter(name);
+      if (res.success) {
+        set((state) => ({
+          printers: state.printers.map(p => ({ ...p, isDefault: p.name === name }))
+        }));
+        return true;
+      }
       return false;
+    } catch(e) {
+      console.error(e);
+      return false;
+    }
+  },
+  updatePrinterAlias: async (name: string, alias: string) => {
+    try {
+      const res = await api.updateAlias(name, alias);
+      if (res.success) {
+        get().loadPrinters(); // Refresh the printer list to show the new alias
+        return true;
+      }
+      return false;
+    } catch (e) {
+      console.error(e);
+      return false;
+    }
   },
 
   queue: [],

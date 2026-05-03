@@ -1,13 +1,15 @@
 import { useEffect } from 'react';
 import { useAdminStore } from '../../stores/useAdminStore';
 import { useToast } from '../../context/ToastContext';
-import { Printer, Usb, Wifi, Search, PlusCircle } from 'lucide-react';
+import { Printer, Usb, Wifi, Search, PlusCircle, Edit3 } from 'lucide-react';
 import { api } from '../../services/api';
 import { LoadingNet } from '../../components/shared/LoadingNet';
+import { useModal } from '../../context/ModalContext';
 
 export function Fleet() {
-  const { printers, isLoadingPrinters, loadPrinters, setDefaultPrinter, detectLegacyPrinter, isDetecting } = useAdminStore();
+  const { printers, isLoadingPrinters, loadPrinters, setDefaultPrinter, updatePrinterAlias, detectLegacyPrinter, isDetecting } = useAdminStore();
   const { addToast } = useToast();
+  const { openModal, closeModal } = useModal();
 
   useEffect(() => {
     loadPrinters();
@@ -18,6 +20,40 @@ export function Fleet() {
      if (success) {
          addToast({ type: 'success', title: 'Default Updated', description: `${name} is now the primary target.` });
      }
+  };
+
+  const handleEditAlias = (printerName: string, currentAlias?: string) => {
+    let newAlias = currentAlias || '';
+    openModal({
+      title: 'Edit Printer Alias',
+      content: (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+          <div>
+            <label className="custom-select-label" style={{ display: 'block', marginBottom: '0.5rem' }}>Alias Name</label>
+            <input 
+              type="text" 
+              className="input-field" 
+              defaultValue={newAlias}
+              onChange={(e) => { newAlias = e.target.value; }}
+              placeholder="e.g. Front Desk Printer"
+              autoFocus
+            />
+          </div>
+          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '1rem', marginTop: '1.5rem' }}>
+            <button className="btn-ghost" onClick={closeModal}>Cancel</button>
+            <button className="btn-mechanical" onClick={async () => {
+              const success = await updatePrinterAlias(printerName, newAlias);
+              if (success) {
+                addToast({ type: 'success', title: 'Alias Updated', description: `${printerName} is now known as ${newAlias}.` });
+              } else {
+                addToast({ type: 'error', title: 'Update Failed', description: `Could not update alias for ${printerName}.` });
+              }
+              closeModal();
+            }}>Save Alias</button>
+          </div>
+        </div>
+      )
+    });
   };
 
   const handleDetect = async () => {
@@ -52,6 +88,7 @@ export function Fleet() {
   const getPaperColor = (status: string) => {
     if (status === 'ready') return 'var(--text-primary)';
     if (status === 'empty') return 'var(--status-error)';
+    if (status === 'offline') return 'var(--text-muted)';
     return 'var(--text-muted)';
   };
 
@@ -83,8 +120,13 @@ export function Fleet() {
                  <div style={{ background: 'var(--bg-surface-alt)', padding: '0.75rem', borderRadius: '2px', flexShrink: 0 }}>
                      <Printer size={28} color={printer.status === 'error' ? 'var(--status-error)' : 'var(--text-primary)'} />
                  </div>
-                 <div style={{ minWidth: 0 }}>
-                    <h3 style={{ margin: '0 0 0.25rem 0', fontSize: '1.15rem' }}>{printer.alias || printer.name}</h3>
+                 <div style={{ minWidth: 0, flex: 1 }}>
+                    <h3 style={{ margin: '0 0 0.25rem 0', fontSize: '1.15rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                      <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{printer.alias || printer.name}</span>
+                      <button className="btn-ghost" style={{ padding: '0.2rem', minWidth: 'auto' }} onClick={() => handleEditAlias(printer.name, printer.alias)}>
+                        <Edit3 size={14} />
+                      </button>
+                    </h3>
                     <div style={{ color: 'var(--text-secondary)', fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                        {printer.type === 'usb' ? <Usb size={14} /> : <Wifi size={14} />}
                        <span className="data-mono" style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{printer.description}</span>

@@ -1,33 +1,15 @@
 // src/services/api.ts
 import { apiClient } from './apiClient';
-import type { BackendPrinter, BackendJob, BackendMetrics, PricingConfig, BackendSupplies } from '../types';
+import type { BackendPrinter, BackendJob, BackendMetrics, PricingConfig } from '../types';
 
 export const api = {
   fetchPrinters: async () => {
     const data = await apiClient.get<{ success: boolean; printers: BackendPrinter[] }>('/printers');
-    // Fetch supplies for each printer in parallel
-    const printersWithSupplies = await Promise.all(data.printers.map(async (p) => {
-      try {
-        const suppliesRes = await apiClient.get<{ success: boolean; data: BackendSupplies }>(`/printers/${encodeURIComponent(p.name)}/supplies`);
-        if (suppliesRes.success) {
-          return {
-            ...p,
-            paper: suppliesRes.data.paper,
-            supplyBlack: suppliesRes.data.supplies.black,
-            supplyColor: suppliesRes.data.supplies.color,
-          };
-        }
-      } catch (err) {
-        console.error(`Failed to fetch supplies for ${p.name}`, err);
-      }
-      return {
-        ...p,
-        paper: 'unknown' as const,
-        supplyBlack: null,
-        supplyColor: null,
-      };
-    }));
-    return printersWithSupplies;
+    return data.printers;
+  },
+
+  updateAlias: async (printerName: string, alias: string) => {
+    return apiClient.put<{ success: boolean; message: string }>(`/printers/${encodeURIComponent(printerName)}/alias`, { alias });
   },
   
   fetchDefaultPrinter: async () => {

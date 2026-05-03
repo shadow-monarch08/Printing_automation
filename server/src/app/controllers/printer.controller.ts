@@ -7,7 +7,17 @@ import * as printerService from "../services/printer.service";
 export async function getPrinters(req: Request, res: Response) {
   try {
     const printers = await printerService.listPrinters();
-    res.json({ success: true, printers });
+    const printersWithSupplies = await Promise.all(printers.map(async (p) => {
+      const supplies = await suppliesService.getSupplies(p.name);
+      return {
+        ...p,
+        status: supplies.status === 'offline' ? 'offline' : p.status,
+        paper: supplies.paper || 'unknown',
+        supplyBlack: supplies.supplies?.black ?? null,
+        supplyColor: supplies.supplies?.color ?? null,
+      };
+    }));
+    res.json({ success: true, printers: printersWithSupplies });
   } catch (err: any) {
     console.error("[getPrinters] Error:", err);
     res.status(500).json({

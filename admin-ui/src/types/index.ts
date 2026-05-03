@@ -3,7 +3,7 @@
 export interface BackendPrinter {
   name: string;
   description: string;
-  status: 'idle' | 'busy' | 'error';
+  status: 'idle' | 'busy' | 'error' | 'offline';
   type: 'usb' | 'network' | 'unknown';
   isDefault?: boolean;
   alias?: string;
