@@ -25,7 +25,7 @@ npm install
 npm run build
 
 echo "📂 Copying config file to server..."
-cp config/* server/dist/config
+cp server/src/config/* server/dist/config
 
 echo "🚀 Starting server..."
 # For now, this will run in the terminal. 
