@@ -31,14 +31,19 @@ const AliasModalBody = ({ printerName, currentAlias, closeModal }: { printerName
         <Button variant="ghost" onClick={closeModal}>Cancel</Button>
         <Button variant="mechanical" isLoading={isSaving} onClick={async () => {
           setIsSaving(true);
-          const success = await updatePrinterAlias(printerName, newAlias);
-          if (success) {
-            addToast({ type: 'success', title: 'Alias Updated', description: `${printerName} is now known as ${newAlias}.` });
-          } else {
-            addToast({ type: 'error', title: 'Update Failed', description: `Could not update alias for ${printerName}.` });
+          try {
+            const success = await updatePrinterAlias(printerName, newAlias);
+            if (success) {
+              addToast({ type: 'success', title: 'Alias Updated', description: `${printerName} is now known as ${newAlias}.` });
+              closeModal();
+            } else {
+              addToast({ type: 'error', title: 'Update Failed', description: `Could not update alias for ${printerName}.` });
+            }
+          } catch (error: any) {
+            addToast({ type: 'error', title: 'Update Failed', description: error.message || 'Unknown error occurred.' });
+          } finally {
+            setIsSaving(false);
           }
-          setIsSaving(false);
-          closeModal();
         }}>Save Alias</Button>
       </div>
     </div>
@@ -74,9 +79,15 @@ export function Fleet() {
   }, [loadPrinters]);
 
   const handleSetDefault = async (name: string) => {
-     const success = await setDefaultPrinter(name);
-     if (success) {
-         addToast({ type: 'success', title: 'Default Updated', description: `${name} is now the primary target.` });
+     try {
+         const success = await setDefaultPrinter(name);
+         if (success) {
+             addToast({ type: 'success', title: 'Default Updated', description: `${name} is now the primary target.` });
+         } else {
+             addToast({ type: 'error', title: 'Update Failed', description: `Failed to set ${name} as default.` });
+         }
+     } catch (error: any) {
+         addToast({ type: 'error', title: 'Update Failed', description: error.message || 'Unknown error occurred.' });
      }
   };
 

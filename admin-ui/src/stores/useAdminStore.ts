@@ -117,7 +117,7 @@ export const useAdminStore = create<AdminState>((set, get) => ({
       return false;
     } catch(e) {
       console.error(e);
-      return false;
+      throw e;
     }
   },
   updatePrinterAlias: async (name: string, alias: string) => {
@@ -130,7 +130,7 @@ export const useAdminStore = create<AdminState>((set, get) => ({
       return false;
     } catch (e) {
       console.error(e);
-      return false;
+      throw e;
     }
   },
 
@@ -153,14 +153,20 @@ export const useAdminStore = create<AdminState>((set, get) => ({
         set((state) => ({ queue: state.queue.filter(q => q.id !== id) }));
         return true;
       }
-    } catch(e) { console.error(e) }
+    } catch(e) { 
+      console.error(e); 
+      throw e; 
+    }
     return false;
   },
   pauseJob: async (id: string) => {
     try {
         const res = await api.pauseJob(id);
         return res.success;
-    } catch(e) { console.error(e) }
+    } catch(e) { 
+      console.error(e); 
+      throw e; 
+    }
     return false;
   },
   prioritizeJob: async (id: string) => {
@@ -171,7 +177,10 @@ export const useAdminStore = create<AdminState>((set, get) => ({
             set({ queue });
             return true;
         }
-    } catch(e) { console.error(e) }
+    } catch(e) { 
+      console.error(e); 
+      throw e; 
+    }
     return false;
   },
 
@@ -219,7 +228,10 @@ export const useAdminStore = create<AdminState>((set, get) => ({
           set({ pricingConfig: newConfig });
           return true;
       }
-    } catch(e) { console.error(e) }
+    } catch(e) { 
+      console.error(e); 
+      throw e; 
+    }
     return false;
   },
 

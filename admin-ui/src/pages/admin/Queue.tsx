@@ -27,11 +27,18 @@ export function Queue() {
           <Button variant="ghost" onClick={closeModal}>Abort</Button>
           <Button variant="danger" isLoading={processingAction?.id === id && processingAction.type === 'cancel'} onClick={async () => {
              setProcessingAction({ id, type: 'cancel' });
-             const success = await cancelJob(id);
-             setProcessingAction(null);
-             closeModal();
-             if (success) {
-               addToast({ type: 'success', title: 'Job Annihilated', description: `${id.substring(0, 8)} removed.` });
+             try {
+                const success = await cancelJob(id);
+                if (success) {
+                  addToast({ type: 'success', title: 'Job Annihilated', description: `${id.substring(0, 8)} removed.` });
+                } else {
+                  addToast({ type: 'error', title: 'Action Failed', description: `Could not cancel job ${id.substring(0, 8)}.` });
+                }
+             } catch (error: any) {
+                addToast({ type: 'error', title: 'Action Failed', description: error.message || 'Unknown error occurred.' });
+             } finally {
+                setProcessingAction(null);
+                closeModal();
              }
           }}>Execute Delete</Button>
         </>
@@ -41,17 +48,29 @@ export function Queue() {
 
   const handlePause = async (id: string) => {
       setProcessingAction({ id, type: 'pause' });
-      await pauseJob(id);
-      setProcessingAction(null);
-      addToast({ type: 'info', title: 'Job Paused', description: `${id.substring(0, 8)} has been suspended.` });
+      try {
+          await pauseJob(id);
+          addToast({ type: 'info', title: 'Job Paused', description: `${id.substring(0, 8)} has been suspended.` });
+      } catch (error: any) {
+          addToast({ type: 'error', title: 'Action Failed', description: error.message || 'Unknown error occurred.' });
+      } finally {
+          setProcessingAction(null);
+      }
   };
 
   const handlePrioritize = async (id: string) => {
       setProcessingAction({ id, type: 'prioritize' });
-      const success = await prioritizeJob(id);
-      setProcessingAction(null);
-      if (success) {
-          addToast({ type: 'success', title: 'Route Override', description: `${id.substring(0, 8)} moved to front of queue.` });
+      try {
+          const success = await prioritizeJob(id);
+          if (success) {
+              addToast({ type: 'success', title: 'Route Override', description: `${id.substring(0, 8)} moved to front of queue.` });
+          } else {
+              addToast({ type: 'error', title: 'Action Failed', description: `Could not prioritize job ${id.substring(0, 8)}.` });
+          }
+      } catch (error: any) {
+          addToast({ type: 'error', title: 'Action Failed', description: error.message || 'Unknown error occurred.' });
+      } finally {
+          setProcessingAction(null);
       }
   };
 

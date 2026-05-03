@@ -45,7 +45,11 @@ export function Settings() {
         const success = await updatePricingConfig(localConfig);
         if (success) {
             addToast({ type: 'success', title: 'Settings Saved', description: 'Global pricing constraints updated successfully.' });
+        } else {
+            addToast({ type: 'error', title: 'Save Failed', description: 'Failed to update pricing constraints.' });
         }
+      } catch (error: any) {
+        addToast({ type: 'error', title: 'Save Failed', description: error.message || 'Unknown error occurred.' });
       } finally {
         setIsSaving(false);
       }
