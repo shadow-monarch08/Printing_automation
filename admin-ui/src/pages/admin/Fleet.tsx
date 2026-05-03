@@ -5,9 +5,67 @@ import { Printer, Usb, Wifi, Search, PlusCircle, Edit3 } from 'lucide-react';
 import { api } from '../../services/api';
 import { LoadingNet } from '../../components/shared/LoadingNet';
 import { useModal } from '../../context/ModalContext';
+import { Button } from '../../components/shared/Button';
+import { useState } from 'react';
+
+const AliasModalBody = ({ printerName, currentAlias, closeModal }: { printerName: string, currentAlias?: string, closeModal: () => void }) => {
+  const { updatePrinterAlias } = useAdminStore();
+  const { addToast } = useToast();
+  const [newAlias, setNewAlias] = useState(currentAlias || '');
+  const [isSaving, setIsSaving] = useState(false);
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+      <div>
+        <label className="custom-select-label" style={{ display: 'block', marginBottom: '0.5rem' }}>Alias Name</label>
+        <input 
+          type="text" 
+          className="input-field" 
+          value={newAlias}
+          onChange={(e) => setNewAlias(e.target.value)}
+          placeholder="e.g. Front Desk Printer"
+          autoFocus
+        />
+      </div>
+      <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '1rem', marginTop: '1.5rem' }}>
+        <Button variant="ghost" onClick={closeModal}>Cancel</Button>
+        <Button variant="mechanical" isLoading={isSaving} onClick={async () => {
+          setIsSaving(true);
+          const success = await updatePrinterAlias(printerName, newAlias);
+          if (success) {
+            addToast({ type: 'success', title: 'Alias Updated', description: `${printerName} is now known as ${newAlias}.` });
+          } else {
+            addToast({ type: 'error', title: 'Update Failed', description: `Could not update alias for ${printerName}.` });
+          }
+          setIsSaving(false);
+          closeModal();
+        }}>Save Alias</Button>
+      </div>
+    </div>
+  );
+};
+
+const ConfigureDeviceButton = ({ device, handleConfigure }: { device: any, handleConfigure: (uri: string, model: string) => Promise<void> }) => {
+  const [isConfiguring, setIsConfiguring] = useState(false);
+  return (
+    <Button 
+      variant="mechanical" 
+      style={{ padding: '0.5rem 1rem' }} 
+      isLoading={isConfiguring}
+      rightIcon={<PlusCircle size={16} />}
+      onClick={async () => {
+        setIsConfiguring(true);
+        await handleConfigure(device.uri, device.makeModel);
+        setIsConfiguring(false);
+      }}
+    >
+      Configure
+    </Button>
+  );
+};
 
 export function Fleet() {
-  const { printers, isLoadingPrinters, loadPrinters, setDefaultPrinter, updatePrinterAlias, detectLegacyPrinter, isDetecting } = useAdminStore();
+  const { printers, isLoadingPrinters, loadPrinters, setDefaultPrinter, detectLegacyPrinter, isDetecting } = useAdminStore();
   const { addToast } = useToast();
   const { openModal, closeModal } = useModal();
 
@@ -23,36 +81,9 @@ export function Fleet() {
   };
 
   const handleEditAlias = (printerName: string, currentAlias?: string) => {
-    let newAlias = currentAlias || '';
     openModal({
       title: 'Edit Printer Alias',
-      content: (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-          <div>
-            <label className="custom-select-label" style={{ display: 'block', marginBottom: '0.5rem' }}>Alias Name</label>
-            <input 
-              type="text" 
-              className="input-field" 
-              defaultValue={newAlias}
-              onChange={(e) => { newAlias = e.target.value; }}
-              placeholder="e.g. Front Desk Printer"
-              autoFocus
-            />
-          </div>
-          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '1rem', marginTop: '1.5rem' }}>
-            <button className="btn-ghost" onClick={closeModal}>Cancel</button>
-            <button className="btn-mechanical" onClick={async () => {
-              const success = await updatePrinterAlias(printerName, newAlias);
-              if (success) {
-                addToast({ type: 'success', title: 'Alias Updated', description: `${printerName} is now known as ${newAlias}.` });
-              } else {
-                addToast({ type: 'error', title: 'Update Failed', description: `Could not update alias for ${printerName}.` });
-              }
-              closeModal();
-            }}>Save Alias</button>
-          </div>
-        </div>
-      )
+      content: <AliasModalBody printerName={printerName} currentAlias={currentAlias} closeModal={closeModal} />
     });
   };
 
@@ -99,9 +130,9 @@ export function Fleet() {
           <h1 className="page-title">Hardware Fleet</h1>
           <p className="page-desc">Physical device topology and consumable levels</p>
         </div>
-        <button className="btn-mechanical" onClick={handleDetect} disabled={isDetecting}>
-            {isDetecting ? 'Scanning...' : 'Detect Legacy Hardware'} <Search size={18} />
-        </button>
+        <Button variant="mechanical" onClick={handleDetect} isLoading={isDetecting} rightIcon={<Search size={18} />}>
+            Detect Legacy Hardware
+        </Button>
       </div>
 
       {isLoadingPrinters ? (
@@ -123,9 +154,9 @@ export function Fleet() {
                  <div style={{ minWidth: 0, flex: 1 }}>
                     <h3 style={{ margin: '0 0 0.25rem 0', fontSize: '1.15rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                       <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{printer.alias || printer.name}</span>
-                      <button className="btn-ghost" style={{ padding: '0.2rem', minWidth: 'auto' }} onClick={() => handleEditAlias(printer.name, printer.alias)}>
+                      <Button variant="ghost" style={{ padding: '0.2rem', minWidth: 'auto' }} onClick={() => handleEditAlias(printer.name, printer.alias)}>
                         <Edit3 size={14} />
-                      </button>
+                      </Button>
                     </h3>
                     <div style={{ color: 'var(--text-secondary)', fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                        {printer.type === 'usb' ? <Usb size={14} /> : <Wifi size={14} />}
@@ -172,9 +203,9 @@ export function Fleet() {
               </div>
 
               {!printer.isDefault && (
-                 <button className="btn-ghost" style={{ width: '100%' }} onClick={() => handleSetDefault(printer.name)}>
+                 <Button variant="ghost" style={{ width: '100%' }} onClick={() => handleSetDefault(printer.name)}>
                     Set as Default
-                 </button>
+                 </Button>
               )}
            </div>
         ))}
@@ -191,9 +222,7 @@ export function Fleet() {
                   <h3 style={{ margin: '0 0 0.25rem 0', fontSize: '1rem' }}>{device.makeModel}</h3>
                   <div className="data-mono" style={{ color: 'var(--text-secondary)', fontSize: '0.75rem', overflow: 'hidden', textOverflow: 'ellipsis' }}>{device.uri}</div>
                 </div>
-                <button className="btn-mechanical" style={{ padding: '0.5rem 1rem' }} onClick={() => handleConfigure(device.uri, device.makeModel)}>
-                  Configure <PlusCircle size={16} style={{ marginLeft: '0.5rem' }} />
-                </button>
+                <ConfigureDeviceButton device={device} handleConfigure={handleConfigure} />
               </div>
             ))}
           </div>

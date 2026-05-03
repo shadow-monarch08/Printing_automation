@@ -5,7 +5,7 @@ set -e
 
 echo "⬇️ Pulling latest code..."
 # Update the existing repository instead of cloning a new one
-git pull origin main
+git fetch origin && git reset --hard origin/main
 
 echo "📦 Installing and building frontend..."
 cd admin-ui

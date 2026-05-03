@@ -7,6 +7,7 @@ import { Settings as SettingsIcon, Save, RefreshCw } from 'lucide-react';
 import { api } from '../../services/api';
 import type { PricingConfig } from '../../types';
 import { LoadingNet } from '../../components/shared/LoadingNet';
+import { Button } from '../../components/shared/Button';
 
 export function Settings() {
   const { pricingConfig, isLoadingPricing, loadPricingConfig, updatePricingConfig } = useAdminStore();
@@ -14,6 +15,7 @@ export function Settings() {
   const { openModal, closeModal } = useModal();
   
   const [localConfig, setLocalConfig] = useState<PricingConfig | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
 
   useEffect(() => {
     loadPricingConfig();
@@ -38,9 +40,14 @@ export function Settings() {
   };
 
   const handleSave = async () => {
-      const success = await updatePricingConfig(localConfig);
-      if (success) {
-          addToast({ type: 'success', title: 'Settings Saved', description: 'Global pricing constraints updated successfully.' });
+      setIsSaving(true);
+      try {
+        const success = await updatePricingConfig(localConfig);
+        if (success) {
+            addToast({ type: 'success', title: 'Settings Saved', description: 'Global pricing constraints updated successfully.' });
+        }
+      } finally {
+        setIsSaving(false);
       }
   };
 
@@ -50,13 +57,13 @@ export function Settings() {
           content: <p>This will strip all custom pricing and revert to factory defaults. Proceed?</p>,
           footer: (
               <>
-                <button className="btn-ghost" onClick={closeModal}>Cancel</button>
-                <button className="btn-danger" onClick={async () => {
+                <Button variant="ghost" onClick={closeModal}>Cancel</Button>
+                <Button variant="danger" onClick={async () => {
                     await api.resetPricingConfig();
                     loadPricingConfig();
                     closeModal();
                     addToast({ type: 'warning', title: 'Factory Reset', description: 'Defaults applied.' });
-                }}>Reset</button>
+                }}>Reset</Button>
               </>
           )
       });
@@ -158,12 +165,12 @@ export function Settings() {
          </div>
 
          <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
-            <button className="btn-mechanical" onClick={handleSave} style={{ padding: '0.75rem 2rem' }}>
-               <Save size={18} /> Compile Changes
-            </button>
-            <button className="btn-ghost" onClick={handleReset}>
-               <RefreshCw size={18} /> Restore Defaults
-            </button>
+            <Button variant="mechanical" onClick={handleSave} isLoading={isSaving} leftIcon={<Save size={18} />} style={{ padding: '0.75rem 2rem' }}>
+               Compile Changes
+            </Button>
+            <Button variant="ghost" onClick={handleReset} leftIcon={<RefreshCw size={18} />}>
+               Restore Defaults
+            </Button>
          </div>
       </div>
 

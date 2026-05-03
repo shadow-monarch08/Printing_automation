@@ -5,11 +5,14 @@ import { useModal } from '../../context/ModalContext';
 import { useToast } from '../../context/ToastContext';
 import { X, Pause, ArrowUpFromLine } from 'lucide-react';
 import { LoadingNet } from '../../components/shared/LoadingNet';
+import { Button } from '../../components/shared/Button';
+import { useState } from 'react';
 
 export function Queue() {
   const { queue, isLoadingQueue, loadQueue, cancelJob, pauseJob, prioritizeJob } = useAdminStore();
   const { openModal, closeModal } = useModal();
   const { addToast } = useToast();
+  const [processingAction, setProcessingAction] = useState<{id: string, type: 'cancel' | 'pause' | 'prioritize'} | null>(null);
 
   useEffect(() => {
     loadQueue();
@@ -21,26 +24,32 @@ export function Queue() {
       content: <p>Are you sure you want to permanently delete job <span className="data-mono" title={id}>{id.substring(0, 8)}...</span> from the master queue?</p>,
       footer: (
         <>
-          <button className="btn-ghost" onClick={closeModal}>Abort</button>
-          <button className="btn-danger" onClick={async () => {
+          <Button variant="ghost" onClick={closeModal}>Abort</Button>
+          <Button variant="danger" isLoading={processingAction?.id === id && processingAction.type === 'cancel'} onClick={async () => {
+             setProcessingAction({ id, type: 'cancel' });
              const success = await cancelJob(id);
+             setProcessingAction(null);
              closeModal();
              if (success) {
                addToast({ type: 'success', title: 'Job Annihilated', description: `${id.substring(0, 8)} removed.` });
              }
-          }}>Execute Delete</button>
+          }}>Execute Delete</Button>
         </>
       )
     });
   };
 
   const handlePause = async (id: string) => {
+      setProcessingAction({ id, type: 'pause' });
       await pauseJob(id);
+      setProcessingAction(null);
       addToast({ type: 'info', title: 'Job Paused', description: `${id.substring(0, 8)} has been suspended.` });
   };
 
   const handlePrioritize = async (id: string) => {
+      setProcessingAction({ id, type: 'prioritize' });
       const success = await prioritizeJob(id);
+      setProcessingAction(null);
       if (success) {
           addToast({ type: 'success', title: 'Route Override', description: `${id.substring(0, 8)} moved to front of queue.` });
       }
@@ -85,32 +94,34 @@ export function Queue() {
                 <td style={{ color: 'var(--text-secondary)' }}>{job.targetPrinter}</td>
                 <td style={{ textAlign: 'right' }}>
                    <div style={{ display: 'inline-flex', gap: '0.5rem' }}>
-                      <button 
-                         className="btn-ghost" 
-                         style={{ padding: '0.4rem' }} 
+                      <Button 
+                         variant="ghost" 
+                         style={{ padding: '0.4rem', minWidth: '36px' }} 
                          onClick={() => handlePrioritize(job.id)}
                          title="Prioritize"
                          disabled={job.status !== 'queued' && job.status !== 'spooling'}
+                         isLoading={processingAction?.id === job.id && processingAction.type === 'prioritize'}
                       >
                          <ArrowUpFromLine size={16} />
-                      </button>
-                      <button 
-                         className="btn-ghost" 
-                         style={{ padding: '0.4rem' }} 
+                      </Button>
+                      <Button 
+                         variant="ghost" 
+                         style={{ padding: '0.4rem', minWidth: '36px' }} 
                          onClick={() => handlePause(job.id)}
                          title="Pause"
                          disabled={job.status === 'done' || job.status === 'failed'}
+                         isLoading={processingAction?.id === job.id && processingAction.type === 'pause'}
                       >
                          <Pause size={16} />
-                      </button>
-                      <button 
-                         className="btn-ghost" 
-                         style={{ padding: '0.4rem', color: 'var(--status-error)' }} 
+                      </Button>
+                      <Button 
+                         variant="ghost" 
+                         style={{ padding: '0.4rem', color: 'var(--status-error)', minWidth: '36px' }} 
                          onClick={() => handleCancelClick(job.id)}
                          title="Cancel"
                       >
                          <X size={16} />
-                      </button>
+                      </Button>
                    </div>
                 </td>
               </tr>

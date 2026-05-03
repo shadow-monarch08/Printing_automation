@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { useUserPrintStore } from '../../stores/useUserPrintStore';
 import { Receipt, ArrowLeft, Printer } from 'lucide-react';
 import { useToast } from '../../context/ToastContext';
+import { Button } from '../../components/shared/Button';
 
 export function QuoteReceipt() {
   const { quote, filePreview, submitJob, goToStep } = useUserPrintStore();
@@ -60,12 +61,12 @@ export function QuoteReceipt() {
       </div>
 
       <div className="receipt-actions">
-        <button className="btn-ghost" onClick={() => goToStep(2)} disabled={isSubmitting}>
-          <ArrowLeft size={18} /> Modify Config
-        </button>
-        <button className="btn-mechanical" onClick={handleSubmit} disabled={isSubmitting}>
-          {isSubmitting ? 'Transmitting...' : 'Authorize Print'} <Printer size={18} />
-        </button>
+        <Button variant="ghost" onClick={() => goToStep(2)} disabled={isSubmitting} leftIcon={<ArrowLeft size={18} />}>
+          Modify Config
+        </Button>
+        <Button variant="mechanical" onClick={handleSubmit} isLoading={isSubmitting} rightIcon={<Printer size={18} />}>
+          Authorize Print
+        </Button>
       </div>
 
     </div>
