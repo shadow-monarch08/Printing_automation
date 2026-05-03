@@ -24,8 +24,12 @@ cd server
 npm install
 npm run build
 
-echo "📂 Copying config file to server..."
-cp server/src/config/* server/dist/config
+echo "📂 Copying config files to build directory..."
+# Create the directory if it doesn't exist
+mkdir -p dist/config
+# Copy the contents
+cp -r src/config/* dist/config/
+
 
 echo "🚀 Starting server..."
 # For now, this will run in the terminal. 
