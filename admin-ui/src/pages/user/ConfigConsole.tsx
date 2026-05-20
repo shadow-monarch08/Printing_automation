@@ -1,11 +1,11 @@
 // src/pages/user/ConfigConsole.tsx
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Settings, FileText, ChevronRight, ArrowLeft } from 'lucide-react';
 import { useUserPrintStore } from '../../stores/useUserPrintStore';
 import { CustomSelect } from '../../components/shared/CustomSelect';
 
 export function ConfigConsole() {
-  const { filePreview, copies, colorMode, duplex, orientation, updateConfig, generateQuote, reset } = useUserPrintStore();
+  const { filePreview, copies, colorMode, duplex, orientation, updateConfig, generateQuote, reset, fleetCapabilities } = useUserPrintStore();
   const [isGenerating, setIsGenerating] = useState(false);
 
   if (!filePreview) return null;
@@ -15,6 +15,26 @@ export function ConfigConsole() {
     await generateQuote();
     setIsGenerating(false);
   };
+
+  const hasColor = fleetCapabilities?.color ?? true;
+  const hasDuplex = fleetCapabilities?.duplex ?? true;
+
+  // If a previously selected capability becomes disabled, fallback.
+  useEffect(() => {
+    let changed = false;
+    const updates: any = {};
+    if (!hasColor && colorMode === 'color') {
+      updates.colorMode = 'grayscale';
+      changed = true;
+    }
+    if (!hasDuplex && duplex === 'double') {
+      updates.duplex = 'single';
+      changed = true;
+    }
+    if (changed) {
+      updateConfig(updates);
+    }
+  }, [hasColor, hasDuplex, colorMode, duplex, updateConfig]);
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem', flex: 1 }}>
@@ -74,7 +94,7 @@ export function ConfigConsole() {
                 onChange={v => updateConfig({ colorMode: v as any })}
                 options={[
                     { value: 'grayscale', label: 'Black & White (Economical)' },
-                    { value: 'color', label: 'Full Color' }
+                    { value: 'color', label: 'Full Color', disabled: !hasColor }
                 ]}
             />
 
@@ -84,7 +104,7 @@ export function ConfigConsole() {
                 onChange={v => updateConfig({ duplex: v as any })}
                 options={[
                     { value: 'single', label: 'Single Sided' },
-                    { value: 'double', label: 'Double Sided (Duplex)' }
+                    { value: 'double', label: 'Double Sided (Duplex)', disabled: !hasDuplex }
                 ]}
             />
 

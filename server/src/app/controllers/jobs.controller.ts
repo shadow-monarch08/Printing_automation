@@ -3,7 +3,8 @@ import * as jobService from "../services/job.service";
 
 export async function getJobs(req: Request, res: Response) {
   try {
-    const jobs = await jobService.getAllJobs();
+    const sessionId = req.query.sessionId as string | undefined;
+    const jobs = await jobService.getAllJobs(sessionId);
     res.json({ success: true, jobs });
   } catch (err: any) {
     res.status(500).json({ success: false, message: "Failed to get jobs", error: String(err) });
@@ -50,5 +51,41 @@ export async function changePriority(req: Request, res: Response) {
     res.json({ success: true, message: `Job ${jobId} priority changed to ${priority}` });
   } catch (err: any) {
     res.status(500).json({ success: false, message: "Failed to change job priority", error: String(err) });
+  }
+}
+
+export async function pauseGlobalQueue(req: Request, res: Response) {
+  try {
+    await jobService.pauseQueue();
+    res.json({ success: true, message: "Global queue paused" });
+  } catch (err: any) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+}
+
+export async function resumeGlobalQueue(req: Request, res: Response) {
+  try {
+    await jobService.resumeQueue();
+    res.json({ success: true, message: "Global queue resumed" });
+  } catch (err: any) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+}
+
+export async function getQueueStatus(req: Request, res: Response) {
+  try {
+    const status = await jobService.getQueueStatus();
+    res.json({ success: true, ...status });
+  } catch (err: any) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+}
+
+export async function emergencyStop(req: Request, res: Response) {
+  try {
+    await jobService.emergencyStop();
+    res.json({ success: true, message: "Emergency stop executed. All jobs wiped." });
+  } catch (err: any) {
+    res.status(500).json({ success: false, message: err.message });
   }
 }

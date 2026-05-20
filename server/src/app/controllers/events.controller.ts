@@ -3,6 +3,7 @@ import { eventBus } from "../utils/eventBus";
 import { printMasterQueue } from "../../infrastructure/printMaster.queue";
 import { listPrinters } from "../services/printer.service";
 import os from "os";
+import { getDiskUsagePercent } from "../services/metrics.service";
 
 export async function sseEndpoint(req: Request, res: Response) {
   // Set headers for SSE
@@ -85,6 +86,11 @@ export async function getMetrics(req: Request, res: Response) {
     const s = Math.floor(ut % 60);
     const uptimeStr = `${h}h ${m}m ${s}s`;
 
+    const totalMem = os.totalmem();
+    const freeMem = os.freemem();
+    const usedMem = totalMem - freeMem;
+    const diskPercent = await getDiskUsagePercent();
+
     res.json({
       success: true,
       metrics: { 
@@ -94,6 +100,9 @@ export async function getMetrics(req: Request, res: Response) {
          completed: completedCount, 
          failed,
          cpuLoad: os.loadavg()[0],
+         memoryUsed: usedMem,
+         memoryTotal: totalMem,
+         diskPercent: diskPercent,
          uptime: uptimeStr,
          uptimeSeconds: ut,
          totalJobsToday: completedToday + failed,
@@ -104,5 +113,16 @@ export async function getMetrics(req: Request, res: Response) {
     });
   } catch (err: any) {
     res.status(500).json({ success: false, message: "Failed to get metrics", error: String(err) });
+  }
+}
+
+import { getMetricsHistory as fetchMetricsHistory } from "../services/metrics.service";
+
+export async function getMetricsHistory(req: Request, res: Response) {
+  try {
+    const history = fetchMetricsHistory();
+    res.json({ success: true, history });
+  } catch (err: any) {
+    res.status(500).json({ success: false, message: "Failed to get metrics history", error: String(err) });
   }
 }

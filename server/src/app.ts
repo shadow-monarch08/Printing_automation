@@ -9,6 +9,7 @@ import authRoutes from "./app/routes/auth.routes";
 import utilsRoutes from "./app/routes/utils.routes";
 import eventsRoutes from "./app/routes/events.routes";
 import wifiRoutes from "./app/routes/wifi.routes";
+import fleetRoutes from "./app/routes/fleet.routes";
 
 const app = express();
 
@@ -28,6 +29,7 @@ app.use("/config", configRoutes);
 app.use("/auth", authRoutes);
 app.use("/utils", utilsRoutes);
 app.use("/wifi", wifiRoutes);
+app.use("/fleet", fleetRoutes);
 app.use("/", eventsRoutes);
 
 // Health check

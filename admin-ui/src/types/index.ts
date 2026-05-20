@@ -24,7 +24,7 @@ export interface BackendJob {
   duplex: 'single' | 'double';
   orientation: 'portrait' | 'landscape';
   targetPrinter: string;
-  status: 'queued' | 'spooling' | 'printing' | 'done' | 'failed';
+  status: 'queued' | 'spooling' | 'printing' | 'done' | 'failed' | 'paused';
   cost: number;
   submittedAt: string;
   completedAt: string | null;
@@ -39,12 +39,22 @@ export interface BackendMetrics {
   failed: number;
   // Extended fields for phase 7:
   cpuLoad?: number;
+  memoryUsed?: number;
+  memoryTotal?: number;
+  diskPercent?: number;
   uptime?: string;
   uptimeSeconds?: number;
   totalJobsToday?: number;
   revenue?: number;
   activePrinters?: number;
   totalPrinters?: number;
+}
+
+export interface MetricSnapshot {
+  timestamp: string;
+  cpu: number;
+  memory: number;
+  disk: number;
 }
 
 export interface BackendSupplies {
@@ -57,13 +67,13 @@ export interface BackendSupplies {
 }
 
 export type SSEEvent =
-  | { type: 'JOB_STATUS'; jobId: string; status: string; printer?: string }
-  | { type: 'JOB_CREATED'; jobId: string; filename: string; owner: string }
-  | { type: 'JOB_FAILED'; jobId: string; error: string }
-  | { type: 'PRINTER_STATUS'; printerName: string; status: 'idle' | 'printing' | 'error' }
-  | { type: 'PRINTER_DISCOVERED'; printerName: string; uri: string }
-  | { type: 'QUEUE_UPDATE'; queueLength: number }
-  | { type: 'METRICS_UPDATE'; metrics: BackendMetrics };
+  | { type: 'connected'; timestamp: string }
+  | { type: 'job_queued'; id: string; filename: string; owner: string; sessionId?: string;[key: string]: any }
+  | { type: 'job_active'; id: string; data: { id: string; filename: string; sessionId?: string;[key: string]: any } }
+  | { type: 'job_completed'; id: string; data: { id: string; filename: string; sessionId?: string;[key: string]: any } }
+  | { type: 'job_failed'; id: string; reason: string }
+  | { type: 'printer_discovery'; timestamp: string }
+  | { type: 'system_critical'; message: string };
 
 export interface PricingConfig {
   bwPerPage: number;

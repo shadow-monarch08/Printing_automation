@@ -8,6 +8,11 @@ export const api = {
     return data.printers;
   },
 
+  fetchKioskStatus: async () => {
+    const data = await apiClient.get<{ isAcceptingJobs: boolean; fleetCapabilities: { color: boolean; duplex: boolean } }>('/fleet/kiosk-status');
+    return data;
+  },
+
   updateAlias: async (printerName: string, alias: string) => {
     return apiClient.put<{ success: boolean; message: string }>(`/printers/${encodeURIComponent(printerName)}/alias`, { alias });
   },
@@ -29,6 +34,9 @@ export const api = {
     formData.append('duplex', config.quote?.duplex || 'single');
     formData.append('orientation', config.quote?.orientation || 'portrait');
     formData.append('owner', 'Guest User');
+    if (config.sessionId) {
+      formData.append('sessionId', config.sessionId);
+    }
 
     const res = await apiClient.post<{ success: boolean; jobId: string; message: string }>('/print', formData, true);
     return { jobId: res.jobId, eta: '~2 minutes' };
@@ -39,8 +47,14 @@ export const api = {
     return res.metrics;
   },
 
-  fetchPrintQueue: async () => {
-    const res = await apiClient.get<{ success: boolean; jobs: BackendJob[] }>('/jobs');
+  fetchMetricsHistory: async () => {
+    const res = await apiClient.get<{ success: boolean; history: any[] }>('/metrics/history');
+    return res.history;
+  },
+
+  fetchPrintQueue: async (sessionId?: string) => {
+    const url = sessionId ? `/jobs?sessionId=${sessionId}` : '/jobs';
+    const res = await apiClient.get<{ success: boolean; jobs: BackendJob[] }>(url);
     // Map targetPrinter to printer to match expected frontend interface structure
     return res.jobs.map(j => ({ ...j, printer: j.targetPrinter }));
   },
@@ -53,8 +67,28 @@ export const api = {
     return apiClient.post<{ success: boolean; message: string }>(`/jobs/${id}/pause`);
   },
 
+  resumeJob: async (id: string) => {
+    return apiClient.post<{ success: boolean; message: string }>(`/jobs/${id}/resume`);
+  },
+
   prioritizeJob: async (id: string) => {
     return apiClient.post<{ success: boolean; message: string }>(`/jobs/${id}/priority`, { priority: 1 });
+  },
+
+  pauseGlobalQueue: async () => {
+    return apiClient.post<{ success: boolean; message: string }>('/jobs/queue/pause');
+  },
+
+  resumeGlobalQueue: async () => {
+    return apiClient.post<{ success: boolean; message: string }>('/jobs/queue/resume');
+  },
+
+  getQueueStatus: async () => {
+    return apiClient.get<{ success: boolean; isPaused: boolean }>('/jobs/queue/status');
+  },
+
+  emergencyStop: async () => {
+    return apiClient.post<{ success: boolean; message: string }>('/jobs/queue/emergency-stop');
   },
 
   detectLegacyPrinter: async () => {
@@ -97,12 +131,20 @@ export const api = {
     return res.pages;
   },
 
-  configurePrinter: async (uri: string, modelName: string) => {
-    return apiClient.post<{ success: boolean; queueName?: string; error?: string }>('/printers/configure', { uri, modelName });
+  configurePrinter: async (uri: string, rawModel: string) => {
+    return apiClient.post<{ success: boolean; queueName?: string; error?: string }>('/printers/configure', { uri, rawModel });
+  },
+
+  updateCapabilities: async (printerName: string, capabilities: string[], type?: string) => {
+    return apiClient.put<{ success: boolean; message: string }>(`/printers/${encodeURIComponent(printerName)}/capabilities`, { capabilities, type });
   },
 
   resetPricingConfig: async () => {
     const res = await apiClient.post<{ success: boolean; config: PricingConfig }>('/config/pricing/reset');
     return res.config;
+  },
+
+  forceRefreshPrinter: async (printerName: string) => {
+    return apiClient.post<{ success: boolean; status?: string; message?: string }>(`/printers/${encodeURIComponent(printerName)}/refresh`);
   }
 };

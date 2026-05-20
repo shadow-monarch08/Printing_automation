@@ -19,6 +19,8 @@ interface ToastContextValue {
 
 const ToastContext = createContext<ToastContextValue | undefined>(undefined);
 
+let globalAddToast: ((config: ToastConfig) => string) | null = null;
+
 export function ToastProvider({ children }: { children: ReactNode }) {
   const [toasts, setToasts] = useState<ToastConfig[]>([]);
 
@@ -33,6 +35,8 @@ export function ToastProvider({ children }: { children: ReactNode }) {
     });
     return id;
   }, []);
+
+  globalAddToast = addToast;
 
   const dismissToast = useCallback((id: string) => {
     setToasts((prev) => prev.filter((toast) => toast.id !== id));
@@ -56,3 +60,26 @@ export function useToast() {
   }
   return context;
 }
+
+export const toast = {
+  success: (title: string, description?: string) => {
+    if (globalAddToast) {
+      globalAddToast({ type: 'success', title, description });
+    }
+  },
+  error: (title: string, description?: string) => {
+    if (globalAddToast) {
+      globalAddToast({ type: 'error', title, description });
+    }
+  },
+  info: (title: string, description?: string) => {
+    if (globalAddToast) {
+      globalAddToast({ type: 'info', title, description });
+    }
+  },
+  warning: (title: string, description?: string) => {
+    if (globalAddToast) {
+      globalAddToast({ type: 'warning', title, description });
+    }
+  }
+};

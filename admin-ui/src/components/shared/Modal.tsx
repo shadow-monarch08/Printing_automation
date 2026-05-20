@@ -28,7 +28,10 @@ export function Modal() {
 
   return createPortal(
     <div className={`modal-wrapper ${isEntering ? 'modal--entering' : 'modal--exiting'}`}>
-      <div className="modal-backdrop" onClick={handleBackdropClick}>
+      <div 
+        className={`modal-backdrop ${modalConfig?.hideBackdrop ? 'modal-backdrop--hidden' : ''} ${modalConfig?.position === 'bottom' ? 'modal-backdrop--bottom' : ''}`} 
+        onClick={handleBackdropClick}
+      >
         <div className={`modal-container ${modalConfig?.size || 'md'}`} role="dialog" aria-modal="true">
           <div className="modal-header">
             <h2>{modalConfig?.title}</h2>

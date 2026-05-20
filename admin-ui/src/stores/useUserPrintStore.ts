@@ -1,7 +1,7 @@
 // src/stores/useUserPrintStore.ts
 import { create } from 'zustand';
 import { api } from '../services/api';
-import type { SSEEvent } from '../types';
+import type { SSEEvent, BackendJob } from '../types';
 
 interface FilePreview {
   name: string;
@@ -18,6 +18,7 @@ interface Quote {
 }
 
 interface UserPrintState {
+  sessionId: string;
   currentStep: 1 | 2 | 3 | 4;
   
   file: File | null;
@@ -33,6 +34,10 @@ interface UserPrintState {
   jobId: string | null;
   jobStatus: 'queued' | 'spooling' | 'printing' | 'done' | 'failed' | null;
   jobsAhead: number;
+  jobs: BackendJob[];
+
+  isAcceptingJobs: boolean | null;
+  fleetCapabilities: { color: boolean; duplex: boolean } | null;
 
   setFile: (file: File) => Promise<void>;
   updateConfig: (partial: Partial<Pick<UserPrintState, 'copies' | 'colorMode' | 'duplex' | 'orientation'>>) => void;
@@ -41,120 +46,194 @@ interface UserPrintState {
   goToStep: (step: 1 | 2 | 3 | 4) => void;
   handleSSEEvent: (event: SSEEvent) => void;
   reset: () => void;
+  fetchKioskStatus: () => Promise<void>;
+  fetchJobs: () => Promise<void>;
 }
 
-export const useUserPrintStore = create<UserPrintState>((set, get) => ({
-  currentStep: 1,
-  
-  file: null,
-  filePreview: null,
-  
-  copies: 1,
-  colorMode: 'grayscale',
-  duplex: 'single',
-  orientation: 'portrait',
-  
-  quote: null,
-  
-  jobId: null,
-  jobStatus: null,
-  jobsAhead: 0,
+import { persist, createJSONStorage } from 'zustand/middleware';
 
-  setFile: async (file) => {
-    try {
-      const pages = await api.getPageCount(file);
-      set({
-        file,
-        filePreview: {
-          name: file.name,
-          size: file.size,
-          type: file.type || 'unknown',
-          pages: pages,
-        },
-        currentStep: 2
-      });
-    } catch (e) {
-      console.error('Failed to get page count', e);
-      // Fallback
-      set({
-        file,
-        filePreview: {
-          name: file.name,
-          size: file.size,
-          type: file.type || 'unknown',
-          pages: 1,
-        },
-        currentStep: 2
-      });
-    }
-  },
+let inactivityTimer: number | null = null;
 
-  updateConfig: (partial) => {
-    set((state) => ({ ...state, ...partial, quote: null }));
-  },
-
-  generateQuote: async () => {
-    const state = get();
-    if (!state.filePreview) return;
-    
-    try {
-      const quoteDetails = await api.calculateQuote({
-        pages: state.filePreview.pages,
-        copies: state.copies,
-        colorMode: state.colorMode,
-        duplex: state.duplex
-      });
-      set({ quote: quoteDetails, currentStep: 3 });
-    } catch (e) {
-      console.error(e);
-    }
-  },
-
-  submitJob: async () => {
-    const state = get();
-    try {
-      const result = await api.submitPrintJob({
-        file: state.file,
-        quote: state.quote
-      });
-      
-      set({
-        jobId: result.jobId,
-        jobStatus: 'queued',
-        jobsAhead: 0, // In full integration, the backend could send this in the queue payload
-        currentStep: 4
-      });
-      // SSE will handle further status transitions automatically
-    } catch (e) {
-      console.error(e);
-    }
-  },
-
-  goToStep: (step) => set({ currentStep: step }),
-
-  handleSSEEvent: (event) => {
-     const { jobId } = get();
-     if (!jobId) return;
-
-     if (event.type === 'JOB_STATUS' && event.jobId === jobId) {
-        set({ jobStatus: event.status as any });
-     } else if (event.type === 'JOB_FAILED' && event.jobId === jobId) {
-        set({ jobStatus: 'failed' });
-     }
-  },
-
-  reset: () => {
-    set({
+export const useUserPrintStore = create<UserPrintState>()(
+  persist(
+    (set, get) => ({
+      sessionId: crypto.randomUUID(),
       currentStep: 1,
+      
       file: null,
       filePreview: null,
+      
       copies: 1,
       colorMode: 'grayscale',
       duplex: 'single',
       orientation: 'portrait',
+      
       quote: null,
+      
       jobId: null,
       jobStatus: null,
-    });
-  }
-}));
+      jobsAhead: 0,
+      jobs: [],
+
+      isAcceptingJobs: null,
+      fleetCapabilities: null,
+
+      fetchKioskStatus: async () => {
+        try {
+          const status = await api.fetchKioskStatus();
+          set({
+            isAcceptingJobs: status.isAcceptingJobs,
+            fleetCapabilities: status.fleetCapabilities
+          });
+        } catch (e) {
+          console.error('Failed to fetch kiosk status', e);
+          set({ isAcceptingJobs: false, fleetCapabilities: null });
+        }
+      },
+
+      fetchJobs: async () => {
+        const state = get();
+        try {
+          const fetchedJobs = await api.fetchPrintQueue(state.sessionId);
+          set({ jobs: fetchedJobs });
+        } catch (e) {
+          console.error(e);
+        }
+      },
+
+      setFile: async (file) => {
+        try {
+          const pages = await api.getPageCount(file);
+          set({
+            file,
+            filePreview: {
+              name: file.name,
+              size: file.size,
+              type: file.type || 'unknown',
+              pages: pages,
+            },
+            currentStep: 2
+          });
+        } catch (e) {
+          console.error('Failed to get page count', e);
+          // Fallback
+          set({
+            file,
+            filePreview: {
+              name: file.name,
+              size: file.size,
+              type: file.type || 'unknown',
+              pages: 1,
+            },
+            currentStep: 2
+          });
+        }
+      },
+
+      updateConfig: (partial) => {
+        set((state) => ({ ...state, ...partial, quote: null }));
+      },
+
+      generateQuote: async () => {
+        const state = get();
+        if (!state.filePreview) return;
+        
+        try {
+          const quoteDetails = await api.calculateQuote({
+            pages: state.filePreview.pages,
+            copies: state.copies,
+            colorMode: state.colorMode,
+            duplex: state.duplex
+          });
+          set({ quote: quoteDetails, currentStep: 3 });
+        } catch (e) {
+          console.error(e);
+        }
+      },
+
+      submitJob: async () => {
+        const state = get();
+        try {
+          const result = await api.submitPrintJob({
+            file: state.file,
+            quote: state.quote,
+            sessionId: state.sessionId
+          });
+          
+          set({
+            jobId: result.jobId,
+            jobStatus: 'queued',
+            jobsAhead: 0, // In full integration, the backend could send this in the queue payload
+            currentStep: 4
+          });
+          get().fetchJobs();
+          // SSE will handle further status transitions automatically
+        } catch (e) {
+          console.error(e);
+        }
+      },
+
+      goToStep: (step) => set({ currentStep: step }),
+
+      handleSSEEvent: (event) => {
+        const { jobId, reset, fetchJobs } = get();
+        
+        if (['job_queued', 'job_active', 'job_completed', 'job_failed'].includes(event.type)) {
+          fetchJobs();
+        }
+
+        if (!jobId) return;
+        
+        // Backend event shapes (from events.controller.ts + printMaster.worker.ts):
+        //   job_active:    { type: "job_active",    id: "...", data: { ... } }
+        //   job_completed: { type: "job_completed", id: "...", data: { ... } }
+        //   job_failed:    { type: "job_failed",    id: "...", reason: "..." }
+        
+        if (event.type === 'job_active' && event.id === jobId) {
+          set({ jobStatus: 'printing' });
+        } else if (event.type === 'job_completed' && event.id === jobId) {
+          set({ jobStatus: 'done' });
+          if (inactivityTimer) window.clearTimeout(inactivityTimer);
+          inactivityTimer = window.setTimeout(reset, 60000);
+        } else if (event.type === 'job_failed' && event.id === jobId) {
+          set({ jobStatus: 'failed' });
+          if (inactivityTimer) window.clearTimeout(inactivityTimer);
+          inactivityTimer = window.setTimeout(reset, 60000);
+        }
+      },
+
+      reset: () => {
+        if (inactivityTimer) window.clearTimeout(inactivityTimer);
+        inactivityTimer = null;
+        set({
+          currentStep: 1,
+          file: null,
+          filePreview: null,
+          copies: 1,
+          colorMode: 'grayscale',
+          duplex: 'single',
+          orientation: 'portrait',
+          quote: null,
+          jobId: null,
+          jobStatus: null,
+        });
+      }
+    }),
+    {
+      name: 'user-print-session',
+      storage: createJSONStorage(() => sessionStorage),
+      partialize: (state) => ({
+        sessionId: state.sessionId,
+        jobId: state.jobId,
+        jobStatus: state.jobStatus,
+        currentStep: state.currentStep,
+        filePreview: state.filePreview,
+        quote: state.quote,
+        copies: state.copies,
+        colorMode: state.colorMode,
+        duplex: state.duplex,
+        orientation: state.orientation,
+      }),
+    }
+  )
+);

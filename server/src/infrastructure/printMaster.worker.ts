@@ -54,8 +54,8 @@ export const printMasterWorker = new Worker<PrintJobData>(
 
           await job.updateData({ ...job.data, attemptedPrinters: attempts });
 
-          if (attempts.length >= 3) {
-            throw new Error(`Job ${job.id} failed after 3 failover attempts.`);
+          if (attempts.length >= 2) {
+            throw new Error(`Job ${job.id} failed after 2 failover attempts.`);
           }
 
           // Change priority to 1 and throw to trigger BullMQ retry
@@ -64,7 +64,7 @@ export const printMasterWorker = new Worker<PrintJobData>(
         }
       }
     } catch (error: any) {
-      if (error.message.includes("Failover triggered") || error.message.includes("after 3 failover attempts")) {
+      if (error.message.includes("Failover triggered") || error.message.includes("after 2 failover attempts")) {
         throw error;
       }
       console.error(`[Worker] Failed to print job ${job.id} on ${matchedPrinter}`, error);

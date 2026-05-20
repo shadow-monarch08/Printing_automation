@@ -10,5 +10,6 @@ router.get("/events", eventsController.sseEndpoint);
 
 // Endpoint for aggregated metrics
 router.get("/metrics", eventsController.getMetrics);
+router.get("/metrics/history", eventsController.getMetricsHistory);
 
 export default router;

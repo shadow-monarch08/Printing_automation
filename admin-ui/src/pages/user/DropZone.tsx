@@ -1,17 +1,22 @@
 // src/pages/user/DropZone.tsx
-import { useRef, useState } from 'react';
-import { UploadCloud } from 'lucide-react';
+import { useRef, useState, useEffect } from 'react';
+import { UploadCloud, AlertTriangle } from 'lucide-react';
 import { useUserPrintStore } from '../../stores/useUserPrintStore';
 import { useToast } from '../../context/ToastContext';
 import { LoadingNet } from '../../components/shared/LoadingNet';
 
 export function DropZone() {
-  const { setFile } = useUserPrintStore();
+  const { setFile, isAcceptingJobs, fetchKioskStatus } = useUserPrintStore();
   const { addToast } = useToast();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isUploading, setIsUploading] = useState(false);
 
+  useEffect(() => {
+    fetchKioskStatus();
+  }, [fetchKioskStatus]);
+
   const processFile = async (file: File) => {
+    if (isAcceptingJobs === false) return; // Block file processing if offline
     if (file.size > 50 * 1024 * 1024) {
       addToast({ type: 'error', title: 'File too large', description: 'Maximum permitted file size is 50MB.' });
       return;
@@ -22,6 +27,7 @@ export function DropZone() {
   };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (isAcceptingJobs === false) return;
     const file = e.target.files?.[0];
     if (file) {
       processFile(file);
@@ -32,11 +38,22 @@ export function DropZone() {
 
   const handleDrop = (e: React.DragEvent) => {
     e.preventDefault();
+    if (isAcceptingJobs === false) return;
     const file = e.dataTransfer.files?.[0];
     if (file) {
       processFile(file);
     }
   };
+
+  if (isAcceptingJobs === false) {
+    return (
+      <div className="dropzone-container" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', opacity: 0.8, pointerEvents: 'none' }}>
+        <AlertTriangle size={64} style={{ color: 'var(--danger)', marginBottom: '1rem' }} />
+        <h2 className="dropzone-title">System Offline</h2>
+        <p className="dropzone-desc" style={{ color: 'var(--danger)' }}>No printers are currently available. Please check back later.</p>
+      </div>
+    );
+  }
 
   if (isUploading) {
     return (

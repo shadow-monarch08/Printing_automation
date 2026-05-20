@@ -17,3 +17,15 @@ export function execCommand(
     });
   });
 }
+
+/**
+ * Runs a shell command with a specific timeout, rejecting if it takes too long.
+ */
+export async function execWithTimeout(cmd: string, timeoutMs = 4000): Promise<{ stdout: string; stderr: string }> {
+  return Promise.race([
+    execCommand(cmd),
+    new Promise<never>((_, reject) =>
+      setTimeout(() => reject(new Error(`Command timed out: ${cmd}`)), timeoutMs)
+    ),
+  ]);
+}

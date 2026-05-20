@@ -1,58 +1,106 @@
 // src/pages/user/JobTracker.tsx
+import { useEffect, useState } from 'react';
 import { useUserPrintStore } from '../../stores/useUserPrintStore';
-import { Printer, CheckCircle, Clock, AlertTriangle } from 'lucide-react';
+import { Printer, CheckCircle, Clock, AlertTriangle, PlusCircle } from 'lucide-react';
+import { api } from '../../services/api';
+import type { BackendJob } from '../../types';
 
 export function JobTracker() {
-  const { jobStatus, jobId, jobsAhead, reset, filePreview } = useUserPrintStore();
+  const { sessionId, reset, jobStatus, jobs, fetchJobs } = useUserPrintStore();
+  const [loading, setLoading] = useState(true);
 
-  const getStatusDisplay = () => {
-    switch (jobStatus) {
-      case 'queued': return { icon: <Clock size={48} color="var(--status-busy)" />, text: 'Queued', sub: `${jobsAhead} jobs ahead of you` };
-      case 'spooling': return { icon: <Printer size={48} color="var(--accent-primary)" style={{ animation: 'pulseGlow 2s infinite' }} />, text: 'Spooling to Hardware', sub: 'Preparing raster data...' };
-      case 'printing': return { icon: <Printer size={48} color="var(--status-idle)" style={{ animation: 'pressDown 0.5s infinite' }} />, text: 'Printing in Progress', sub: 'Mechanical extrusion active' };
-      case 'done': return { icon: <CheckCircle size={48} color="var(--status-idle)" />, text: 'Job Complete', sub: 'Please collect output below' };
-      case 'failed': return { icon: <AlertTriangle size={48} color="var(--status-error)" />, text: 'Hardware Error', sub: 'Please contact administrator' };
-      default: return { icon: <Clock size={48} />, text: 'Unknown', sub: '' };
+  useEffect(() => {
+    let interval: number;
+    const initFetch = async () => {
+      try {
+        await fetchJobs();
+      } finally {
+        setLoading(false);
+      }
+    };
+    initFetch();
+    
+    interval = window.setInterval(fetchJobs, 5000);
+    return () => clearInterval(interval);
+  }, [sessionId, jobStatus, fetchJobs]);
+
+  const getStatusDisplay = (status: string, jobsAhead: number) => {
+    switch (status) {
+      case 'queued': return { icon: <Clock size={24} color="var(--status-busy)" />, text: 'Queued', sub: `${jobsAhead} ahead` };
+      case 'spooling': return { icon: <Printer size={24} color="var(--accent-primary)" style={{ animation: 'pulseGlow 2s infinite' }} />, text: 'Spooling', sub: 'Preparing...' };
+      case 'printing': return { icon: <Printer size={24} color="var(--status-idle)" style={{ animation: 'pressDown 0.5s infinite' }} />, text: 'Printing', sub: 'Active' };
+      case 'done': return { icon: <CheckCircle size={24} color="var(--status-idle)" />, text: 'Done', sub: 'Complete' };
+      case 'failed': return { icon: <AlertTriangle size={24} color="var(--status-error)" />, text: 'Error', sub: 'Failed' };
+      default: return { icon: <Clock size={24} />, text: 'Unknown', sub: '' };
     }
   };
 
-  const display = getStatusDisplay();
+  // Calculate jobs ahead for queued items
+  const activeAndQueued = jobs.filter(j => j.status === 'printing' || j.status === 'spooling' || j.status === 'queued');
 
   return (
-    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
-      
-      <div className="card tracker-card">
-        
-        <div style={{ margin: '0 auto 2rem', display: 'flex', justifyContent: 'center' }}>
-          {display.icon}
-        </div>
-
-        <h2 style={{ fontSize: '1.75rem', marginBottom: '0.5rem' }}>{display.text}</h2>
-        <p style={{ color: 'var(--text-secondary)', fontSize: '1rem', marginBottom: '2.5rem' }}>{display.sub}</p>
-
-        <div className="tracker-meta">
-          <div className="tracker-meta-row" style={{ marginBottom: '0.5rem' }}>
-            <span style={{ color: 'var(--text-secondary)' }}>Job ID</span>
-            <span className="data-mono">{jobId}</span>
-          </div>
-          <div className="tracker-meta-row">
-            <span style={{ color: 'var(--text-secondary)' }}>Document</span>
-            <span className="data-mono">
-              {filePreview?.name}
-            </span>
-          </div>
-        </div>
-
-        {(jobStatus === 'done' || jobStatus === 'failed') && (
-          <div style={{ marginTop: '2.5rem' }}>
-            <button className="btn-mechanical" onClick={reset}>
-               Start New Job
-            </button>
-          </div>
-        )}
-
+    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', padding: '2rem 0' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
+        <h2 style={{ fontSize: '1.75rem', margin: 0 }}>Session Job History</h2>
+        <button className="btn-mechanical" onClick={reset} style={{ padding: '0.5rem 1rem', display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+           <PlusCircle size={18} />
+           Print Another
+        </button>
       </div>
 
+      {loading ? (
+        <div style={{ textAlign: 'center', color: 'var(--text-secondary)' }}>Loading history...</div>
+      ) : jobs.length === 0 ? (
+        <div className="card" style={{ textAlign: 'center', color: 'var(--text-secondary)', padding: '3rem' }}>
+          No jobs found in this session.
+        </div>
+      ) : (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+          {jobs.map((job) => {
+            let jobsAhead = 0;
+            if (job.status === 'queued') {
+              const queueIndex = activeAndQueued.findIndex(j => j.id === job.id);
+              jobsAhead = Math.max(0, queueIndex);
+            }
+            const display = getStatusDisplay(job.status, jobsAhead);
+
+            return (
+              <div key={job.id} className="card" style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem', padding: '1.5rem', border: job.status === 'failed' ? '2px solid var(--status-error)' : undefined }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '1.5rem' }}>
+                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: '80px', flexShrink: 0 }}>
+                    {display.icon}
+                    <div style={{ fontSize: '0.75rem', marginTop: '0.5rem', fontWeight: 600 }}>{display.text}</div>
+                    <div style={{ fontSize: '0.65rem', color: 'var(--text-secondary)' }}>{display.sub}</div>
+                  </div>
+                  
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <h3 style={{ margin: '0 0 0.5rem 0', fontSize: '1.15rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {job.filename}
+                    </h3>
+                    <div style={{ display: 'flex', gap: '1.5rem', fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
+                      <div><strong style={{ color: 'var(--text-primary)' }}>Cost:</strong> ${job.cost.toFixed(2)}</div>
+                      <div><strong style={{ color: 'var(--text-primary)' }}>Color:</strong> <span style={{ textTransform: 'capitalize' }}>{job.colorMode}</span></div>
+                      <div><strong style={{ color: 'var(--text-primary)' }}>Duplex:</strong> <span style={{ textTransform: 'capitalize' }}>{job.duplex}</span></div>
+                      <div><strong style={{ color: 'var(--text-primary)' }}>Copies:</strong> {job.copies}</div>
+                    </div>
+                  </div>
+                </div>
+
+                {job.status === 'failed' && (
+                  <div style={{ backgroundColor: 'rgba(234, 57, 67, 0.1)', padding: '1rem', borderRadius: '4px', borderLeft: '4px solid var(--status-error)', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                    <div style={{ color: 'var(--text-primary)', fontWeight: 500 }}>
+                      Hardware Error. We have paused your job. Please notify the shop staff.
+                    </div>
+                    <button className="btn-ghost" style={{ color: 'var(--status-error)', border: '1px solid var(--status-error)', alignSelf: 'flex-start' }} onClick={reset}>
+                      Cancel Job &amp; Start Over
+                    </button>
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }

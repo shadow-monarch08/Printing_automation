@@ -1,4 +1,5 @@
-import { execCommand } from "../utils/exec";
+import { cupsCommands } from "../../commands/cups.commands";
+import { hpCommands } from "../../commands/hp.commands";
 import fs from "fs/promises";
 import path from "path";
 
@@ -37,7 +38,7 @@ export async function updateAlias(printerName: string, alias: string): Promise<v
 
 export async function detectPrinters(): Promise<string[]> {
   try {
-    const { stdout } = await execCommand("lpinfo -v");
+    const { stdout } = await cupsCommands.listDevices();
     return stdout.split("\n").filter(Boolean);
   } catch (err) {
     console.error("[detectPrinters] lpinfo failed", err);
@@ -51,7 +52,7 @@ export async function detectPrinters(): Promise<string[]> {
  */
 export async function listPrinters(): Promise<PrinterInfo[]> {
   try {
-    const { stdout, stderr } = await execCommand("lpstat -p");
+    const { stdout, stderr } = await cupsCommands.listPrinters();
 
     if (stderr) {
       console.warn("[listPrinters] lpstat stderr:", stderr);
@@ -129,7 +130,7 @@ export async function listPrinters(): Promise<PrinterInfo[]> {
  */
 export async function getDefaultPrinter(): Promise<string | null> {
   try {
-    const { stdout } = await execCommand("lpstat -d");
+    const { stdout } = await cupsCommands.getDefaultPrinter();
     const match = stdout.match(/system default destination:\s*(\S+)/);
     return match ? match[1] : null;
   } catch {
@@ -142,7 +143,7 @@ export async function getDefaultPrinter(): Promise<string | null> {
  * Runs `lpoptions -d <printerName>`.
  */
 export async function setDefaultPrinter(printerName: string): Promise<void> {
-  await execCommand(`lpoptions -d ${printerName}`);
+  await cupsCommands.setDefaultPrinter(printerName);
 }
 
 /**
@@ -157,11 +158,9 @@ export async function printFile(
   copies: number = 1,
   duplex: "single" | "double" = "single"
 ): Promise<string> {
-  const printerFlag = printer ? `-d ${printer}` : "";
-  const sidesFlag = duplex === "double" ? "-o sides=two-sided-long-edge" : "-o sides=one-sided";
-  const copiesFlag = `-n ${copies}`;
+  const sides = duplex === "double" ? "two-sided-long-edge" : "one-sided";
   
-  const { stdout } = await execCommand(`lp ${printerFlag} ${copiesFlag} ${sidesFlag} -- "${filePath}"`);
+  const { stdout } = await cupsCommands.printFile(printer || null, filePath, { copies, sides });
   // stdout example: "request id is MyPrinter-42 (1 file(s))"
   const match = stdout.match(/request id is (\S+)/);
   return match ? match[1] : stdout;
@@ -173,9 +172,9 @@ export async function printFile(
  */
 export async function getJobStatus(printerName: string, cupsJobId: string): Promise<string> {
   try {
-    const { stdout } = await execCommand(`lpstat -o ${printerName}`);
+    const { stdout } = await cupsCommands.getJobStatus(printerName);
     const lines = stdout.split("\n");
-    const jobLine = lines.find(line => line.includes(cupsJobId));
+    const jobLine = lines.find((line: string) => line.includes(cupsJobId));
     
     if (!jobLine) {
       // If job is not in the queue, it might be completed or canceled.
@@ -198,65 +197,69 @@ export async function getJobStatus(printerName: string, cupsJobId: string): Prom
  * Cancels a CUPS job.
  */
 export async function cancelJob(cupsJobId: string): Promise<void> {
-  await execCommand(`cancel ${cupsJobId}`);
+  await cupsCommands.cancelJob(cupsJobId);
 }
 
 /**
  * Pauses a CUPS job.
  */
 export async function pauseCupsJob(cupsJobId: string): Promise<void> {
-  await execCommand(`lp -i ${cupsJobId} -H hold`);
+  await cupsCommands.holdJob(cupsJobId);
 }
 
 /**
  * Resumes a CUPS job.
  */
 export async function resumeCupsJob(cupsJobId: string): Promise<void> {
-  await execCommand(`lp -i ${cupsJobId} -H resume`);
+  await cupsCommands.resumeJob(cupsJobId);
 }
 
 /**
- * Phase 6: Discover unconfigured legacy HP printers (USB).
+ * Phase 6: Discover unconfigured legacy HP printers (USB) and modern IPP printers.
  */
-export async function getUnconfiguredHpPrinters(): Promise<Array<{ uri: string, rawModel: string }>> {
+export async function getUnconfiguredPrinters(): Promise<Array<{ uri: string, rawModel: string, type: string }>> {
   try {
     // 1. Get all physical devices
-    const lpinfoRes = await execCommand("lpinfo -v");
+    const lpinfoRes = await cupsCommands.listDevices();
     const physicalDevices = lpinfoRes.stdout.split("\n").filter(Boolean);
     
-    // We only care about HP USB devices
-    // e.g. "direct usb://HP/LaserJet%20P1006?serial=..."
-    const hpUsbDevices = physicalDevices
-      .map(line => {
-        const match = line.match(/(usb:\/\/HP\/[^ ]+)/i);
-        if (match) {
-          const uri = match[1];
-          // Try to extract a raw model name from the URI (e.g. HP/LaserJet%20P1006?serial...)
-          const uriModelMatch = uri.match(/usb:\/\/HP\/([^?]+)/i);
-          const rawModel = uriModelMatch ? decodeURIComponent(uriModelMatch[1]) : "Unknown_HP_Device";
-          return { uri, rawModel };
+    const devices = physicalDevices
+      .map((line: string) => {
+        // Check for HP USB
+        const hpMatch = line.match(/((usb:\/\/HP|hp:\/usb)\/[^ ]+)/i);
+        if (hpMatch) {
+          const uri = hpMatch[1];
+          const rawModel = decodeURIComponent(uri.split('?')[0].split('/').pop() || "Unknown_HP_Device");
+          return { uri, rawModel, type: "usb" };
+        }
+        // Check for IPP
+        const ippMatch = line.match(/(ipp:\/\/[^ ]+)/i);
+        if (ippMatch) {
+          const uri = ippMatch[1];
+          const rawModel = "Network Printer (" + decodeURIComponent(uri.split('//')[1].split('/')[0] || "Unknown_IPP_Device") + ")";
+          return { uri, rawModel, type: "ipp" };
         }
         return null;
       })
-      .filter(Boolean) as Array<{ uri: string, rawModel: string }>;
+      .filter(Boolean) as Array<{ uri: string, rawModel: string, type: string }>;
 
     // 2. Get currently configured URIs
-    const lpstatRes = await execCommand("lpstat -v").catch(() => ({ stdout: "" }));
+    const lpstatRes = await cupsCommands.getPrinterStatus().catch(() => ({ stdout: "" }));
     const configuredUris = lpstatRes.stdout.split("\n")
-      .map(line => {
+      .map((line: string) => {
         const match = line.match(/device for [^:]+:\s*(.+)/);
         return match ? match[1].trim() : null;
       })
       .filter(Boolean) as string[];
 
-    // 3. Diff: Any HP USB device NOT in configuredUris is orphaned
-    const orphaned = hpUsbDevices.filter(dev => {
+    // 3. Diff: Any device NOT in configuredUris is orphaned
+    const orphaned = devices.filter((dev: { uri: string }) => {
       return !configuredUris.some(cUri => cUri.includes(dev.uri) || dev.uri.includes(cUri));
     });
 
     return orphaned;
   } catch (err) {
-    console.error("[getUnconfiguredHpPrinters] Discovery failed:", err);
+    console.error("[getUnconfiguredPrinters] Discovery failed:", err);
     return [];
   }
 }
@@ -268,15 +271,95 @@ export async function configureHpPrinter(uri: string, rawModel: string): Promise
   // Sanitize model to be a valid CUPS queue name (alphanumeric and underscores)
   const safeName = rawModel.replace(/[^a-zA-Z0-9]/g, "_").replace(/_+/g, "_");
   
-  // Actually hp-setup handles the queue name automatically most of the time based on the model,
-  // but if we wanted to enforce it, we might need a different flag or just let it auto-name.
-  // The command specified is `sudo hp-setup -i -a -q "<uri>"`
   console.log(`[configureHpPrinter] Auto-configuring HP device: ${uri}`);
   
   // NOTE: This requires passwordless sudo for hp-setup
-  const { stderr } = await execCommand(`sudo hp-setup -i -a -q "${uri}"`);
-  
-  if (stderr && stderr.toLowerCase().includes("error")) {
-    console.warn(`[configureHpPrinter] hp-setup had warnings/errors: ${stderr}`);
+  try {
+    await hpCommands.setupPrinter(uri);
+  } catch (err: any) {
+    console.warn(`[configureHpPrinter] hp-setup had warnings/errors: ${err}`);
   }
 }
+
+/**
+ * Phase 6: Auto-configure an IPP printer via lpadmin.
+ */
+export async function configureIppPrinter(queueName: string, uri: string): Promise<void> {
+  console.log(`[configureIppPrinter] Auto-configuring IPP device: ${uri} as ${queueName}`);
+  try {
+    await cupsCommands.addIppPrinter(queueName, uri);
+  } catch (err: any) {
+    console.warn(`[configureIppPrinter] lpadmin had warnings/errors: ${err}`);
+    throw err;
+  }
+}
+
+/**
+ * Phase 6: Probe printer capabilities using lpoptions -l.
+ */
+export async function probePrinterCapabilities(queueName: string): Promise<string[]> {
+  const capabilities: string[] = [];
+  try {
+    const { stdout } = await cupsCommands.getPrinterOptions(queueName);
+    
+    // Look for keywords in lpoptions -l output
+    // Example: "ColorModel/Color Mode: *Gray RGB" -> has color if RGB is present
+    // "Duplex/Two-Sided Printing: None *DuplexNoTumble DuplexTumble" -> has duplex
+    
+    if (stdout.match(/ColorModel.*RGB/i) || stdout.match(/ColorModel.*CMYK/i) || stdout.match(/ColorModel.*Color/i)) {
+      capabilities.push("color");
+    } else if (stdout.match(/ColorModel/i)) {
+      capabilities.push("grayscale");
+    }
+
+    if (stdout.match(/Duplex/i)) {
+      capabilities.push("duplex");
+    }
+    
+    console.log(`[probePrinterCapabilities] Probed ${queueName}:`, capabilities);
+  } catch (err) {
+    console.warn(`[probePrinterCapabilities] Failed to probe ${queueName}:`, err);
+  }
+  return capabilities;
+}
+
+import { redisConnection } from "../../infrastructure/redis";
+import { PrinterFactory } from "../../factories/printer.factory";
+
+/**
+ * Phase 3.2: Digital Startup Health Sweep
+ */
+export async function digitalStartupHealthSweep(): Promise<void> {
+  console.log("[HealthSweep] Starting digital health sweep of all configured printers...");
+  try {
+    const printers = await listPrinters();
+    
+    for (const printer of printers) {
+      const adapter = await PrinterFactory.getAdapter(printer.name);
+      const healthKey = `printer:${printer.name}:health`;
+      
+      if (!adapter) {
+        console.warn(`[HealthSweep] No adapter found for ${printer.name}`);
+        await redisConnection.set(healthKey, "flagged");
+        continue;
+      }
+      
+      const isHealthy = await adapter.healthCheck();
+      
+      if (isHealthy) {
+        await redisConnection.set(healthKey, "healthy");
+        console.log(`[HealthSweep] ${printer.name} is healthy. Pre-fetching supplies...`);
+        // Optional: pre-fetch supplies into redis if your supply service supports caching
+        // For now, we just rely on the adapter's health check which might already be doing enough
+      } else {
+        await redisConnection.set(healthKey, "flagged");
+        console.log(`[HealthSweep] ${printer.name} is flagged (health check failed).`);
+      }
+    }
+    
+    console.log("[HealthSweep] Completed.");
+  } catch (err) {
+    console.error("[HealthSweep] Failed to execute:", err);
+  }
+}
+

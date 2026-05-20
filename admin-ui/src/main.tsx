@@ -14,6 +14,10 @@ import './styles/toast.css'
 import './styles/animations.css'
 import './styles/responsive.css'
 
+import { sseService } from './services/sseService'
+
+sseService.connect();
+
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <BrowserRouter>

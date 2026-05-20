@@ -1,7 +1,7 @@
 import { useEffect } from 'react';
 import { useAdminStore } from '../../stores/useAdminStore';
 import { useToast } from '../../context/ToastContext';
-import { Printer, Usb, Wifi, Search, PlusCircle, Edit3 } from 'lucide-react';
+import { Printer, Usb, Wifi, Search, PlusCircle, Edit3, RefreshCw } from 'lucide-react';
 import { api } from '../../services/api';
 import { LoadingNet } from '../../components/shared/LoadingNet';
 import { useModal } from '../../context/ModalContext';
@@ -18,9 +18,9 @@ const AliasModalBody = ({ printerName, currentAlias, closeModal }: { printerName
     <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
       <div>
         <label className="custom-select-label" style={{ display: 'block', marginBottom: '0.5rem' }}>Alias Name</label>
-        <input 
-          type="text" 
-          className="input-field" 
+        <input
+          type="text"
+          className="input-field"
           value={newAlias}
           onChange={(e) => setNewAlias(e.target.value)}
           placeholder="e.g. Front Desk Printer"
@@ -50,21 +50,195 @@ const AliasModalBody = ({ printerName, currentAlias, closeModal }: { printerName
   );
 };
 
-const ConfigureDeviceButton = ({ device, handleConfigure }: { device: any, handleConfigure: (uri: string, model: string) => Promise<void> }) => {
+const SetupWizardModalBody = ({ device, closeModal }: { device: any, closeModal: () => void }) => {
+  const { loadPrinters, updatePrinterCapabilities } = useAdminStore();
+  const { addToast } = useToast();
+  
+  const [step, setStep] = useState(1);
+  const [alias, setAlias] = useState(device.makeModel);
   const [isConfiguring, setIsConfiguring] = useState(false);
+  
+  const [queueName, setQueueName] = useState("");
+  const [capabilities, setCapabilities] = useState<string[]>([]);
+
+  const handleConfigure = async () => {
+    setIsConfiguring(true);
+    try {
+      const res = await api.configurePrinter(device.uri, device.makeModel);
+      if (res.success && res.queueName) {
+        setQueueName(res.queueName);
+        
+        if (alias !== device.makeModel) {
+          await api.updateAlias(res.queueName, alias);
+        }
+
+        await loadPrinters();
+        const newPrinter = useAdminStore.getState().printers.find(p => p.name === res.queueName);
+        if (newPrinter && newPrinter.capabilities) {
+           setCapabilities(newPrinter.capabilities);
+        }
+
+        setStep(2);
+      } else {
+        addToast({ type: 'error', title: 'Configuration Failed', description: res.error || 'Unknown error' });
+        closeModal();
+      }
+    } catch (err: any) {
+      addToast({ type: 'error', title: 'Configuration Failed', description: err.message || 'Unknown error' });
+      closeModal();
+    } finally {
+      setIsConfiguring(false);
+    }
+  };
+
+  const handleSaveCapabilities = async () => {
+    setIsConfiguring(true);
+    try {
+      const success = await updatePrinterCapabilities(queueName, capabilities);
+      if (success) {
+        addToast({ type: 'success', title: 'Setup Complete', description: `${alias} is ready to use.` });
+        
+        useAdminStore.setState(state => ({
+          detectedDevices: state.detectedDevices.filter(d => d.uri !== device.uri)
+        }));
+        
+        closeModal();
+      } else {
+        addToast({ type: 'error', title: 'Update Failed', description: 'Failed to save capabilities.' });
+      }
+    } catch (e: any) {
+      addToast({ type: 'error', title: 'Update Failed', description: e.message });
+    } finally {
+      setIsConfiguring(false);
+    }
+  };
+
+  const toggleCapability = (cap: string) => {
+    setCapabilities(prev => prev.includes(cap) ? prev.filter(c => c !== cap) : [...prev, cap]);
+  };
+
+  if (step === 1) {
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+        <div>
+          <h3 style={{ margin: '0 0 0.5rem 0' }}>Step 1: Device Identity</h3>
+          <p style={{ color: 'var(--text-secondary)', margin: 0, fontSize: '0.9rem' }}>
+            Provide a friendly name for this hardware. The driver will be automatically selected based on the device model.
+          </p>
+        </div>
+        
+        <div>
+          <label className="custom-select-label" style={{ display: 'block', marginBottom: '0.5rem' }}>Alias Name</label>
+          <input
+            type="text"
+            className="input-field"
+            value={alias}
+            onChange={(e) => setAlias(e.target.value)}
+            placeholder="e.g. Front Desk Printer"
+            autoFocus
+          />
+        </div>
+
+        <div style={{ background: 'var(--bg-surface-alt)', padding: '1rem', borderRadius: '4px', fontSize: '0.85rem' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
+            <span style={{ color: 'var(--text-secondary)' }}>Detected Model</span>
+            <span className="data-mono">{device.makeModel}</span>
+          </div>
+          <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+            <span style={{ color: 'var(--text-secondary)' }}>Hardware URI</span>
+            <span className="data-mono" style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '200px' }}>{device.uri}</span>
+          </div>
+        </div>
+
+        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '1rem', marginTop: '1rem' }}>
+          <Button variant="ghost" onClick={closeModal}>Cancel</Button>
+          <Button variant="mechanical" isLoading={isConfiguring} onClick={handleConfigure}>Install Device</Button>
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <Button 
-      variant="mechanical" 
-      style={{ padding: '0.5rem 1rem' }} 
-      isLoading={isConfiguring}
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+      <div>
+        <h3 style={{ margin: '0 0 0.5rem 0' }}>Step 2: Hardware Capabilities</h3>
+        <p style={{ color: 'var(--text-secondary)', margin: 0, fontSize: '0.9rem' }}>
+          We've probed the hardware for features. Verify or override them manually if detection failed.
+        </p>
+      </div>
+
+      <div style={{ display: 'flex', gap: '1rem', flexDirection: 'column' }}>
+        <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer' }}>
+          <input type="checkbox" checked={capabilities.includes('color')} onChange={() => toggleCapability('color')} />
+          <span>Color Printing Support</span>
+        </label>
+        <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer' }}>
+          <input type="checkbox" checked={capabilities.includes('duplex')} onChange={() => toggleCapability('duplex')} />
+          <span>Automatic Duplex (Two-Sided)</span>
+        </label>
+        <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer' }}>
+          <input type="checkbox" checked={capabilities.includes('grayscale') && !capabilities.includes('color')} onChange={() => {
+              if (capabilities.includes('color')) return; // Color implies grayscale
+              toggleCapability('grayscale');
+          }} disabled={capabilities.includes('color')} />
+          <span style={{ opacity: capabilities.includes('color') ? 0.5 : 1 }}>Grayscale Only</span>
+        </label>
+      </div>
+
+      <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '1rem', marginTop: '1rem' }}>
+        <Button variant="ghost" onClick={() => handleSaveCapabilities()}>Skip / Keep Auto</Button>
+        <Button variant="mechanical" isLoading={isConfiguring} onClick={handleSaveCapabilities}>Save & Finish</Button>
+      </div>
+    </div>
+  );
+};
+
+const ConfigureDeviceButton = ({ device }: { device: any }) => {
+  const { openModal, closeModal } = useModal();
+  return (
+    <Button
+      variant="mechanical"
+      style={{ padding: '0.5rem 1rem' }}
       rightIcon={<PlusCircle size={16} />}
-      onClick={async () => {
-        setIsConfiguring(true);
-        await handleConfigure(device.uri, device.makeModel);
-        setIsConfiguring(false);
+      onClick={() => {
+        openModal({
+          title: 'Setup Wizard',
+          content: <SetupWizardModalBody device={device} closeModal={closeModal} />
+        });
       }}
     >
       Configure
+    </Button>
+  );
+};
+
+const RefreshPrinterButton = ({ printerName }: { printerName: string }) => {
+  const { forceRefreshPrinter } = useAdminStore();
+  const { addToast } = useToast();
+  const [isRefreshing, setIsRefreshing] = useState(false);
+
+  return (
+    <Button
+      variant="ghost"
+      style={{ padding: '0.2rem', minWidth: 'auto', marginLeft: 'auto' }}
+      isLoading={isRefreshing}
+      onClick={async () => {
+        setIsRefreshing(true);
+        try {
+          const success = await forceRefreshPrinter(printerName);
+          if (success) {
+             addToast({ type: 'success', title: 'Refreshed', description: `Health status for ${printerName} updated.` });
+          } else {
+             addToast({ type: 'error', title: 'Refresh Failed', description: `Failed to refresh ${printerName}.` });
+          }
+        } catch (e: any) {
+           addToast({ type: 'error', title: 'Refresh Error', description: e.message || 'Unknown error' });
+        } finally {
+          setIsRefreshing(false);
+        }
+      }}
+    >
+      <RefreshCw size={14} className={isRefreshing ? "spin" : ""} />
     </Button>
   );
 };
@@ -79,16 +253,16 @@ export function Fleet() {
   }, [loadPrinters]);
 
   const handleSetDefault = async (name: string) => {
-     try {
-         const success = await setDefaultPrinter(name);
-         if (success) {
-             addToast({ type: 'success', title: 'Default Updated', description: `${name} is now the primary target.` });
-         } else {
-             addToast({ type: 'error', title: 'Update Failed', description: `Failed to set ${name} as default.` });
-         }
-     } catch (error: any) {
-         addToast({ type: 'error', title: 'Update Failed', description: error.message || 'Unknown error occurred.' });
-     }
+    try {
+      const success = await setDefaultPrinter(name);
+      if (success) {
+        addToast({ type: 'success', title: 'Default Updated', description: `${name} is now the primary target.` });
+      } else {
+        addToast({ type: 'error', title: 'Update Failed', description: `Failed to set ${name} as default.` });
+      }
+    } catch (error: any) {
+      addToast({ type: 'error', title: 'Update Failed', description: error.message || 'Unknown error occurred.' });
+    }
   };
 
   const handleEditAlias = (printerName: string, currentAlias?: string) => {
@@ -99,32 +273,14 @@ export function Fleet() {
   };
 
   const handleDetect = async () => {
-      addToast({ type: 'info', title: 'Hardware Scan', description: 'Polling local USB and network ports for undocumented devices...', duration: 3000 });
-      await detectLegacyPrinter();
-      const count = useAdminStore.getState().detectedDevices.length;
-      if (count > 0) {
-          addToast({ type: 'success', title: 'Scan Complete', description: `Found ${count} unconfigured devices.` });
-      } else {
-          addToast({ type: 'warning', title: 'Scan Complete', description: `No new legacy devices found.` });
-      }
-  };
-
-  const handleConfigure = async (uri: string, rawModel: string) => {
-      try {
-          const res = await api.configurePrinter(uri, rawModel);
-          if (res.success) {
-              addToast({ type: 'success', title: 'Device Configured', description: `${res.queueName || 'Printer'} added successfully.` });
-              loadPrinters(); // Refresh fleet
-              // Clear it from detected list
-              useAdminStore.setState(state => ({
-                  detectedDevices: state.detectedDevices.filter(d => d.uri !== uri)
-              }));
-          } else {
-              addToast({ type: 'error', title: 'Configuration Failed', description: res.error || 'Unknown error' });
-          }
-      } catch (err: any) {
-          addToast({ type: 'error', title: 'Configuration Failed', description: err.message || 'Unknown error' });
-      }
+    addToast({ type: 'info', title: 'Hardware Scan', description: 'Polling local USB and network ports for undocumented devices...', duration: 3000 });
+    await detectLegacyPrinter();
+    const count = useAdminStore.getState().detectedDevices.length;
+    if (count > 0) {
+      addToast({ type: 'success', title: 'Scan Complete', description: `Found ${count} unconfigured devices.` });
+    } else {
+      addToast({ type: 'warning', title: 'Scan Complete', description: `No new legacy devices found.` });
+    }
   };
 
   const getPaperColor = (status: string) => {
@@ -142,7 +298,7 @@ export function Fleet() {
           <p className="page-desc">Physical device topology and consumable levels</p>
         </div>
         <Button variant="mechanical" onClick={handleDetect} isLoading={isDetecting} rightIcon={<Search size={18} />}>
-            Detect Legacy Hardware
+          Detect Legacy Hardware
         </Button>
       </div>
 
@@ -151,76 +307,89 @@ export function Fleet() {
       ) : (
         <div className="fleet-grid">
           {printers.map(printer => (
-           <div key={printer.name} className="card" style={{ display: 'flex', flexDirection: 'column', position: 'relative', overflow: 'hidden' }}>
+            <div key={printer.name} className="card" style={{ display: 'flex', flexDirection: 'column', position: 'relative', overflow: 'hidden' }}>
               {printer.isDefault && (
-                 <div style={{ position: 'absolute', top: 0, right: 0, background: 'var(--accent-primary)', color: 'var(--bg-primary)', fontSize: '0.75rem', fontWeight: 700, padding: '0.25rem 1rem', borderBottomLeftRadius: '2px' }}>
-                    DEFAULT
-                 </div>
+                <div style={{ position: 'absolute', top: 0, right: 0, background: 'var(--accent-primary)', color: 'var(--bg-primary)', fontSize: '0.75rem', fontWeight: 700, padding: '0.25rem 1rem', borderBottomLeftRadius: '2px' }}>
+                  DEFAULT
+                </div>
               )}
-              
+
               <div style={{ display: 'flex', alignItems: 'flex-start', gap: '1rem', marginBottom: '1.5rem' }}>
-                 <div style={{ background: 'var(--bg-surface-alt)', padding: '0.75rem', borderRadius: '2px', flexShrink: 0 }}>
-                     <Printer size={28} color={printer.status === 'error' ? 'var(--status-error)' : 'var(--text-primary)'} />
-                 </div>
-                 <div style={{ minWidth: 0, flex: 1 }}>
-                    <h3 style={{ margin: '0 0 0.25rem 0', fontSize: '1.15rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                      <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{printer.alias || printer.name}</span>
-                      <Button variant="ghost" style={{ padding: '0.2rem', minWidth: 'auto' }} onClick={() => handleEditAlias(printer.name, printer.alias)}>
-                        <Edit3 size={14} />
-                      </Button>
-                    </h3>
-                    <div style={{ color: 'var(--text-secondary)', fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                       {printer.type === 'usb' ? <Usb size={14} /> : <Wifi size={14} />}
-                       <span className="data-mono" style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{printer.description}</span>
-                    </div>
-                 </div>
+                <div style={{ background: 'var(--bg-surface-alt)', padding: '0.75rem', borderRadius: '2px', flexShrink: 0 }}>
+                  <Printer size={28} color={printer.status === 'error' ? 'var(--status-error)' : 'var(--text-primary)'} />
+                </div>
+                <div style={{ minWidth: 0, flex: 1 }}>
+                  <h3 style={{ margin: '0 0 0.25rem 0', fontSize: '1.15rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                    <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{printer.alias || printer.name}</span>
+                    <Button variant="ghost" style={{ padding: '0.2rem', minWidth: 'auto' }} onClick={() => handleEditAlias(printer.name, printer.alias)}>
+                      <Edit3 size={14} />
+                    </Button>
+                    <RefreshPrinterButton printerName={printer.name} />
+                  </h3>
+                  <div style={{ color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                    {printer.type === 'usb' ? <Usb size={14} /> : <Wifi size={14} />}
+                    <span className="data-mono" style={{ overflow: 'hidden', fontSize: '0.85rem', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{printer.description}</span>
+                  </div>
+                </div>
               </div>
 
               <div style={{ marginBottom: '1.5rem', flex: 1 }}>
-                 <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem', fontSize: '0.85rem' }}>
-                    <span style={{ color: 'var(--text-secondary)' }}>Status</span>
-                    <span className={`badge badge-${printer.status}`}>{printer.status}</span>
-                 </div>
-                 
-                 <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.25rem', fontSize: '0.85rem', marginTop: '1rem' }}>
-                    <span style={{ color: 'var(--text-secondary)' }}>Paper Tray</span>
-                    <span className="data-mono" style={{ textTransform: 'capitalize' }}>{printer.paper}</span>
-                 </div>
-                 <div style={{ height: '4px', background: 'var(--bg-surface-alt)', borderRadius: '2px', overflow: 'hidden', marginBottom: '1rem' }}>
-                    <div style={{ height: '100%', width: printer.paper === 'unknown' ? '0%' : '100%', background: getPaperColor(printer.paper) }} />
-                 </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem', fontSize: '0.85rem' }}>
+                  <span style={{ color: 'var(--text-secondary)' }}>Status</span>
+                  <span className={`badge badge-${printer.status}`}>{printer.status}</span>
+                </div>
 
-                 <div style={{ color: 'var(--text-secondary)', fontSize: '0.85rem', marginBottom: '0.5rem' }}>Ink / Toner Levels</div>
-                 <div style={{ display: 'flex', gap: '0.5rem' }}>
-                    <div style={{ flex: 1 }}>
-                       <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.7rem', marginBottom: '2px' }}>
-                          <span>Black</span>
-                          <span className="data-mono">{printer.supplyBlack !== null ? `${printer.supplyBlack}%` : '?'}</span>
-                       </div>
-                       <div style={{ height: '8px', background: 'var(--bg-surface-alt)', borderRadius: '1px', overflow: 'hidden' }}>
-                          <div style={{ height: '100%', width: `${printer.supplyBlack || 0}%`, background: '#333333' }} />
-                       </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.25rem', fontSize: '0.85rem', marginTop: '1rem' }}>
+                  <span style={{ color: 'var(--text-secondary)' }}>Paper Tray</span>
+                  {printer.paper === 'unknown' ? (
+                    <span style={{ fontSize: '0.75rem', padding: '0.1rem 0.4rem', background: 'var(--bg-surface-alt)', borderRadius: '4px', color: 'var(--text-muted)' }}>Unknown</span>
+                  ) : (
+                    <span className="data-mono" style={{ textTransform: 'capitalize' }}>{printer.paper}</span>
+                  )}
+                </div>
+                <div style={{ height: '4px', background: 'var(--bg-surface-alt)', borderRadius: '2px', overflow: 'hidden', marginBottom: '1rem' }}>
+                  <div style={{ height: '100%', width: printer.paper === 'unknown' ? '0%' : '100%', background: getPaperColor(printer.paper) }} />
+                </div>
+
+                <div style={{ color: 'var(--text-secondary)', fontSize: '0.85rem', marginBottom: '0.5rem' }}>Ink / Toner Levels</div>
+                <div style={{ display: 'flex', gap: '0.5rem' }}>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.7rem', marginBottom: '2px', alignItems: 'center' }}>
+                      <span>Black</span>
+                      {printer.supplyBlack !== null ? (
+                        <span className="data-mono">{printer.supplyBlack}%</span>
+                      ) : (
+                        <span style={{ fontSize: '0.65rem', padding: '0.1rem 0.3rem', background: 'var(--bg-surface-alt)', borderRadius: '2px', color: 'var(--text-muted)' }}>N/A</span>
+                      )}
                     </div>
-                    <div style={{ flex: 1 }}>
-                       <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.7rem', marginBottom: '2px' }}>
-                          <span>Color</span>
-                          <span className="data-mono">{printer.supplyColor !== null ? `${printer.supplyColor}%` : '?'}</span>
-                       </div>
-                       <div style={{ height: '8px', background: 'var(--bg-surface-alt)', borderRadius: '1px', overflow: 'hidden' }}>
-                          <div style={{ height: '100%', width: `${printer.supplyColor || 0}%`, background: 'linear-gradient(90deg, #00FFFF, #FF00FF, #FFFF00)' }} />
-                       </div>
+                    <div style={{ height: '8px', background: 'var(--bg-surface-alt)', borderRadius: '1px', overflow: 'hidden' }}>
+                      <div style={{ height: '100%', width: `${printer.supplyBlack || 0}%`, background: printer.supplyBlack !== null ? '#333333' : 'transparent' }} />
                     </div>
-                 </div>
+                  </div>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.7rem', marginBottom: '2px', alignItems: 'center' }}>
+                      <span>Color</span>
+                      {printer.supplyColor !== null ? (
+                        <span className="data-mono">{printer.supplyColor}%</span>
+                      ) : (
+                        <span style={{ fontSize: '0.65rem', padding: '0.1rem 0.3rem', background: 'var(--bg-surface-alt)', borderRadius: '2px', color: 'var(--text-muted)' }}>N/A</span>
+                      )}
+                    </div>
+                    <div style={{ height: '8px', background: 'var(--bg-surface-alt)', borderRadius: '1px', overflow: 'hidden' }}>
+                      <div style={{ height: '100%', width: `${printer.supplyColor || 0}%`, background: printer.supplyColor !== null ? 'linear-gradient(90deg, #00FFFF, #FF00FF, #FFFF00)' : 'transparent' }} />
+                    </div>
+                  </div>
+                </div>
               </div>
 
               {!printer.isDefault && (
-                 <Button variant="ghost" style={{ width: '100%' }} onClick={() => handleSetDefault(printer.name)}>
-                    Set as Default
-                 </Button>
+                <Button variant="ghost" style={{ width: '100%' }} onClick={() => handleSetDefault(printer.name)}>
+                  Set as Default
+                </Button>
               )}
-           </div>
-        ))}
-      </div>
+            </div>
+          ))}
+        </div>
       )}
 
       {useAdminStore.getState().detectedDevices.length > 0 && (
@@ -233,7 +402,7 @@ export function Fleet() {
                   <h3 style={{ margin: '0 0 0.25rem 0', fontSize: '1rem' }}>{device.makeModel}</h3>
                   <div className="data-mono" style={{ color: 'var(--text-secondary)', fontSize: '0.75rem', overflow: 'hidden', textOverflow: 'ellipsis' }}>{device.uri}</div>
                 </div>
-                <ConfigureDeviceButton device={device} handleConfigure={handleConfigure} />
+                <ConfigureDeviceButton device={device} />
               </div>
             ))}
           </div>

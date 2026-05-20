@@ -1,7 +1,7 @@
 import { printMasterQueue } from "../../infrastructure/printMaster.queue";
-import { execCommand } from "../utils/exec";
+import { cupsCommands } from "../../commands/cups.commands";
 
-export async function getAllJobs() {
+export async function getAllJobs(sessionId?: string) {
   const [waiting, active, delayed, completed, failed] = await Promise.all([
     printMasterQueue.getWaiting(),
     printMasterQueue.getActive(),
@@ -16,6 +16,7 @@ export async function getAllJobs() {
       cupsJobId: job.returnvalue?.cupsJobId || null,
       filename: job.data.filename,
       owner: job.data.owner,
+      sessionId: job.data.sessionId,
       pages: job.data.pages,
       copies: job.data.copies,
       colorMode: job.data.colorMode,
@@ -30,13 +31,19 @@ export async function getAllJobs() {
     };
   };
 
-  return [
+  let allJobs = [
     ...active.map(j => mapJob(j, "printing")),
     ...waiting.map(j => mapJob(j, "queued")),
     ...delayed.map(j => mapJob(j, "spooling")),
     ...completed.map(j => mapJob(j, "done")),
     ...failed.map(j => mapJob(j, "failed")),
   ];
+
+  if (sessionId) {
+    allJobs = allJobs.filter(j => j.sessionId === sessionId);
+  }
+
+  return allJobs;
 }
 
 export async function deleteJob(jobId: string) {
@@ -50,7 +57,7 @@ export async function deleteJob(jobId: string) {
   if (isActive && job.returnvalue?.cupsJobId) {
     // If it's already sent to CUPS, try to cancel it
     try {
-      await execCommand(`cancel ${job.returnvalue.cupsJobId}`);
+      await cupsCommands.cancelJob(job.returnvalue.cupsJobId);
     } catch (e) {
       console.error(`Failed to cancel CUPS job ${job.returnvalue.cupsJobId}`, e);
     }
@@ -64,16 +71,10 @@ export async function pauseJob(jobId: string) {
   const job = await printMasterQueue.getJob(jobId);
   if (!job) throw new Error(`Job ${jobId} not found`);
 
-  // Wait, if it's in BullMQ we can't really "pause" a running job unless we tell CUPS.
-  // Actually, we can check if it has a CUPS ID (which we might store in job.data once dispatched).
-  // In Phase 3, we want to pause via CUPS if running, or just let BullMQ delay it?
-  // The plan says `lp -i <id> -H hold`. So we need the CUPS ID.
   const cupsJobId = job.data.cupsJobId; 
   if (cupsJobId) {
-    await execCommand(`lp -i ${cupsJobId} -H hold`);
+    await cupsCommands.holdJob(cupsJobId);
   } else {
-    // It's not in CUPS yet, maybe we just delay it indefinitely?
-    // Let's assume the endpoint acts on jobs that are actively spooling or we just hold in CUPS.
     throw new Error(`Job ${jobId} has no active CUPS job to pause.`);
   }
 }
@@ -84,7 +85,7 @@ export async function resumeJob(jobId: string) {
 
   const cupsJobId = job.data.cupsJobId; 
   if (cupsJobId) {
-    await execCommand(`lp -i ${cupsJobId} -H resume`);
+    await cupsCommands.resumeJob(cupsJobId);
   } else {
     throw new Error(`Job ${jobId} has no active CUPS job to resume.`);
   }
@@ -96,3 +97,29 @@ export async function changePriority(jobId: string, priority: number) {
   
   await job.changePriority({ priority });
 }
+
+export async function pauseQueue() {
+  await printMasterQueue.pause();
+}
+
+export async function resumeQueue() {
+  await printMasterQueue.resume();
+}
+
+export async function getQueueStatus() {
+  const isPaused = await printMasterQueue.isPaused();
+  return { isPaused };
+}
+
+export async function emergencyStop() {
+  // Obliterate the BullMQ queue (removes all jobs, regardless of state)
+  await printMasterQueue.obliterate({ force: true });
+  
+  // Also wipe CUPS queue at OS level
+  try {
+    await cupsCommands.cancelAllJobs();
+  } catch (err) {
+    console.error("Failed to cancel CUPS jobs during emergency stop:", err);
+  }
+}
+

@@ -2,7 +2,7 @@
 import { create } from 'zustand';
 import { api } from '../services/api';
 import { apiClient } from '../services/apiClient';
-import type { BackendPrinter, BackendJob, BackendMetrics, PricingConfig, SSEEvent } from '../types';
+import type { BackendPrinter, BackendJob, BackendMetrics, PricingConfig, SSEEvent, MetricSnapshot } from '../types';
 
 interface AdminState {
   isAuthenticated: boolean;
@@ -18,16 +18,25 @@ interface AdminState {
   loadPrinters: () => Promise<void>;
   setDefaultPrinter: (name: string) => Promise<boolean>;
   updatePrinterAlias: (name: string, alias: string) => Promise<boolean>;
+  updatePrinterCapabilities: (name: string, capabilities: string[], type?: string) => Promise<boolean>;
 
   queue: BackendJob[];
   isLoadingQueue: boolean;
+  isQueuePaused: boolean;
   loadQueue: () => Promise<void>;
+  checkQueueStatus: () => Promise<void>;
   cancelJob: (id: string) => Promise<boolean>;
   pauseJob: (id: string) => Promise<boolean>;
+  resumeJob: (id: string) => Promise<boolean>;
   prioritizeJob: (id: string) => Promise<boolean>;
+  pauseGlobalQueue: () => Promise<boolean>;
+  resumeGlobalQueue: () => Promise<boolean>;
+  emergencyStop: () => Promise<boolean>;
 
   metrics: BackendMetrics | null;
+  metricsHistory: MetricSnapshot[];
   loadMetrics: () => Promise<void>;
+  loadMetricsHistory: () => Promise<void>;
 
   isDetecting: boolean;
   detectedDevices: { uri: string; makeModel: string }[];
@@ -39,6 +48,7 @@ interface AdminState {
   updatePricingConfig: (config: Partial<PricingConfig>) => Promise<boolean>;
 
   handleSSEEvent: (event: SSEEvent) => void;
+  forceRefreshPrinter: (printerName: string) => Promise<boolean>;
 }
 
 export const useAdminStore = create<AdminState>((set, get) => ({
@@ -133,9 +143,23 @@ export const useAdminStore = create<AdminState>((set, get) => ({
       throw e;
     }
   },
+  updatePrinterCapabilities: async (name: string, capabilities: string[], type?: string) => {
+    try {
+      const res = await api.updateCapabilities(name, capabilities, type);
+      if (res.success) {
+        get().loadPrinters(); // Refresh the printer list
+        return true;
+      }
+      return false;
+    } catch (e) {
+      console.error(e);
+      throw e;
+    }
+  },
 
   queue: [],
   isLoadingQueue: false,
+  isQueuePaused: false,
   loadQueue: async () => {
     set({ isLoadingQueue: true });
     try {
@@ -144,6 +168,16 @@ export const useAdminStore = create<AdminState>((set, get) => ({
     } catch(e) { 
       console.error(e);
       set({ isLoadingQueue: false });
+    }
+  },
+  checkQueueStatus: async () => {
+    try {
+      const res = await api.getQueueStatus();
+      if (res.success) {
+        set({ isQueuePaused: res.isPaused });
+      }
+    } catch (e) {
+      console.error(e);
     }
   },
   cancelJob: async (id: string) => {
@@ -169,6 +203,16 @@ export const useAdminStore = create<AdminState>((set, get) => ({
     }
     return false;
   },
+  resumeJob: async (id: string) => {
+    try {
+        const res = await api.resumeJob(id);
+        return res.success;
+    } catch(e) { 
+      console.error(e); 
+      throw e; 
+    }
+    return false;
+  },
   prioritizeJob: async (id: string) => {
     try {
         const res = await api.prioritizeJob(id);
@@ -183,12 +227,58 @@ export const useAdminStore = create<AdminState>((set, get) => ({
     }
     return false;
   },
+  pauseGlobalQueue: async () => {
+    try {
+      const res = await api.pauseGlobalQueue();
+      if (res.success) {
+        set({ isQueuePaused: true });
+        return true;
+      }
+    } catch (e) {
+      console.error(e);
+      throw e;
+    }
+    return false;
+  },
+  resumeGlobalQueue: async () => {
+    try {
+      const res = await api.resumeGlobalQueue();
+      if (res.success) {
+        set({ isQueuePaused: false });
+        return true;
+      }
+    } catch (e) {
+      console.error(e);
+      throw e;
+    }
+    return false;
+  },
+  emergencyStop: async () => {
+    try {
+      const res = await api.emergencyStop();
+      if (res.success) {
+        get().loadQueue();
+        return true;
+      }
+    } catch (e) {
+      console.error(e);
+      throw e;
+    }
+    return false;
+  },
 
   metrics: null,
+  metricsHistory: [],
   loadMetrics: async () => {
     try {
       const metrics = await api.fetchDashboardMetrics();
       set({ metrics });
+    } catch(e) { console.error(e) }
+  },
+  loadMetricsHistory: async () => {
+    try {
+      const history = await api.fetchMetricsHistory();
+      set({ metricsHistory: history });
     } catch(e) { console.error(e) }
   },
 
@@ -238,21 +328,33 @@ export const useAdminStore = create<AdminState>((set, get) => ({
   handleSSEEvent: (event) => {
     const state = get();
     switch (event.type) {
-      case 'QUEUE_UPDATE':
-      case 'JOB_STATUS':
-      case 'JOB_CREATED':
-      case 'JOB_FAILED':
+      case 'job_queued':
+      case 'job_active':
+      case 'job_completed':
+      case 'job_failed':
         state.loadQueue();
         break;
-      case 'PRINTER_DISCOVERED':
-      case 'PRINTER_STATUS':
+      case 'printer_discovery':
         state.loadPrinters();
         break;
-      case 'METRICS_UPDATE':
-        if (event.metrics) {
-          set({ metrics: event.metrics });
-        }
+      case 'system_critical':
+        state.checkQueueStatus();
+        state.loadMetrics();
         break;
     }
+  },
+
+  forceRefreshPrinter: async (printerName: string) => {
+    try {
+      const res = await api.forceRefreshPrinter(printerName);
+      if (res.success) {
+        get().loadPrinters(); // Refresh the list
+        return true;
+      }
+    } catch(e) {
+      console.error(e);
+      throw e;
+    }
+    return false;
   }
 }));

@@ -21,7 +21,7 @@ export interface PrintJobData {
 export const printMasterQueue = new Queue<PrintJobData>("print-master", {
   connection: redisConnection,
   defaultJobOptions: {
-    attempts: 4, // 1 initial try + 3 failover retries
+    attempts: 3, // 1 initial try + 2 failover retries
     removeOnComplete: 100,
     removeOnFail: 500,
   },

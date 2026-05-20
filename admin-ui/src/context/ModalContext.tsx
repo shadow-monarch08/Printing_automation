@@ -9,6 +9,8 @@ export interface ModalConfig {
   closeOnBackdropClick?: boolean;
   footer?: ReactNode;
   onClose?: () => void;
+  position?: 'center' | 'bottom';
+  hideBackdrop?: boolean;
 }
 
 interface ModalContextValue {

@@ -1,5 +1,4 @@
-import { execCommand } from "../utils/exec";
-import { execFile } from "child_process";
+import { systemCommands } from "../../commands/system.commands";
 
 export interface WiFiNetwork {
   ssid: string;
@@ -8,10 +7,7 @@ export interface WiFiNetwork {
 
 export async function scanNetworks(): Promise<WiFiNetwork[]> {
   try {
-    // nmcli -t -f ssid,signal dev wifi
-    // -t: terse output (suitable for parsing)
-    // -f: fields to display
-    const { stdout } = await execCommand('nmcli -t -f ssid,signal dev wifi');
+    const { stdout } = await systemCommands.getWifiStatus();
     
     const lines = stdout.split('\n');
     const networksMap = new Map<string, number>();
@@ -51,23 +47,11 @@ export async function scanNetworks(): Promise<WiFiNetwork[]> {
 export async function connectToNetwork(ssid: string, password?: string): Promise<boolean> {
   try {
     console.log(`[WiFi Service] Attempting connection to "${ssid}"...`);
-    
-    return new Promise((resolve) => {
-      const args = password 
-        ? ['nmcli', 'device', 'wifi', 'connect', ssid, 'password', password]
-        : ['nmcli', 'device', 'wifi', 'connect', ssid];
-        
-      execFile('sudo', args, { timeout: 20000 }, (error, stdout, stderr) => {
-        if (error) {
-          console.error(`[WiFi Service] Connection to "${ssid}" failed:`, error.message, stderr);
-          resolve(false);
-          return;
-        }
-        resolve(true);
-      });
-    });
-  } catch (error) {
-    console.error(`[WiFi Service] Connection to "${ssid}" failed:`, error);
+    await systemCommands.connectToWifi(ssid, password);
+    return true;
+  } catch (error: any) {
+    console.error(`[WiFi Service] Connection to "${ssid}" failed:`, error.message || error);
     return false;
   }
 }
+

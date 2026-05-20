@@ -639,6 +639,17 @@ img, video, svg {
   .modal-container.lg {
     max-width: calc(100vw - 2rem);
   }
+
+  /* Touch Targets (Accessibility) */
+  button, 
+  .btn, 
+  input:not([type="checkbox"]):not([type="radio"]), 
+  select, 
+  .custom-select-trigger,
+  .progress-step {
+    min-height: 44px;
+    min-width: 44px;
+  }
 }
 
 /* ====================================

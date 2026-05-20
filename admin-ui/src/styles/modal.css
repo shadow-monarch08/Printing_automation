@@ -13,6 +13,18 @@
   padding: 1rem;
 }
 
+.modal-backdrop--bottom {
+  align-items: flex-end;
+  padding-bottom: 2rem;
+}
+
+.modal-backdrop--hidden {
+  background: transparent;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  pointer-events: none;
+}
+
 .modal-container {
   background: var(--modal-bg);
   border: 2px solid var(--modal-border);
@@ -22,6 +34,7 @@
   max-height: 90vh;
   display: flex;
   flex-direction: column;
+  pointer-events: auto;
 }
 
 .modal-container.sm { max-width: 400px; }

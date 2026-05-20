@@ -1,7 +1,7 @@
 import { Request, Response } from "express";
 import * as pricingService from "../services/pricing.service";
 import { printMasterQueue } from "../../infrastructure/printMaster.queue";
-import { execCommand } from "../utils/exec";
+import { systemCommands } from "../../commands/system.commands";
 import path from "path";
 import { v4 as uuidv4 } from "uuid";
 import { eventBus } from "../utils/eventBus";
@@ -25,6 +25,7 @@ export async function printFile(req: Request, res: Response) {
   const duplex = req.body.duplex || "single";
   const orientation = req.body.orientation || "portrait";
   const owner = req.body.owner || "Guest";
+  const sessionId = req.body.sessionId || null;
 
   try {
     const { cost } = await pricingService.calculateQuote(pages, copies, colorMode as any, duplex as any);
@@ -35,6 +36,7 @@ export async function printFile(req: Request, res: Response) {
       filename: req.file.originalname,
       filePath,
       owner,
+      sessionId,
       pages,
       copies,
       colorMode,
@@ -98,7 +100,7 @@ export async function getPageCount(req: Request, res: Response) {
     // 2. Only run pdfinfo if it's actually a PDF
     else if (mimeType === 'application/pdf' || req.file.originalname.toLowerCase().endsWith('.pdf')) {
       try {
-        const { stdout } = await execCommand(`pdfinfo "${filePath}"`);
+        const { stdout } = await systemCommands.getPdfInfo(filePath);
         const match = stdout.match(/^Pages:\s+(\d+)/m);
         pages = match ? parseInt(match[1], 10) : 1;
       } catch (pdfErr) {

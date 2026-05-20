@@ -1,0 +1,42 @@
+---Report created---
+
+1. security gates that stops user from hitting print in case need specific printer or in general any printer not available.
+    -> solution is to check if printer avaibale when user first opens the website, if even one printer available then proceed to next step of confuguration. Even after this, check for the printers availability before sending the command to print the document.
+    -> when on configuration only show options that are executable, like if only color printer available then only show color option same for black and white. If duplex is not available then don't show that option.
+
+2. UI not in sync with the backend.
+    -> Need to sync the UI for error handling and status updates, for example even after the printing job completes and we receive see call for job completion the UI doesn't updates.
+    -> Unavailability of sessioId for user, leads to inability to track jobs on front end. What we want is that even when the user reloads the page they are sent back to the same session. This way when the users document is being printed or in queue we can keep on showing that, along with an button so that they can add new document in the queue for printing.
+    -> Proper notification should be shown to the users about the status of their print job, i.e. when the job is being printed, when it is completed, when there is an error, etc. This should be done on the front end using toast message, if they are not on the job tracker page, like if they are adding a new document otherwise should be shown in the job tracker page.
+    -> Job traker should be able to track all the document printing jobs of the user and display details for all their jobs, i.e. the document, its type, print details and jobs ahead of them, cost and any other info.
+    -> Frontend should gracefully handle cases where printer is not returning its supply data on quering.
+    -> The sse events should be handled globally in the zustand store using the event bus.
+
+3. Printing logic should be robust.
+    -> Printing logic should not purely depend on checking evey time if printer supply is available or not, some printer may not show printer supply some time, so we should rely on active failure recovery where if a printer fails to print then we should either try other printer or if not available then show user that printer not available.
+    -> On a fresh start printer should always check all the connected printer if they are ready to print or not, first check by supplies and then by printing a small text message on each printer to check for their availability. Flag the one that fails, based on the end result, backend should update if print services are available or not.
+    -> If an printer is flaged out of service, but after that the shop owner upto dates it, there should be an option in the admin dashboard for each printer listed, which will force another test to check the printer availability and the update their status. This should be like an health check up for the printers.
+    -> Job retry, should only do 2 retry for each job not more than that, if both failed then follow the flow.
+    -> In case of job failure, user should be given a chance to wait for the printer to be available or quite, until they should ask the shop owner for resolution, which they can do from their dashboard.
+
+4. Print admin special access.
+    -> Print admin should have access to special commands which only they can use.
+    -> Print admin can start and stop any job, or job sequience.
+
+5. Singular module based approach in the backend, 
+    -> Certain tasks, which are common for all the type of printer, should be clubed together in a module and should have the ability to be executed as a separate module based on the type of printer. These modules could be for any of the feature like in point 1. and 3., they should be common and performed for every type of printer, but could have different commands based on the printer type.
+    -> The above point promotes code reusability and reduces code duplication along with making the while debugging process easier.
+    -> All the command line commands should be kept in a single folder separated by files based on what they are, this should be then exported and imported at places where they are required, again making the code cleaner and less duplicate along with making the debugging process easier.
+
+6. Printer configuration.
+    -> Legacy printers are being configured right now, but we should do more than to just add it to the printing queue, after adding to the printing queue check its capabilities, i.e. color or b/w, duplex or not and then add it to the capabilities.json file.
+    -> Same for the ipp based printer as well, as they create an virtual printeing queue once pluged in, this virutal queue is not robust so we should mannually add it to the printing queue, then check its capabilities, i.e. color or b/w, duplex or not and then add it to the capabilities.json file.
+    -> In case we are not able to access the capabilities of any printer then test some list of predefined commands to get the properties of the printer and then add it to the capabilities.json file. But should be asked for permission from the admin.
+    -> All this process should be displayed in the admin dashboard when happening, as in the set up process we need to ask them for a name for the printer.
+    
+7. UI and UX segregation for mobile and PC view.
+    -> The printing website UI should be more mobile centric with clear steps, and UI should be contained withing single frame, avoiding scrollbar as much as possible until it is inevitable. This doesn't mean to totally disregard the PC view, just saying that we should try to make it more mobile centric.
+
+8. Admin side.
+    -> Currently only showing CPU usage for the pi. We should also show memory usage, and disk usage.
+    -> Add the graph for cpu, memory, and disk usage with time. 

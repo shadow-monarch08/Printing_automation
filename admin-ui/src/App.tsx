@@ -8,6 +8,7 @@ import { DropZone } from './pages/user/DropZone';
 import { ConfigConsole } from './pages/user/ConfigConsole';
 import { QuoteReceipt } from './pages/user/QuoteReceipt';
 import { JobTracker } from './pages/user/JobTracker';
+import { ActiveJobIndicator } from './components/user/ActiveJobIndicator';
 import { useUserPrintStore } from './stores/useUserPrintStore';
 
 import { AdminLayout } from './layouts/AdminLayout';
@@ -25,17 +26,16 @@ function UserKioskPage() {
       {currentStep === 2 && <ConfigConsole />}
       {currentStep === 3 && <QuoteReceipt />}
       {currentStep === 4 && <JobTracker />}
+      <ActiveJobIndicator />
     </>
   );
 }
 
-import { useSSE } from './hooks/useSSE';
 import { WifiSetup } from './components/user/WifiSetup';
 import { useAdminStore } from './stores/useAdminStore';
 import { useEffect, useState } from 'react';
 
 function App() {
-  useSSE();
   const { isSetupMode, checkSetupMode } = useAdminStore();
   const [loading, setLoading] = useState(true);
 
