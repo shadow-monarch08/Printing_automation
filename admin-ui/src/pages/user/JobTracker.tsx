@@ -1,28 +1,19 @@
 // src/pages/user/JobTracker.tsx
 import { useEffect, useState } from 'react';
 import { useUserPrintStore } from '../../stores/useUserPrintStore';
+import { useSessionJobs } from '../../hooks/useSessionJobs';
 import { Printer, CheckCircle, Clock, AlertTriangle, PlusCircle } from 'lucide-react';
-import { api } from '../../services/api';
 import type { BackendJob } from '../../types';
 
 export function JobTracker() {
-  const { sessionId, reset, jobStatus, jobs, fetchJobs } = useUserPrintStore();
+  const { reset } = useUserPrintStore();
+  const jobs = useSessionJobs(5000);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    let interval: number;
-    const initFetch = async () => {
-      try {
-        await fetchJobs();
-      } finally {
-        setLoading(false);
-      }
-    };
-    initFetch();
-    
-    interval = window.setInterval(fetchJobs, 5000);
-    return () => clearInterval(interval);
-  }, [sessionId, jobStatus, fetchJobs]);
+    const timer = setTimeout(() => setLoading(false), 300);
+    return () => clearTimeout(timer);
+  }, []);
 
   const getStatusDisplay = (status: string, jobsAhead: number) => {
     switch (status) {

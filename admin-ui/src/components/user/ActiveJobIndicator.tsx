@@ -1,18 +1,11 @@
-import { useEffect } from 'react';
 import { useUserPrintStore } from '../../stores/useUserPrintStore';
+import { useSessionJobs } from '../../hooks/useSessionJobs';
 import { Layers } from 'lucide-react';
 
 export function ActiveJobIndicator() {
-  const { jobs, currentStep, goToStep, fetchJobs, sessionId } = useUserPrintStore();
+  const { currentStep, goToStep } = useUserPrintStore();
+  const jobs = useSessionJobs(10000);
   const activeJobs = jobs.filter(j => ['queued', 'spooling', 'printing'].includes(j.status));
-
-  // Poll for job updates just to ensure indicator is completely synced,
-  // even though SSE will also trigger fetchJobs
-  useEffect(() => {
-    fetchJobs();
-    const interval = setInterval(fetchJobs, 10000);
-    return () => clearInterval(interval);
-  }, [fetchJobs, sessionId]);
 
   // Only show if there are active jobs and we are NOT already on the Job Tracker step
   if (activeJobs.length === 0 || currentStep === 4) return null;
