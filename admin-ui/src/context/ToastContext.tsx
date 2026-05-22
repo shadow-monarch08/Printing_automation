@@ -1,6 +1,17 @@
 import { createContext, useContext, useState, useCallback } from 'react';
 import type { ReactNode } from 'react';
 
+function generateUUID(): string {
+  if (typeof crypto !== 'undefined' && crypto.randomUUID) {
+    return crypto.randomUUID();
+  }
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+    const r = (Math.random() * 16) | 0;
+    const v = c === 'x' ? r : (r & 0x3) | 0x8;
+    return v.toString(16);
+  });
+}
+
 export interface ToastConfig {
   id?: string;
   type: 'success' | 'error' | 'info' | 'warning';
@@ -25,7 +36,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
   const [toasts, setToasts] = useState<ToastConfig[]>([]);
 
   const addToast = useCallback((config: ToastConfig) => {
-    const id = config.id || crypto.randomUUID();
+    const id = config.id || generateUUID();
     setToasts((prev) => {
       const newToasts = [{ ...config, id }, ...prev];
       if (newToasts.length > 5) {

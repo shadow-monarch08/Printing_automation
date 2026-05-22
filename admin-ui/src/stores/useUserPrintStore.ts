@@ -3,6 +3,17 @@ import { create } from 'zustand';
 import { api } from '../services/api';
 import type { SSEEvent, BackendJob } from '../types';
 
+function generateUUID(): string {
+  if (typeof crypto !== 'undefined' && crypto.randomUUID) {
+    return crypto.randomUUID();
+  }
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+    const r = (Math.random() * 16) | 0;
+    const v = c === 'x' ? r : (r & 0x3) | 0x8;
+    return v.toString(16);
+  });
+}
+
 interface FilePreview {
   name: string;
   size: number;
@@ -57,7 +68,7 @@ let inactivityTimer: number | null = null;
 export const useUserPrintStore = create<UserPrintState>()(
   persist(
     (set, get) => ({
-      sessionId: crypto.randomUUID(),
+      sessionId: generateUUID(),
       currentStep: 1,
       
       file: null,
