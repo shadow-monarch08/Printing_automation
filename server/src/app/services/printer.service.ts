@@ -5,6 +5,7 @@ import path from "path";
 import { redisConnection } from "../../infrastructure/redis";
 import { eventBus } from "../utils/eventBus";
 import { PrinterFactory } from "../../factories/printer.factory";
+import { PrinterSupplyStatus } from "./supplies.service";
 
 const capabilitiesPath = path.resolve(__dirname, "../../config/capabilities.json");
 
@@ -15,6 +16,9 @@ export interface PrinterInfo {
   alias?: string;
   capabilities?: string[];
   type?: string;
+  paper?: string;
+  supplyBlack?: number | null;
+  supplyColor?: number | null;
 }
 
 export async function getCapabilitiesConfig(): Promise<any> {
@@ -145,7 +149,11 @@ export async function listPrinters(): Promise<PrinterInfo[]> {
       ]);
 
       let info: any = {};
-      try { if (infoRaw) info = JSON.parse(infoRaw); } catch {}
+      let supplies: PrinterSupplyStatus | null = null;
+      try {
+        if (infoRaw) info = JSON.parse(infoRaw);
+        if (suppliesRaw) supplies = JSON.parse(suppliesRaw);
+      } catch { }
 
       // Combine standard status based on state and health
       let status = "idle";
@@ -155,13 +163,13 @@ export async function listPrinters(): Promise<PrinterInfo[]> {
       printers.push({
         name,
         description: info.description || name,
-        status: status === 'idle' && supplies.status === 'offline' ? 'offline' : status,
+        status: status === 'idle' && supplies?.status === 'offline' ? 'offline' : status,
         alias: info.alias,
         capabilities: info.capabilities || [],
         type: info.type || "unknown",
-        paper: supplies.paper || 'unknown',
-        supplyBlack: supplies.supplies?.black ?? null,
-        supplyColor: supplies.supplies?.color ?? null,
+        paper: supplies?.paper || 'unknown',
+        supplyBlack: supplies?.supplies?.black ?? null,
+        supplyColor: supplies?.supplies?.color ?? null,
       });
     }
 
@@ -207,7 +215,7 @@ export async function printFile(
   duplex: "single" | "double" = "single"
 ): Promise<string> {
   const sides = duplex === "double" ? "two-sided-long-edge" : "one-sided";
-  
+
   const { stdout } = await cupsCommands.printFile(printer || null, filePath, { copies, sides });
   // stdout example: "request id is MyPrinter-42 (1 file(s))"
   const match = stdout.match(/request id is (\S+)/);
@@ -223,17 +231,17 @@ export async function getJobStatus(printerName: string, cupsJobId: string): Prom
     const { stdout } = await cupsCommands.getJobStatus(printerName);
     const lines = stdout.split("\n");
     const jobLine = lines.find((line: string) => line.includes(cupsJobId));
-    
+
     if (!jobLine) {
       // If job is not in the queue, it might be completed or canceled.
       return "completed_or_missing";
     }
-    
+
     // Simple keyword extraction from the status line
     if (jobLine.toLowerCase().includes("printing")) return "printing";
     if (jobLine.toLowerCase().includes("held")) return "held";
     if (jobLine.toLowerCase().includes("stopped")) return "stopped";
-    
+
     return "pending";
   } catch (err) {
     console.error(`[getJobStatus] Error checking status for ${cupsJobId}:`, err);
@@ -270,7 +278,7 @@ export async function getUnconfiguredPrinters(): Promise<Array<{ uri: string, ra
     // 1. Get all physical devices
     const lpinfoRes = await cupsCommands.listDevices();
     const physicalDevices = lpinfoRes.stdout.split("\n").filter(Boolean);
-    
+
     const devices = physicalDevices
       .map((line: string) => {
         // Check for HP USB
@@ -318,9 +326,9 @@ export async function getUnconfiguredPrinters(): Promise<Array<{ uri: string, ra
 export async function configureHpPrinter(uri: string, rawModel: string): Promise<void> {
   // Sanitize model to be a valid CUPS queue name (alphanumeric and underscores)
   const safeName = rawModel.replace(/[^a-zA-Z0-9]/g, "_").replace(/_+/g, "_");
-  
+
   console.log(`[configureHpPrinter] Auto-configuring HP device: ${uri}`);
-  
+
   // NOTE: This requires passwordless sudo for hp-setup
   try {
     await hpCommands.setupPrinter(uri);
@@ -349,11 +357,11 @@ export async function probePrinterCapabilities(queueName: string): Promise<strin
   const capabilities: string[] = [];
   try {
     const { stdout } = await cupsCommands.getPrinterOptions(queueName);
-    
+
     // Look for keywords in lpoptions -l output
     // Example: "ColorModel/Color Mode: *Gray RGB" -> has color if RGB is present
     // "Duplex/Two-Sided Printing: None *DuplexNoTumble DuplexTumble" -> has duplex
-    
+
     if (stdout.match(/ColorModel.*RGB/i) || stdout.match(/ColorModel.*CMYK/i) || stdout.match(/ColorModel.*Color/i)) {
       capabilities.push("color");
     } else if (stdout.match(/ColorModel/i)) {
@@ -363,7 +371,7 @@ export async function probePrinterCapabilities(queueName: string): Promise<strin
     if (stdout.match(/Duplex/i)) {
       capabilities.push("duplex");
     }
-    
+
     console.log(`[probePrinterCapabilities] Probed ${queueName}:`, capabilities);
   } catch (err) {
     console.warn(`[probePrinterCapabilities] Failed to probe ${queueName}:`, err);
@@ -420,13 +428,13 @@ export async function runComprehensiveHealthCheck(name: string): Promise<void> {
 
     // 4. Finalize
     await redisConnection.set(`printer:${name}:health`, "healthy");
-    
+
     const infoStr = await redisConnection.get(`printer:${name}:info`) || "{}";
     const info = JSON.parse(infoStr);
-    
+
     const capabilities = await getCapabilitiesConfig();
     const caps = capabilities[name] || {};
-    
+
     const newInfo = {
       ...info,
       name,
@@ -449,16 +457,16 @@ let heartbeatInterval: NodeJS.Timeout | null = null;
  */
 export async function startHeartbeatLoop(): Promise<void> {
   console.log("[Heartbeat] Starting heartbeat loop...");
-  
+
   const sweep = async () => {
     try {
       const printers = await listPrintersFromCUPS();
       const printerNames = printers.map(p => p.name);
-      
+
       if (printerNames.length > 0) {
         await redisConnection.sadd("fleet:printers", ...printerNames);
       }
-      
+
       for (const p of printers) {
         // Save description
         const infoStr = await redisConnection.get(`printer:${p.name}:info`) || "{}";
@@ -469,17 +477,17 @@ export async function startHeartbeatLoop(): Promise<void> {
         // Track previous health and state
         const prevHealth = await redisConnection.get(`printer:${p.name}:health`);
         const prevState = await redisConnection.get(`printer:${p.name}:state`);
-        
+
         await runComprehensiveHealthCheck(p.name);
-        
+
         const newHealth = await redisConnection.get(`printer:${p.name}:health`);
         const newState = await redisConnection.get(`printer:${p.name}:state`);
-        
+
         if (prevHealth !== newHealth || prevState !== newState) {
-           eventBus.emit("printer_state_changed", { 
-             printer: p.name, 
-             state: newHealth === "flagged" ? "flagged" : (newState || "idle") 
-           });
+          eventBus.emit("printer_state_changed", {
+            printer: p.name,
+            state: newHealth === "flagged" ? "flagged" : (newState || "idle")
+          });
         }
       }
       console.log("[Heartbeat] Sweep completed.");
