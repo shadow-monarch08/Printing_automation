@@ -3,7 +3,6 @@ import { redisConnection } from "../../infrastructure/redis";
 
 // ── Canonical return type ────────────────────────────────────────────────────
 export interface PrinterSupplyStatus {
-  status: "online" | "offline";
   paper: "ready" | "empty" | "unknown";
   supplies: {
     black: number | null;
@@ -12,7 +11,6 @@ export interface PrinterSupplyStatus {
 }
 
 export const EMPTY_RESULT: PrinterSupplyStatus = {
-  status: "offline",
   paper: "unknown",
   supplies: { black: null, color: null },
 };

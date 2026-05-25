@@ -163,7 +163,7 @@ export async function listPrinters(): Promise<PrinterInfo[]> {
       printers.push({
         name,
         description: info.description || name,
-        status: status === 'idle' && supplies?.status === 'offline' ? 'offline' : status,
+        status,
         alias: info.alias,
         capabilities: info.capabilities || [],
         type: info.type || "unknown",

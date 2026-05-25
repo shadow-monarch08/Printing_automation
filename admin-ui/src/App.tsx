@@ -20,7 +20,7 @@ import { Fleet } from './pages/admin/Fleet';
 import { Queue } from './pages/admin/Queue';
 import { Settings } from './pages/admin/Settings';
 
-function UserKioskPage() { 
+function UserKioskPage() {
   const currentStep = useUserPrintStore(s => s.currentStep);
   const isAcceptingJobs = useUserPrintStore(s => s.isAcceptingJobs);
   const fetchKioskStatus = useUserPrintStore(s => s.fetchKioskStatus);
@@ -35,7 +35,7 @@ function UserKioskPage() {
 
   if (isAcceptingJobs === false) {
     return (
-      <div className="offline-container" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', opacity: 0.8 }}>
+      <div className="offline-container" style={{ display: 'flex', flex: 1, flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', opacity: 0.8 }}>
         <AlertTriangle size={64} style={{ color: 'var(--danger)', marginBottom: '1rem' }} />
         <h2 className="offline-title">System Offline</h2>
         <p className="offline-desc" style={{ color: 'var(--danger)' }}>No printers are currently available. Please check back later.</p>

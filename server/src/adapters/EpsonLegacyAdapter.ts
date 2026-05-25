@@ -40,7 +40,6 @@ export class EpsonLegacyAdapter implements IPrinterAdapter {
       }
 
       return {
-        status: "online",
         paper: "unknown",
         supplies: {
           black,
@@ -50,7 +49,6 @@ export class EpsonLegacyAdapter implements IPrinterAdapter {
     } catch (err) {
       console.error(`[EpsonLegacyAdapter] Failed to get supplies for ${this.printerName}:`, err);
       return {
-        status: "offline",
         paper: "unknown",
         supplies: { black: null, color: null },
       };

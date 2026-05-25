@@ -24,14 +24,12 @@ export class GenericUsbAdapter implements IPrinterAdapter {
       const color = numbers.length > 1 ? Math.min(...numbers.slice(1)) : null;
 
       return {
-        status: "online",
         paper: "unknown",
         supplies: { black, color },
       };
     } catch (err) {
       console.error(`[GenericUsbAdapter] Failed to get supplies for ${this.printerName}:`, err);
       return {
-        status: "offline",
         paper: "unknown",
         supplies: { black: null, color: null },
       };

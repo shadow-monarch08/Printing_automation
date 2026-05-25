@@ -30,14 +30,12 @@ export class IppModernAdapter implements IPrinterAdapter {
       const paperEmpty = /media-empty[^:]*:\s*true/i.test(stdout);
 
       return {
-        status: "online",
         paper: paperEmpty ? "empty" : "ready",
         supplies: { black, color },
       };
     } catch (err) {
       console.error(`[IppModernAdapter] Failed to get supplies for ${this.uri}:`, err);
       return {
-        status: "offline",
         paper: "unknown",
         supplies: { black: null, color: null },
       };

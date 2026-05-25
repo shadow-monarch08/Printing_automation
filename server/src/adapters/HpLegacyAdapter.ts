@@ -47,14 +47,12 @@ export class HpLegacyAdapter implements IPrinterAdapter {
       const paperEmpty = /out.of.paper|paper.empty/i.test(stdout);
 
       return {
-        status: "online",
         paper: paperEmpty ? "empty" : "ready",
         supplies: { black, color },
       };
     } catch (err) {
       console.error(`[HpLegacyAdapter] Failed to get supplies for ${this.printerName}:`, err);
       return {
-        status: "offline",
         paper: "unknown",
         supplies: { black: null, color: null },
       };

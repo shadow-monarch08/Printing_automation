@@ -26,7 +26,7 @@ export class SnmpAdapter implements IPrinterAdapter {
   async getSupplies(): Promise<PrinterSupplyStatus> {
     const ip = this.extractIp(this.uri);
     if (!ip) {
-      return { status: "offline", paper: "unknown", supplies: { black: null, color: null } };
+      return { paper: "unknown", supplies: { black: null, color: null } };
     }
 
     try {
@@ -50,14 +50,12 @@ export class SnmpAdapter implements IPrinterAdapter {
       const color = colorLevels.length > 0 ? Math.min(...colorLevels) : null;
 
       return {
-        status: "online",
         paper: "unknown",
         supplies: { black, color },
       };
     } catch (err) {
       console.error(`[SnmpAdapter] Failed to get supplies for ${ip}:`, err);
       return {
-        status: "offline",
         paper: "unknown",
         supplies: { black: null, color: null },
       };
