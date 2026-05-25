@@ -1,6 +1,9 @@
 import { Routes, Route } from 'react-router-dom';
+import { useEffect, useState } from 'react';
 import { Modal } from './components/shared/Modal';
 import { ToastStack } from './components/shared/ToastStack';
+import { AlertTriangle } from 'lucide-react';
+import { LoadingNet } from './components/shared/LoadingNet';
 
 import { UserLayout } from './layouts/UserLayout';
 import { ProgressBar } from './components/user/ProgressBar';
@@ -19,6 +22,27 @@ import { Settings } from './pages/admin/Settings';
 
 function UserKioskPage() { 
   const currentStep = useUserPrintStore(s => s.currentStep);
+  const isAcceptingJobs = useUserPrintStore(s => s.isAcceptingJobs);
+  const fetchKioskStatus = useUserPrintStore(s => s.fetchKioskStatus);
+
+  useEffect(() => {
+    fetchKioskStatus();
+  }, [fetchKioskStatus]);
+
+  if (isAcceptingJobs === null) {
+    return <LoadingNet message="Checking system status..." />;
+  }
+
+  if (isAcceptingJobs === false) {
+    return (
+      <div className="offline-container" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', opacity: 0.8 }}>
+        <AlertTriangle size={64} style={{ color: 'var(--danger)', marginBottom: '1rem' }} />
+        <h2 className="offline-title">System Offline</h2>
+        <p className="offline-desc" style={{ color: 'var(--danger)' }}>No printers are currently available. Please check back later.</p>
+      </div>
+    );
+  }
+
   return (
     <>
       <ProgressBar />
@@ -33,7 +57,6 @@ function UserKioskPage() {
 
 import { WifiSetup } from './components/user/WifiSetup';
 import { useAdminStore } from './stores/useAdminStore';
-import { useEffect, useState } from 'react';
 
 function App() {
   const { isSetupMode, checkSetupMode } = useAdminStore();
