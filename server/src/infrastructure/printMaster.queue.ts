@@ -26,5 +26,3 @@ export const printMasterQueue = new Queue<PrintJobData>("print-master", {
     removeOnFail: 500,
   },
 });
-
-printMasterQueue.obliterate()
