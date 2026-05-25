@@ -32,7 +32,7 @@ export class PrinterFactory {
       return new IppModernAdapter(printerName, uri);
     } else if (lowerUri.startsWith("socket://") || lowerUri.startsWith("lpd://")) {
       return new SnmpAdapter(printerName, uri);
-    } else if (lowerUri.includes("usb://hp")) {
+    } else if (lowerUri.includes("usb://hp") || lowerUri.startsWith("hp:/usb/")) {
       return new HpLegacyAdapter(printerName, uri);
     } else if (lowerUri.includes("usb://epson")) {
       return new EpsonLegacyAdapter(printerName, uri);
@@ -42,7 +42,6 @@ export class PrinterFactory {
 
     return null;
   }
-
   /**
    * Helper to resolve a printer by name to its adapter.
    */
