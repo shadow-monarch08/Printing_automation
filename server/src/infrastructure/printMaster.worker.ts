@@ -1,8 +1,9 @@
-import { Worker, Job } from "bullmq";
+import { Worker, Job, DelayedError } from "bullmq";
 import { redisConnection } from "./redis";
 import { PrintJobData, printMasterQueue } from "./printMaster.queue";
 import * as printerService from "../app/services/printer.service";
 import * as matchmakerService from "../app/services/matchmaker.service";
+import { eventBus } from "../app/utils/eventBus";
 
 export const printMasterWorker = new Worker<PrintJobData>(
   "print-master",
@@ -15,10 +16,14 @@ export const printMasterWorker = new Worker<PrintJobData>(
     if (!matchedPrinter) {
       console.log(`[Worker] No idle/capable printer found for job ${job.id}. Delaying 15s...`);
       await job.moveToDelayed(Date.now() + 15000, job.token!);
-      return;
+      throw new DelayedError();
     }
     
     try {
+      // Step 2.2: Add Optimistic Lock in Worker (Pre-Dispatch)
+      await redisConnection.set(`printer:${matchedPrinter}:state`, "busy");
+      eventBus.emit("printer_state_changed", { printer: matchedPrinter, state: "busy" });
+
       const cupsJobId = await printerService.printFile(
         job.data.filePath, 
         matchedPrinter,
@@ -49,13 +54,52 @@ export const printMasterWorker = new Worker<PrintJobData>(
             console.error(`[Worker] Failed to cancel jammed CUPS job ${cupsJobId}`, e);
           }
 
+          // Step 3.1: Increment Strike Counter on Failure
+          const strikeKey = `printer:${matchedPrinter}:strikes`;
+          const newStrikes = await redisConnection.incr(strikeKey);
+          console.log(`[Worker] Printer ${matchedPrinter} strike count: ${newStrikes}`);
+
+          // Step 3.3: Quarantine at 3 Strikes
+          if (newStrikes >= 3) {
+            await redisConnection.set(`printer:${matchedPrinter}:health`, "flagged");
+            eventBus.emit("printer_quarantined", {
+              printer: matchedPrinter,
+              message: `Printer ${matchedPrinter} quarantined after ${newStrikes} consecutive failures.`
+            });
+            console.warn(`[Worker] QUARANTINE: ${matchedPrinter} flagged after ${newStrikes} strikes.`);
+
+            // Step 3.5: Absolute Circuit Breaker (Global Queue Pause)
+            const allPrinterNames = await redisConnection.smembers("fleet:printers");
+            let hasHealthyPrinter = false;
+            for (const name of allPrinterNames) {
+              const health = await redisConnection.get(`printer:${name}:health`);
+              if (health === "healthy") {
+                hasHealthyPrinter = true;
+                break;
+              }
+            }
+
+            if (!hasHealthyPrinter) {
+              await printMasterQueue.pause();
+              eventBus.emit("queue_paused", {
+                message: "EMERGENCY: All printers quarantined. Queue paused. Admin intervention required."
+              });
+            }
+          }
+
           const attempts = job.data.attemptedPrinters || [];
           attempts.push(matchedPrinter);
 
           await job.updateData({ ...job.data, attemptedPrinters: attempts });
 
+          // Step 3.4: Bad Document Isolation
           if (attempts.length >= 2) {
-            throw new Error(`Job ${job.id} failed after 2 failover attempts.`);
+            eventBus.emit("job_failed", {
+              id: job.id,
+              reason: `Bad document detected: Job failed on ${attempts.length} different printers. Discarding.`,
+              isBadDocument: true
+            });
+            throw new Error(`Job ${job.id} flagged as bad document — failed on ${attempts.join(", ")}.`);
           }
 
           // Change priority to 1 and throw to trigger BullMQ retry
@@ -77,7 +121,6 @@ export const printMasterWorker = new Worker<PrintJobData>(
   }
 );
 
-import { eventBus } from "../app/utils/eventBus";
 
 // --- WAKE UP FUNCTION ---
 const wakeUpDelayedJobs = async () => {
@@ -103,6 +146,15 @@ printMasterWorker.on("active", (job) => {
 
 printMasterWorker.on("completed", async (job) => {
   console.log(`[Worker] Job ${job.id} has completed! Printer is now free.`);
+  
+  // Step 2.3 & 3.2: Release lock and reset strikes
+  const printer = job.returnvalue?.printer;
+  if (printer) {
+    await redisConnection.set(`printer:${printer}:state`, "idle");
+    await redisConnection.set(`printer:${printer}:strikes`, "0");
+    eventBus.emit("printer_state_changed", { printer, state: "idle" });
+  }
+
   eventBus.emit("job_completed", { id: job.id, data: job.data });
   
   // Clean up the printed file
@@ -117,6 +169,14 @@ printMasterWorker.on("completed", async (job) => {
 
 printMasterWorker.on("failed", async (job, err) => {
   console.log(`[Worker] Job ${job?.id} has failed with ${err.message}`);
+  
+  // Step 2.3: Release lock for the printer that was being used
+  const printer = job?.data?.attemptedPrinters?.[job.data.attemptedPrinters.length - 1] || job?.data?.targetPrinter;
+  if (printer) {
+    await redisConnection.set(`printer:${printer}:state`, "idle");
+    eventBus.emit("printer_state_changed", { printer, state: "idle" });
+  }
+
   eventBus.emit("job_failed", { id: job?.id, reason: err.message });
   
   // Clean up the printed file

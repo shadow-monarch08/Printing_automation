@@ -25,7 +25,12 @@ export async function sseEndpoint(req: Request, res: Response) {
   };
 
   // Bind to all known events.
-  const eventsToListen = ["job_queued", "job_active", "job_completed", "job_failed", "printer_discovery"];
+  const eventsToListen = [
+    "job_queued", "job_active", "job_completed", "job_failed",
+    "printer_discovery", "system_critical",
+    "printer_state_changed", "printer_quarantined",
+    "queue_paused", "queue_resumed"
+  ];
   
   // Create bound listeners so we can remove them later
   const listeners: Record<string, (data: any) => void> = {};

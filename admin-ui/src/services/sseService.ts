@@ -46,6 +46,12 @@ class SSEService {
            if (userState.jobId === parsed.id) {
              toast.error('Job Failed', `Job ${parsed.id} failed: ${parsed.reason || 'Unknown error'}`);
            }
+        } else if (parsed.type === 'printer_quarantined') {
+           toast.error('Printer Quarantined', parsed.message);
+        } else if (parsed.type === 'queue_paused') {
+           toast.error('Queue Paused', parsed.message);
+        } else if (parsed.type === 'queue_resumed') {
+           toast.success('Queue Resumed', parsed.message);
         }
 
       } catch (e) {

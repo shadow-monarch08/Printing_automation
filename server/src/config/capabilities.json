@@ -1,12 +1,10 @@
 {
   "HP_LaserJet_Pro_M404n": {
     "alias": "Main Office Laser",
-    "capabilities": ["bw", "single"],
-    "type": "network"
-  },
-  "EPSON_L3250": {
-    "alias": "Color Press",
-    "capabilities": ["color", "bw", "duplex", "single"],
+    "capabilities": [
+      "bw",
+      "single"
+    ],
     "type": "network"
   }
 }

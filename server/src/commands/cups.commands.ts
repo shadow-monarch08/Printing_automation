@@ -72,6 +72,11 @@ export const cupsCommands = {
     return execCommand("lpstat -v");
   },
   
+  getPrinterStatusByName: async (printerName: string) => {
+    const safeName = sanitize(printerName);
+    return execCommand(`lpstat -p ${safeName}`);
+  },
+  
   getPrinterOptions: async (printerName: string) => {
     const safeName = sanitize(printerName);
     return execCommand(`lpoptions -p ${safeName} -l`);

@@ -335,7 +335,15 @@ export const useAdminStore = create<AdminState>((set, get) => ({
         state.loadQueue();
         break;
       case 'printer_discovery':
+      case 'printer_state_changed':
+      case 'printer_quarantined':
         state.loadPrinters();
+        break;
+      case 'queue_paused':
+        set({ isQueuePaused: true });
+        break;
+      case 'queue_resumed':
+        set({ isQueuePaused: false });
         break;
       case 'system_critical':
         state.checkQueueStatus();

@@ -68,12 +68,16 @@ export interface BackendSupplies {
 
 export type SSEEvent =
   | { type: 'connected'; timestamp: string }
-  | { type: 'job_queued'; id: string; filename: string; owner: string; sessionId?: string;[key: string]: any }
-  | { type: 'job_active'; id: string; data: { id: string; filename: string; sessionId?: string;[key: string]: any } }
-  | { type: 'job_completed'; id: string; data: { id: string; filename: string; sessionId?: string;[key: string]: any } }
-  | { type: 'job_failed'; id: string; reason: string }
+  | { type: 'job_queued'; id: string; filename: string; owner: string; sessionId?: string; [key: string]: any }
+  | { type: 'job_active'; id: string; data: { id: string; filename: string; sessionId?: string; [key: string]: any } }
+  | { type: 'job_completed'; id: string; data: { id: string; filename: string; sessionId?: string; [key: string]: any } }
+  | { type: 'job_failed'; id: string; reason: string; isBadDocument?: boolean }
   | { type: 'printer_discovery'; timestamp: string }
-  | { type: 'system_critical'; message: string };
+  | { type: 'system_critical'; message: string }
+  | { type: 'printer_state_changed'; printer: string; state: 'idle' | 'busy' | 'flagged' }
+  | { type: 'printer_quarantined'; printer: string; message: string }
+  | { type: 'queue_paused'; message: string }
+  | { type: 'queue_resumed'; message: string };
 
 export interface PricingConfig {
   bwPerPage: number;

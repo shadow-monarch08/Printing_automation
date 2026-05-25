@@ -2,6 +2,9 @@ import { cupsCommands } from "../../commands/cups.commands";
 import { hpCommands } from "../../commands/hp.commands";
 import fs from "fs/promises";
 import path from "path";
+import { redisConnection } from "../../infrastructure/redis";
+import { eventBus } from "../utils/eventBus";
+import { PrinterFactory } from "../../factories/printer.factory";
 
 const capabilitiesPath = path.resolve(__dirname, "../../config/capabilities.json");
 
@@ -47,10 +50,10 @@ export async function detectPrinters(): Promise<string[]> {
 }
 
 /**
- * List all printers known to CUPS.
- * Parses `lpstat -p` output.
+ * Internal: List all printers known to CUPS.
+ * Parses `lpstat -p` output. Used by the heartbeat.
  */
-export async function listPrinters(): Promise<PrinterInfo[]> {
+export async function listPrintersFromCUPS(): Promise<PrinterInfo[]> {
   try {
     const { stdout, stderr } = await cupsCommands.listPrinters();
 
@@ -121,6 +124,51 @@ export async function listPrinters(): Promise<PrinterInfo[]> {
     }
 
     throw err;
+  }
+}
+
+/**
+ * List all printers from the Redis cache.
+ * This is the primary function used by user-facing routes.
+ */
+export async function listPrinters(): Promise<PrinterInfo[]> {
+  try {
+    const printerNames = await redisConnection.smembers("fleet:printers");
+    const printers: PrinterInfo[] = [];
+
+    for (const name of printerNames) {
+      const [health, state, infoRaw, suppliesRaw] = await Promise.all([
+        redisConnection.get(`printer:${name}:health`),
+        redisConnection.get(`printer:${name}:state`),
+        redisConnection.get(`printer:${name}:info`),
+        redisConnection.get(`supplies:${name}`)
+      ]);
+
+      let info: any = {};
+      try { if (infoRaw) info = JSON.parse(infoRaw); } catch {}
+
+      // Combine standard status based on state and health
+      let status = "idle";
+      if (health === "flagged") status = "error";
+      else if (state === "busy") status = "busy";
+
+      printers.push({
+        name,
+        description: info.description || name,
+        status: status === 'idle' && supplies.status === 'offline' ? 'offline' : status,
+        alias: info.alias,
+        capabilities: info.capabilities || [],
+        type: info.type || "unknown",
+        paper: supplies.paper || 'unknown',
+        supplyBlack: supplies.supplies?.black ?? null,
+        supplyColor: supplies.supplies?.color ?? null,
+      });
+    }
+
+    return printers;
+  } catch (err) {
+    console.error("[listPrinters] Cache read failed", err);
+    return [];
   }
 }
 
@@ -323,43 +371,128 @@ export async function probePrinterCapabilities(queueName: string): Promise<strin
   return capabilities;
 }
 
-import { redisConnection } from "../../infrastructure/redis";
-import { PrinterFactory } from "../../factories/printer.factory";
-
 /**
- * Phase 3.2: Digital Startup Health Sweep
+ * Phase 1: Comprehensive Health Check
  */
-export async function digitalStartupHealthSweep(): Promise<void> {
-  console.log("[HealthSweep] Starting digital health sweep of all configured printers...");
+export async function runComprehensiveHealthCheck(name: string): Promise<void> {
   try {
-    const printers = await listPrinters();
-    
-    for (const printer of printers) {
-      const adapter = await PrinterFactory.getAdapter(printer.name);
-      const healthKey = `printer:${printer.name}:health`;
-      
-      if (!adapter) {
-        console.warn(`[HealthSweep] No adapter found for ${printer.name}`);
-        await redisConnection.set(healthKey, "flagged");
-        continue;
-      }
-      
-      const isHealthy = await adapter.healthCheck();
-      
-      if (isHealthy) {
-        await redisConnection.set(healthKey, "healthy");
-        console.log(`[HealthSweep] ${printer.name} is healthy. Pre-fetching supplies...`);
-        // Optional: pre-fetch supplies into redis if your supply service supports caching
-        // For now, we just rely on the adapter's health check which might already be doing enough
-      } else {
-        await redisConnection.set(healthKey, "flagged");
-        console.log(`[HealthSweep] ${printer.name} is flagged (health check failed).`);
-      }
+    const strikes = await redisConnection.get(`printer:${name}:strikes`);
+    if (parseInt(strikes || "0") >= 3) {
+      console.log(`[HealthCheck] Skipping ${name} — quarantined (${strikes} strikes)`);
+      return;
     }
+
+    const adapter = await PrinterFactory.getAdapter(name);
+    if (!adapter) {
+      console.warn(`[HealthCheck] No adapter found for ${name}`);
+      await redisConnection.set(`printer:${name}:health`, "flagged");
+      return;
+    }
+
+    // 1. Digital Probe
+    const isHealthy = await adapter.healthCheck();
+    if (!isHealthy) {
+      await redisConnection.set(`printer:${name}:health`, "flagged");
+      return;
+    }
+
+    // 2. CUPS Status Check
+    const { stdout } = await cupsCommands.getPrinterStatusByName(name);
+    if (stdout.toLowerCase().includes("stopped") || stdout.toLowerCase().includes("rejecting")) {
+      await redisConnection.set(`printer:${name}:health`, "flagged");
+      return;
+    }
+
+    const currentState = await redisConnection.get(`printer:${name}:state`);
+    if (stdout.toLowerCase().includes("idle") && currentState === "busy") {
+      await redisConnection.set(`printer:${name}:state`, "idle");
+    } else if (stdout.toLowerCase().includes("printing")) {
+      await redisConnection.set(`printer:${name}:state`, "busy");
+    }
+
+    // 3. Supplies Check
+    try {
+      const supplies = await adapter.getSupplies();
+      await redisConnection.setex(`supplies:${name}`, 300, JSON.stringify(supplies));
+    } catch (suppliesErr) {
+      console.warn(`[HealthCheck] Failed to get supplies for ${name}:`, suppliesErr);
+    }
+
+    // 4. Finalize
+    await redisConnection.set(`printer:${name}:health`, "healthy");
     
-    console.log("[HealthSweep] Completed.");
+    const infoStr = await redisConnection.get(`printer:${name}:info`) || "{}";
+    const info = JSON.parse(infoStr);
+    
+    const capabilities = await getCapabilitiesConfig();
+    const caps = capabilities[name] || {};
+    
+    const newInfo = {
+      ...info,
+      name,
+      alias: caps.alias,
+      capabilities: caps.capabilities || [],
+      type: caps.type || "unknown"
+    };
+    await redisConnection.set(`printer:${name}:info`, JSON.stringify(newInfo));
+
   } catch (err) {
-    console.error("[HealthSweep] Failed to execute:", err);
+    console.error(`[HealthCheck] Failed for ${name}:`, err);
+    await redisConnection.set(`printer:${name}:health`, "flagged");
   }
 }
 
+let heartbeatInterval: NodeJS.Timeout | null = null;
+
+/**
+ * Phase 1: Heartbeat Loop
+ */
+export async function startHeartbeatLoop(): Promise<void> {
+  console.log("[Heartbeat] Starting heartbeat loop...");
+  
+  const sweep = async () => {
+    try {
+      const printers = await listPrintersFromCUPS();
+      const printerNames = printers.map(p => p.name);
+      
+      if (printerNames.length > 0) {
+        await redisConnection.sadd("fleet:printers", ...printerNames);
+      }
+      
+      for (const p of printers) {
+        // Save description
+        const infoStr = await redisConnection.get(`printer:${p.name}:info`) || "{}";
+        const info = JSON.parse(infoStr);
+        info.description = p.description;
+        await redisConnection.set(`printer:${p.name}:info`, JSON.stringify(info));
+
+        // Track previous health and state
+        const prevHealth = await redisConnection.get(`printer:${p.name}:health`);
+        const prevState = await redisConnection.get(`printer:${p.name}:state`);
+        
+        await runComprehensiveHealthCheck(p.name);
+        
+        const newHealth = await redisConnection.get(`printer:${p.name}:health`);
+        const newState = await redisConnection.get(`printer:${p.name}:state`);
+        
+        if (prevHealth !== newHealth || prevState !== newState) {
+           eventBus.emit("printer_state_changed", { 
+             printer: p.name, 
+             state: newHealth === "flagged" ? "flagged" : (newState || "idle") 
+           });
+        }
+      }
+      console.log("[Heartbeat] Sweep completed.");
+    } catch (err) {
+      console.error("[Heartbeat] Sweep failed:", err);
+    }
+  };
+
+  // Run immediately
+  await sweep();
+
+  // Schedule every 5 mins
+  if (!heartbeatInterval) {
+    heartbeatInterval = setInterval(sweep, 300000);
+  }
+}

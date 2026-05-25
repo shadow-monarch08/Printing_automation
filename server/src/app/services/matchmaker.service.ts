@@ -1,32 +1,37 @@
-import * as printerService from "./printer.service";
 import { PrintJobData } from "../../infrastructure/printMaster.queue";
+import { redisConnection } from "../../infrastructure/redis";
 
 export async function findPrinter(jobData: PrintJobData): Promise<string | null> {
-  const printers = await printerService.listPrinters();
-  
-  // 1. Filter to idle printers
-  let candidates = printers.filter(p => p.status === "idle");
-  
-  // 2. Exclude attempted/failed printers
-  if (jobData.attemptedPrinters && jobData.attemptedPrinters.length > 0) {
-    candidates = candidates.filter(p => !jobData.attemptedPrinters.includes(p.name));
+  const printerNames = await redisConnection.smembers("fleet:printers");
+  const candidates: Array<{name: string, alias: string, capabilities: string[]}> = [];
+
+  for (const name of printerNames) {
+    const [health, state, infoRaw] = await Promise.all([
+      redisConnection.get(`printer:${name}:health`),
+      redisConnection.get(`printer:${name}:state`),
+      redisConnection.get(`printer:${name}:info`)
+    ]);
+
+    // 1. health === "healthy" AND state === "idle"
+    if (health !== "healthy" || state !== "idle") continue;
+
+    // 2. Exclude attempted/failed printers
+    if (jobData.attemptedPrinters && jobData.attemptedPrinters.includes(name)) continue;
+
+    let info: any = {};
+    try { if (infoRaw) info = JSON.parse(infoRaw); } catch {}
+    const caps: string[] = info.capabilities || [];
+
+    // 3. Match capabilities
+    if (jobData.colorMode === "color" && !caps.includes("color")) continue;
+    if (jobData.duplex === "double" && !caps.includes("duplex")) continue;
+
+    candidates.push({
+      name,
+      alias: info.alias || "",
+      capabilities: caps
+    });
   }
-  
-  // 3. Match capabilities
-  candidates = candidates.filter(p => {
-    const caps = p.capabilities || [];
-    
-    // Check color requirements
-    if (jobData.colorMode === "color" && !caps.includes("color")) return false;
-    
-    // Check duplex requirements (if job wants double, printer must support it)
-    if (jobData.duplex === "double" && !caps.includes("duplex")) return false;
-    
-    // If we only need single sided or bw, practically all printers support it 
-    // unless they strictly define otherwise, but usually we just assume yes.
-    
-    return true;
-  });
 
   if (candidates.length === 0) {
     return null;

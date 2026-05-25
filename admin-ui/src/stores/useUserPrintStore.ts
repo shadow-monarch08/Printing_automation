@@ -192,6 +192,12 @@ export const useUserPrintStore = create<UserPrintState>()(
         if (['job_queued', 'job_active', 'job_completed', 'job_failed'].includes(event.type)) {
           fetchJobs();
         }
+        
+        if (event.type === 'queue_paused') {
+          set({ isAcceptingJobs: false });
+        } else if (event.type === 'queue_resumed') {
+          get().fetchKioskStatus();
+        }
 
         if (!jobId) return;
         

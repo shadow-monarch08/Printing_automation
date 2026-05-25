@@ -1,5 +1,6 @@
 import { Request, Response } from "express";
 import * as printerService from "../services/printer.service";
+import { printMasterQueue } from "../../infrastructure/printMaster.queue";
 
 /**
  * GET /printers
@@ -7,17 +8,7 @@ import * as printerService from "../services/printer.service";
 export async function getPrinters(req: Request, res: Response) {
   try {
     const printers = await printerService.listPrinters();
-    const printersWithSupplies = await Promise.all(printers.map(async (p) => {
-      const supplies = await suppliesService.getSupplies(p.name);
-      return {
-        ...p,
-        status: supplies.status === 'offline' ? 'offline' : p.status,
-        paper: supplies.paper || 'unknown',
-        supplyBlack: supplies.supplies?.black ?? null,
-        supplyColor: supplies.supplies?.color ?? null,
-      };
-    }));
-    res.json({ success: true, printers: printersWithSupplies });
+    res.json({ success: true, printers });
   } catch (err: any) {
     console.error("[getPrinters] Error:", err);
     res.status(500).json({
@@ -131,8 +122,18 @@ export async function forceRefreshPrinter(req: Request, res: Response) {
     // 3. Update Health
     if (isHealthy) {
        await redisConnection.set(healthKey, "healthy");
+       await redisConnection.set(`printer:${name}:strikes`, "0");
+       await redisConnection.set(`printer:${name}:state`, "idle");
+       
        // Pre-fetch supplies to update cache
        await adapter.getSupplies(); 
+       
+       const isPaused = await printMasterQueue.isPaused();
+       if (isPaused) {
+         await printMasterQueue.resume();
+         eventBus.emit("queue_resumed", { message: `Queue resumed. Printer ${name} is back online.` });
+       }
+       
        res.json({ success: true, status: "healthy", message: `Printer ${name} is healthy and refreshed.` });
     } else {
        await redisConnection.set(healthKey, "flagged");
