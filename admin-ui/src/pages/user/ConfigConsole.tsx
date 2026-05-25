@@ -3,18 +3,12 @@ import { useState, useEffect } from 'react';
 import { Settings, FileText, ChevronRight, ArrowLeft } from 'lucide-react';
 import { useUserPrintStore } from '../../stores/useUserPrintStore';
 import { CustomSelect } from '../../components/shared/CustomSelect';
+import { Button } from '../../components/shared/Button';
 
 export function ConfigConsole() {
   const { filePreview, copies, colorMode, duplex, orientation, updateConfig, generateQuote, reset, fleetCapabilities } = useUserPrintStore();
-  const [isGenerating, setIsGenerating] = useState(false);
 
   if (!filePreview) return null;
-
-  const handleGenerate = async () => {
-    setIsGenerating(true);
-    await generateQuote();
-    setIsGenerating(false);
-  };
 
   const hasColor = fleetCapabilities?.color ?? true;
   const hasDuplex = fleetCapabilities?.duplex ?? true;
@@ -45,9 +39,9 @@ export function ConfigConsole() {
               <h2>Job Manifest Configurator</h2>
               <p>Set hardware routing and styling parameters for payload</p>
           </div>
-          <button className="btn-ghost" onClick={reset}>
-              <ArrowLeft size={16} /> Cancel & Eject
-          </button>
+          <Button variant="ghost" onClick={reset} leftIcon={<ArrowLeft size={16} />}>
+              Cancel & Eject
+          </Button>
       </div>
 
       <div className="config-split">
@@ -133,13 +127,14 @@ export function ConfigConsole() {
           </div>
 
           <div className="config-action-bar">
-            <button 
-              className="btn-mechanical config-generate-btn" 
-              onClick={handleGenerate}
-              disabled={isGenerating}
+            <Button 
+              variant="mechanical"
+              className="config-generate-btn" 
+              onClick={generateQuote}
+              rightIcon={<ChevronRight size={24} />}
             >
-              {isGenerating ? 'Compiling Parameters...' : 'Generate Cost Quote'} <ChevronRight size={24} />
-            </button>
+              Generate Cost Quote
+            </Button>
           </div>
         </div>
       </div>

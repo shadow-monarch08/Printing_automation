@@ -38,7 +38,7 @@ function UserKioskPage() {
       <div className="offline-container" style={{ display: 'flex', flex: 1, flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', opacity: 0.8 }}>
         <AlertTriangle size={64} style={{ color: 'var(--danger)', marginBottom: '1rem' }} />
         <h2 className="offline-title">System Offline</h2>
-        <p className="offline-desc" style={{ color: 'var(--danger)' }}>No printers are currently available. Please check back later.</p>
+        <p className="offline-desc" style={{ color: 'var(--danger)', textAlign: "center" }}>No printers are currently available. Please check back later.</p>
       </div>
     );
   }

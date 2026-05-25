@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 import { useUserPrintStore } from '../../stores/useUserPrintStore';
 import { useSessionJobs } from '../../hooks/useSessionJobs';
 import { Printer, CheckCircle, Clock, AlertTriangle, PlusCircle } from 'lucide-react';
+import { Button } from '../../components/shared/Button';
 
 
 export function JobTracker() {
@@ -33,10 +34,9 @@ export function JobTracker() {
     <div style={{ flex: 1, display: 'flex', flexDirection: 'column', padding: '2rem 0' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
         <h2 style={{ fontSize: '1.75rem', margin: 0 }}>Session Job History</h2>
-        <button className="btn-mechanical" onClick={reset} style={{ padding: '0.5rem 1rem', display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
-          <PlusCircle size={18} />
+        <Button variant="mechanical" onClick={reset} leftIcon={<PlusCircle size={18} />} style={{ padding: '0.5rem 1rem' }}>
           Print Another
-        </button>
+        </Button>
       </div>
 
       {loading ? (
@@ -82,9 +82,9 @@ export function JobTracker() {
                     <div style={{ color: 'var(--text-primary)', fontWeight: 500 }}>
                       Hardware Error. We have paused your job. Please notify the shop staff.
                     </div>
-                    <button className="btn-ghost" style={{ color: 'var(--status-error)', border: '1px solid var(--status-error)', alignSelf: 'flex-start' }} onClick={reset}>
+                    <Button variant="ghost" style={{ color: 'var(--status-error)', border: '1px solid var(--status-error)', alignSelf: 'flex-start' }} onClick={reset}>
                       Cancel Job &amp; Start Over
-                    </button>
+                    </Button>
                   </div>
                 )}
               </div>

@@ -6,6 +6,7 @@ import { redisConnection } from "../../infrastructure/redis";
 import { eventBus } from "../utils/eventBus";
 import { PrinterFactory } from "../../factories/printer.factory";
 import { PrinterSupplyStatus } from "./supplies.service";
+import { removePrinterFromAttemptedJobs } from "../../infrastructure/printMaster.queue";
 
 const capabilitiesPath = path.resolve(__dirname, "../../config/capabilities.json");
 
@@ -427,7 +428,12 @@ export async function runComprehensiveHealthCheck(name: string): Promise<void> {
     }
 
     // 4. Finalize
+    const prevHealth = await redisConnection.get(`printer:${name}:health`);
     await redisConnection.set(`printer:${name}:health`, "healthy");
+
+    if (prevHealth !== "healthy") {
+      await removePrinterFromAttemptedJobs(name);
+    }
 
     const infoStr = await redisConnection.get(`printer:${name}:info`) || "{}";
     const info = JSON.parse(infoStr);

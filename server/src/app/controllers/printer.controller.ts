@@ -1,6 +1,6 @@
 import { Request, Response } from "express";
 import * as printerService from "../services/printer.service";
-import { printMasterQueue } from "../../infrastructure/printMaster.queue";
+import { printMasterQueue, removePrinterFromAttemptedJobs } from "../../infrastructure/printMaster.queue";
 
 /**
  * GET /printers
@@ -124,6 +124,9 @@ export async function forceRefreshPrinter(req: Request, res: Response) {
        await redisConnection.set(healthKey, "healthy");
        await redisConnection.set(`printer:${name}:strikes`, "0");
        await redisConnection.set(`printer:${name}:state`, "idle");
+       
+       // Remove printer from blacklist of all active/delayed jobs
+       await removePrinterFromAttemptedJobs(name);
        
        // Pre-fetch supplies to update cache
        await adapter.getSupplies(); 

@@ -2,11 +2,11 @@
 
 @keyframes receiptRoll {
   from {
-    transform: translateY(100%);
+    scale: 0.8;
     opacity: 0;
   }
   to {
-    transform: translateY(0);
+    scale: 1;
     opacity: 1;
   }
 }

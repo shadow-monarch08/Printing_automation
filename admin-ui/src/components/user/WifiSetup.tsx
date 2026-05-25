@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Wifi, Loader2, ShieldCheck, AlertCircle } from 'lucide-react';
+import { Button } from '../shared/Button';
 import '../../styles/wifi-setup.css';
 
 interface Network {
@@ -34,7 +35,7 @@ export function WifiSetup() {
     fetchNetworks();
   }, []);
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent | React.MouseEvent) => {
     e.preventDefault();
     if (!selectedSsid) return;
 
@@ -98,16 +99,16 @@ export function WifiSetup() {
                   <AlertCircle size={24} />
                 </div>
                 <p>{errorMsg}</p>
-                <button 
+                <Button 
                   onClick={fetchNetworks}
-                  className="btn-mechanical"
+                  variant="mechanical"
                   style={{ width: '100%' }}
                 >
                   Retry Scan
-                </button>
+                </Button>
               </div>
             ) : (
-              <form onSubmit={handleSubmit}>
+              <form onSubmit={(e) => e.preventDefault()}>
                 <div className="wifi-form-group">
                   <label className="wifi-form-label">
                     Select Network
@@ -144,13 +145,15 @@ export function WifiSetup() {
                   </div>
                 )}
 
-                <button 
-                  type="submit"
+                <Button 
+                  variant="mechanical"
                   disabled={!selectedSsid}
-                  className="btn-mechanical wifi-btn-submit"
+                  className="wifi-btn-submit"
+                  onClick={handleSubmit}
+                  style={{ width: '100%' }}
                 >
                   Connect Spooler
-                </button>
+                </Button>
               </form>
             )}
           </div>

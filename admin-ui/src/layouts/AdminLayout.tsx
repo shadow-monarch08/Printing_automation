@@ -4,6 +4,7 @@ import type { ReactNode } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import { Lock, LayoutDashboard, Printer, ListOrdered, Settings, LogOut, Menu, X } from 'lucide-react';
 import { useAdminStore } from '../stores/useAdminStore';
+import { Button } from '../components/shared/Button';
 
 export function AdminLayout({ children }: { children: ReactNode }) {
   const { isAuthenticated, authenticate, logout, checkAuth } = useAdminStore();
@@ -18,7 +19,7 @@ export function AdminLayout({ children }: { children: ReactNode }) {
     checkAuth().finally(() => setIsChecking(false));
   }, [checkAuth]);
 
-  const handleLogin = async (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent | React.MouseEvent) => {
     e.preventDefault();
     const success = await authenticate(pinInput);
     if (success) {
@@ -29,8 +30,8 @@ export function AdminLayout({ children }: { children: ReactNode }) {
     }
   };
 
-  const handleLogout = () => {
-    logout();
+  const handleLogout = async () => {
+    await logout();
     navigate('/');
   };
 
@@ -63,9 +64,9 @@ export function AdminLayout({ children }: { children: ReactNode }) {
           />
           {error && <p style={{ color: 'var(--status-error)', fontSize: '0.85rem', marginBottom: '1rem' }}>Invalid Authorization Code</p>}
           
-          <button type="submit" className="btn-mechanical" style={{ width: '100%' }}>
+          <Button variant="mechanical" onClick={handleLogin} style={{ width: '100%' }}>
             Authenticate
-          </button>
+          </Button>
         </form>
       </div>
     );
@@ -99,10 +100,10 @@ export function AdminLayout({ children }: { children: ReactNode }) {
         </nav>
 
         <div className="admin-sidebar-footer">
-           <button className="btn-ghost" onClick={handleLogout} style={{ width: '100%', color: 'var(--status-error)', borderColor: 'var(--status-error)' }}>
-              <LogOut size={18} /> Close Session
-           </button>
-        </div>
+            <Button variant="ghost" onClick={handleLogout} style={{ width: '100%', color: 'var(--status-error)', borderColor: 'var(--status-error)' }}>
+               <LogOut size={18} /> Close Session
+            </Button>
+         </div>
       </aside>
 
       {/* Main Content */}

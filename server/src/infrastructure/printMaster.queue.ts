@@ -26,3 +26,21 @@ export const printMasterQueue = new Queue<PrintJobData>("print-master", {
     removeOnFail: 500,
   },
 });
+
+export async function removePrinterFromAttemptedJobs(printerName: string): Promise<void> {
+  try {
+    const jobs = await printMasterQueue.getJobs(["waiting", "active", "delayed", "paused"]);
+    for (const job of jobs) {
+      if (job.data && job.data.attemptedPrinters && job.data.attemptedPrinters.includes(printerName)) {
+        const attemptedPrinters = job.data.attemptedPrinters.filter((name: string) => name !== printerName);
+        await job.updateData({
+          ...job.data,
+          attemptedPrinters,
+        });
+        console.log(`[Queue] Removed ${printerName} from attemptedPrinters for job ${job.id}`);
+      }
+    }
+  } catch (err) {
+    console.error(`[Queue] Failed to remove ${printerName} from attempted jobs:`, err);
+  }
+}
