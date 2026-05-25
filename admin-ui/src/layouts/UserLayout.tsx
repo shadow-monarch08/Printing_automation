@@ -24,7 +24,7 @@ export function UserLayout({ children }: { children: ReactNode }) {
         </button>
       </header>
       
-      <main className="user-main">
+      <main className="user-main" style={{ paddingBottom: '80px' }}>
         {children}
       </main>
 

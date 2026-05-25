@@ -68,7 +68,7 @@ export function JobTracker() {
                     <h3 style={{ margin: '0 0 0.5rem 0', fontSize: '1.15rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                       {job.filename}
                     </h3>
-                    <div style={{ display: 'flex', gap: '1.5rem', fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '1rem', fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
                       <div><strong style={{ color: 'var(--text-primary)' }}>Cost:</strong> ${job.cost.toFixed(2)}</div>
                       <div><strong style={{ color: 'var(--text-primary)' }}>Color:</strong> <span style={{ textTransform: 'capitalize' }}>{job.colorMode}</span></div>
                       <div><strong style={{ color: 'var(--text-primary)' }}>Duplex:</strong> <span style={{ textTransform: 'capitalize' }}>{job.duplex}</span></div>
