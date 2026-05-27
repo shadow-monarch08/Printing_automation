@@ -195,26 +195,27 @@ export function Queue() {
           </thead>
           <tbody>
             {isLoadingQueue ? (
-              <tr>
+              <tr className="loading-row">
                 <td colSpan={6} style={{ padding: '3rem 0' }}>
                   <LoadingNet message="Synchronizing print queue..." />
                 </td>
               </tr>
             ) : queue.map(job => (
               <tr key={job.id}>
-                <td className="data-mono" title={job.id}>{job.id.substring(0, 8)}...</td>
-                <td style={{ maxWidth: '200px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{job.filename}</td>
-                <td>{job.owner}</td>
-                <td>
+                <td className="data-mono" title={job.id} data-label="Job ID">{job.id.substring(0, 8)}...</td>
+                <td className="filename-cell" data-label="Document">{job.filename}</td>
+                <td data-label="Owner">{job.owner}</td>
+                <td data-label="Status">
                   <span className={`badge badge-${job.status}`}>
                     {job.status}
                   </span>
                 </td>
-                <td style={{ color: 'var(--text-secondary)' }}>{job.targetPrinter}</td>
-                <td style={{ textAlign: 'right' }}>
+                <td className="target-printer-cell" data-label="Hardware Target">{job.targetPrinter}</td>
+                <td className="actions-cell" data-label="Actions">
                    <div style={{ display: 'inline-flex', gap: '0.5rem' }}>
                       <Button 
                          variant="ghost" 
+                         className="btn-action-mobile"
                          style={{ padding: '0.4rem', minWidth: '36px' }} 
                          onClick={() => handlePrioritize(job.id)}
                          title="Prioritize"
@@ -227,6 +228,7 @@ export function Queue() {
                       {job.status === 'paused' ? (
                         <Button 
                            variant="ghost" 
+                           className="btn-action-mobile"
                            style={{ padding: '0.4rem', minWidth: '36px' }} 
                            onClick={() => handleResume(job.id)}
                            title="Resume"
@@ -237,6 +239,7 @@ export function Queue() {
                       ) : (
                         <Button 
                            variant="ghost" 
+                           className="btn-action-mobile"
                            style={{ padding: '0.4rem', minWidth: '36px' }} 
                            onClick={() => handlePause(job.id)}
                            title="Pause"
@@ -249,6 +252,7 @@ export function Queue() {
 
                       <Button 
                          variant="ghost" 
+                         className="btn-action-mobile"
                          style={{ padding: '0.4rem', color: 'var(--status-error)', minWidth: '36px' }} 
                          onClick={() => handleCancelClick(job.id)}
                          title="Cancel"
@@ -260,7 +264,7 @@ export function Queue() {
               </tr>
             ))}
             {!isLoadingQueue && queue.length === 0 && (
-              <tr>
+              <tr className="empty-row">
                 <td colSpan={6} style={{ textAlign: 'center', padding: '3rem', color: 'var(--text-muted)' }}>
                   Queue is completely empty.
                 </td>
