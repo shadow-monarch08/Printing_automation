@@ -1,6 +1,7 @@
 import { Request, Response } from "express";
 import * as printerService from "../services/printer.service";
 import { printMasterQueue, removePrinterFromAttemptedJobs } from "../../infrastructure/printMaster.queue";
+import { cupsCommands } from "../../commands/cups.commands";
 
 /**
  * GET /printers
@@ -129,7 +130,8 @@ export async function forceRefreshPrinter(req: Request, res: Response) {
        await removePrinterFromAttemptedJobs(name);
        
        // Pre-fetch supplies to update cache
-       await adapter.getSupplies(); 
+       const supplies = await adapter.getSupplies(); 
+       await redisConnection.setex(`supplies:${name}`, 300, JSON.stringify(supplies));
        
        const isPaused = await printMasterQueue.isPaused();
        if (isPaused) {
@@ -169,21 +171,40 @@ export async function configurePrinter(req: Request, res: Response) {
     let queueName = rawModel.replace(/[^a-zA-Z0-9]/g, "_").replace(/_+/g, "_");
     if (uri.includes("ipp://")) {
       await printerService.configureIppPrinter(queueName, uri);
-    } else {
+    } else if (uri.startsWith("hp:/")) {
       await printerService.configureHpPrinter(uri, rawModel);
+    } else {
+      // Generic USB (including usb://HP/, usb://Epson/, etc.) → lpadmin
+      await printerService.configureGenericUsbPrinter(queueName, uri);
     }
     
     // Probe capabilities using lpoptions
     const capabilities = await printerService.probePrinterCapabilities(queueName);
     
     const config = await printerService.getCapabilitiesConfig();
+    const printerType = uri.includes("ipp://") ? "ipp" : uri.startsWith("hp:/") ? "usb" : "usb";
+    
     if (!config[queueName]) {
-      config[queueName] = { capabilities: capabilities, type: uri.includes("ipp://") ? "ipp" : "usb", alias: rawModel };
+      config[queueName] = { capabilities: capabilities, type: printerType, alias: rawModel };
     } else {
       config[queueName].capabilities = capabilities;
     }
     
     await printerService.updateCapabilitiesConfig(config);
+
+    // ── Universal Redis Handshake ──
+    const printerInfo = {
+      name: queueName,
+      alias: rawModel,
+      capabilities: capabilities,
+      type: printerType,
+    };
+
+    await redisConnection.sadd("fleet:printers", queueName);
+    await redisConnection.set(`printer:${queueName}:health`, "healthy");
+    await redisConnection.set(`printer:${queueName}:state`, "idle");
+    await redisConnection.set(`printer:${queueName}:strikes`, "0");
+    await redisConnection.set(`printer:${queueName}:info`, JSON.stringify(printerInfo));
 
     // Emit SSE event to force frontend reload
     eventBus.emit("printer_discovery", { timestamp: new Date().toISOString() });
@@ -263,5 +284,31 @@ export async function getKioskStatus(req: Request, res: Response) {
       fleetCapabilities: { color: false, duplex: false },
       error: String(err)
     });
+  }
+}
+
+export async function deletePrinter(req: Request, res: Response) {
+  const name = req.params.name as string;
+
+  try {
+    // 1. OS Level — Remove CUPS queue
+    await cupsCommands.deletePrinter(name);
+
+    // 2. Cache Level — Purge ALL Redis keys
+    await redisConnection.srem("fleet:printers", name);
+    await redisConnection.del(
+      `printer:${name}:health`,
+      `printer:${name}:state`,
+      `printer:${name}:strikes`,
+      `printer:${name}:info`,
+      `supplies:${name}`
+    );
+
+    // 3. Notify frontend
+    eventBus.emit("printer_discovery", { timestamp: new Date().toISOString() });
+
+    res.json({ success: true, message: `Printer ${name} deleted.` });
+  } catch (err: any) {
+    res.status(500).json({ success: false, message: "Failed to delete printer", error: String(err) });
   }
 }

@@ -19,23 +19,13 @@ export const EMPTY_RESULT: PrinterSupplyStatus = {
 export async function getSupplies(printerName: string): Promise<PrinterSupplyStatus> {
   const cacheKey = `supplies:${printerName}`;
 
-  // 1. Redis cache check (5-minute TTL)
+  // 1. Redis cache check ONLY - no hardware fallback
   const cached = await redisConnection.get(cacheKey);
   if (cached) {
     return JSON.parse(cached) as PrinterSupplyStatus;
   }
 
-  // 2. Resolve adapter
-  const adapter = await PrinterFactory.getAdapter(printerName);
-  let result: PrinterSupplyStatus = { ...EMPTY_RESULT };
-
-  if (adapter) {
-    result = await adapter.getSupplies();
-  }
-
-  // 3. Cache result for 1 minute
-  await redisConnection.setex(cacheKey, 60, JSON.stringify(result));
-
-  return result;
+  // Cache miss -> return empty (heartbeat will populate on next sweep)
+  return { ...EMPTY_RESULT };
 }
 

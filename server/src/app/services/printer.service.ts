@@ -352,6 +352,14 @@ export async function configureIppPrinter(queueName: string, uri: string): Promi
 }
 
 /**
+ * Phase 6: Auto-configure a generic USB printer via lpadmin.
+ */
+export async function configureGenericUsbPrinter(queueName: string, uri: string): Promise<void> {
+  console.log(`[configureGenericUsbPrinter] Configuring USB device: ${uri} as ${queueName}`);
+  await cupsCommands.addUsbPrinter(queueName, uri);
+}
+
+/**
  * Phase 6: Probe printer capabilities using lpoptions -l.
  */
 export async function probePrinterCapabilities(queueName: string): Promise<string[]> {

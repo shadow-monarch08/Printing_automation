@@ -32,11 +32,13 @@ export class PrinterFactory {
       return new IppModernAdapter(printerName, uri);
     } else if (lowerUri.startsWith("socket://") || lowerUri.startsWith("lpd://")) {
       return new SnmpAdapter(printerName, uri);
-    } else if (lowerUri.includes("usb://hp") || lowerUri.startsWith("hp:/usb/")) {
+    } else if (lowerUri.startsWith("hp:/")) {
+      // HPLIP-native URI → uses hp-setup / hp-levels
       return new HpLegacyAdapter(printerName, uri);
-    } else if (lowerUri.includes("usb://epson")) {
+    } else if (lowerUri.startsWith("usb://epson")) {
       return new EpsonLegacyAdapter(printerName, uri);
     } else if (lowerUri.startsWith("usb://")) {
+      // ALL other USB (including usb://HP/) → standard CUPS lpadmin
       return new GenericUsbAdapter(printerName, uri);
     }
 
