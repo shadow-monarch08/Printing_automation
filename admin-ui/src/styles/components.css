@@ -12,7 +12,7 @@
 }
 
 /* Mechanical Buttons */
-.btn-mechanical, .btn-danger, .btn-ghost {
+.btn-mechanical, .btn-danger, .btn-ghost, .btn-primary {
   font-family: 'IBM Plex Sans', sans-serif;
   font-weight: 600;
   font-size: 0.95rem;
@@ -56,13 +56,30 @@
   box-shadow: none; /* No shadow */
 }
 .btn-ghost:hover:not(:disabled) {
+  background: var(--bg-surface-hover);
   border-color: var(--border-active);
+  color: var(--text-primary);
+}
+.btn-ghost:focus:not(:disabled) {
+  outline: none;
+  border-color: var(--border-active);
+  box-shadow: 0 0 0 3px var(--input-focus-glow);
 }
 .btn-ghost:active:not(:disabled) {
   transform: translateY(2px);
 }
 
-.btn-mechanical:disabled, .btn-danger:disabled, .btn-ghost:disabled {
+.btn-primary {
+  background: var(--accent-primary);
+  color: var(--bg-primary);
+  box-shadow: 0 4px 0 var(--accent-secondary);
+}
+.btn-primary:active:not(:disabled) {
+  transform: translateY(2px);
+  box-shadow: 0 1px 0 var(--accent-secondary);
+}
+
+.btn-mechanical:disabled, .btn-danger:disabled, .btn-ghost:disabled, .btn-primary:disabled {
   opacity: 0.5;
   cursor: not-allowed;
   transform: none;

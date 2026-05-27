@@ -77,10 +77,33 @@ export const Button: React.FC<ButtonProps> = ({
       onClick={handleClick}
       {...props}
     >
-      {showLoading && <Loader2 className="btn-spinner" size={16} />}
-      {!showLoading && leftIcon && <span className="btn-icon">{leftIcon}</span>}
-      <span style={{ opacity: showLoading ? 0.8 : 1, display: 'inline-flex', alignItems: 'center', gap: '0.5rem' }}>{children}</span>
-      {!showLoading && rightIcon && <span className="btn-icon">{rightIcon}</span>}
+      {showLoading && (
+        <span style={{
+          position: 'absolute',
+          inset: 0,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          backdropFilter: 'blur(4px)',
+          WebkitBackdropFilter: 'blur(4px)',
+          backgroundColor: 'rgba(128, 128, 128, 0.1)',
+          borderRadius: 'inherit',
+          zIndex: 10
+        }}>
+          <Loader2 className="btn-spinner" size={20} />
+        </span>
+      )}
+      <span style={{ 
+        display: 'inline-flex', 
+        alignItems: 'center', 
+        gap: '0.5rem',
+        opacity: showLoading ? 0.5 : 1,
+        transition: 'opacity 0.2s'
+      }}>
+        {leftIcon && <span className="btn-icon">{leftIcon}</span>}
+        {children}
+        {rightIcon && <span className="btn-icon">{rightIcon}</span>}
+      </span>
     </button>
   );
 };

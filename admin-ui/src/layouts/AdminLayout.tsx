@@ -2,7 +2,7 @@
 import { useState, useEffect } from 'react';
 import type { ReactNode } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
-import { Lock, LayoutDashboard, Printer, ListOrdered, Settings, LogOut, Menu, X } from 'lucide-react';
+import { Lock, LayoutDashboard, Printer, ListOrdered, Settings, LogOut, Menu, X, Sun, Moon } from 'lucide-react';
 import { useAdminStore } from '../stores/useAdminStore';
 import { Button } from '../components/shared/Button';
 
@@ -11,7 +11,15 @@ export function AdminLayout({ children }: { children: ReactNode }) {
   const [pinInput, setPinInput] = useState('');
   const [error, setError] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [theme, setTheme] = useState(() => document.documentElement.getAttribute('data-theme') || 'dark');
   const navigate = useNavigate();
+
+  const toggleTheme = () => {
+    const newTheme = theme === 'dark' ? 'light' : 'dark';
+    document.documentElement.setAttribute('data-theme', newTheme);
+    localStorage.setItem('printTheme', newTheme);
+    setTheme(newTheme);
+  };
 
   const [isChecking, setIsChecking] = useState(true);
 
@@ -100,6 +108,9 @@ export function AdminLayout({ children }: { children: ReactNode }) {
         </nav>
 
         <div className="admin-sidebar-footer">
+            <Button variant="ghost" onClick={toggleTheme} style={{ width: '100%', marginBottom: '0.5rem' }}>
+               {theme === 'dark' ? <><Sun size={18} style={{ marginRight: '0.5rem' }} /> Light Mode</> : <><Moon size={18} style={{ marginRight: '0.5rem' }} /> Dark Mode</>}
+            </Button>
             <Button variant="ghost" onClick={handleLogout} style={{ width: '100%', color: 'var(--status-error)', borderColor: 'var(--status-error)' }}>
                <LogOut size={18} /> Close Session
             </Button>
