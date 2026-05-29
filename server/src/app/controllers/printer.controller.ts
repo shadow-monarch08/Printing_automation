@@ -169,14 +169,11 @@ export async function configurePrinter(req: Request, res: Response) {
 
   try {
     let queueName = rawModel.replace(/[^a-zA-Z0-9]/g, "_").replace(/_+/g, "_");
-    if (uri.includes("ipp://")) {
-      await printerService.configureIppPrinter(queueName, uri);
-    } else if (uri.startsWith("hp:/")) {
-      await printerService.configureHpPrinter(uri, rawModel);
-    } else {
-      // Generic USB (including usb://HP/, usb://Epson/, etc.) → lpadmin
-      await printerService.configureGenericUsbPrinter(queueName, uri);
+    const adapter = PrinterFactory.getAdapterByUri(queueName, uri);
+    if (!adapter) {
+      return res.status(400).json({ success: false, message: `Unsupported printer type or invalid URI: ${uri}` });
     }
+    await adapter.configure(queueName);
     
     // Probe capabilities using lpoptions
     const capabilities = await printerService.probePrinterCapabilities(queueName);

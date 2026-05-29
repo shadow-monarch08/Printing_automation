@@ -1,5 +1,4 @@
 import { cupsCommands } from "../../commands/cups.commands";
-import { hpCommands } from "../../commands/hp.commands";
 import fs from "fs/promises";
 import path from "path";
 import { redisConnection } from "../../infrastructure/redis";
@@ -321,43 +320,7 @@ export async function getUnconfiguredPrinters(): Promise<Array<{ uri: string, ra
   }
 }
 
-/**
- * Phase 6: Auto-configure an HP printer via hp-setup.
- */
-export async function configureHpPrinter(uri: string, rawModel: string): Promise<void> {
-  // Sanitize model to be a valid CUPS queue name (alphanumeric and underscores)
-  const safeName = rawModel.replace(/[^a-zA-Z0-9]/g, "_").replace(/_+/g, "_");
 
-  console.log(`[configureHpPrinter] Auto-configuring HP device: ${uri}`);
-
-  // NOTE: This requires passwordless sudo for hp-setup
-  try {
-    await hpCommands.setupPrinter(uri);
-  } catch (err: any) {
-    console.warn(`[configureHpPrinter] hp-setup had warnings/errors: ${err}`);
-  }
-}
-
-/**
- * Phase 6: Auto-configure an IPP printer via lpadmin.
- */
-export async function configureIppPrinter(queueName: string, uri: string): Promise<void> {
-  console.log(`[configureIppPrinter] Auto-configuring IPP device: ${uri} as ${queueName}`);
-  try {
-    await cupsCommands.addIppPrinter(queueName, uri);
-  } catch (err: any) {
-    console.warn(`[configureIppPrinter] lpadmin had warnings/errors: ${err}`);
-    throw err;
-  }
-}
-
-/**
- * Phase 6: Auto-configure a generic USB printer via lpadmin.
- */
-export async function configureGenericUsbPrinter(queueName: string, uri: string): Promise<void> {
-  console.log(`[configureGenericUsbPrinter] Configuring USB device: ${uri} as ${queueName}`);
-  await cupsCommands.addUsbPrinter(queueName, uri);
-}
 
 /**
  * Phase 6: Probe printer capabilities using lpoptions -l.

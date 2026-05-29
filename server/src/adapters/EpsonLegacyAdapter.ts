@@ -1,6 +1,7 @@
 import { IPrinterAdapter } from "./IPrinterAdapter";
 import { PrinterSupplyStatus } from "../app/services/supplies.service";
 import { systemCommands } from "../commands/system.commands";
+import { cupsCommands } from "../commands/cups.commands";
 
 export class EpsonLegacyAdapter implements IPrinterAdapter {
   constructor(private printerName: string, private uri: string) {}
@@ -56,6 +57,6 @@ export class EpsonLegacyAdapter implements IPrinterAdapter {
   }
 
   async configure(name: string): Promise<void> {
-    throw new Error("Configuration not implemented for generic Epson USB yet.");
+    await cupsCommands.addUsbPrinter(name, this.uri);
   }
 }

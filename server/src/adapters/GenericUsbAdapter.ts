@@ -1,6 +1,7 @@
 import { IPrinterAdapter } from "./IPrinterAdapter";
 import { PrinterSupplyStatus } from "../app/services/supplies.service";
 import { systemCommands } from "../commands/system.commands";
+import { cupsCommands } from "../commands/cups.commands";
 
 export class GenericUsbAdapter implements IPrinterAdapter {
   constructor(private printerName: string, private uri: string) {}
@@ -37,6 +38,6 @@ export class GenericUsbAdapter implements IPrinterAdapter {
   }
 
   async configure(name: string): Promise<void> {
-    throw new Error("Configuration not implemented for generic USB yet.");
+    await cupsCommands.addUsbPrinter(name, this.uri);
   }
 }
