@@ -4,7 +4,7 @@ import { api } from '../services/api';
 import { apiClient } from '../services/apiClient';
 import type { BackendPrinter, BackendJob, BackendMetrics, PricingConfig, SSEEvent, MetricSnapshot } from '../types';
 
-interface AdminState {
+export interface AdminState {
   isAuthenticated: boolean;
   authenticate: (pin: string) => Promise<boolean>;
   logout: () => Promise<void>;
@@ -39,7 +39,7 @@ interface AdminState {
   loadMetricsHistory: () => Promise<void>;
 
   isDetecting: boolean;
-  detectedDevices: { uri: string; makeModel: string }[];
+  detectedDevices: { uri: string; rawModel: string }[];
   detectLegacyPrinter: () => Promise<void>;
 
   pricingConfig: PricingConfig | null;

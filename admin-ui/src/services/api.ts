@@ -92,7 +92,7 @@ export const api = {
   },
 
   detectLegacyPrinter: async () => {
-    const res = await apiClient.get<{ success: boolean; devices: { uri: string; makeModel: string }[] }>('/printers/detect-legacy');
+    const res = await apiClient.get<{ success: boolean; devices: { uri: string; rawModel: string }[] }>('/printers/detect-legacy');
     return res;
   },
 

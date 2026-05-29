@@ -50,32 +50,33 @@ const AliasModalBody = ({ printerName, currentAlias, closeModal }: { printerName
   );
 };
 
-const SetupWizardModalBody = ({ device, closeModal }: { device: any, closeModal: () => void }) => {
+const SetupWizardModalBody = ({ device, closeModal }: { device: {uri: string, rawModel: string}, closeModal: () => void }) => {
   const { loadPrinters, updatePrinterCapabilities } = useAdminStore();
   const { addToast } = useToast();
-  
+
   const [step, setStep] = useState(1);
-  const [alias, setAlias] = useState(device.makeModel);
+  const [alias, setAlias] = useState(device.rawModel);
   const [isConfiguring, setIsConfiguring] = useState(false);
-  
+
   const [queueName, setQueueName] = useState("");
   const [capabilities, setCapabilities] = useState<string[]>([]);
 
   const handleConfigure = async () => {
     setIsConfiguring(true);
     try {
-      const res = await api.configurePrinter(device.uri, device.makeModel);
+      console.log(device);
+      const res = await api.configurePrinter(device.uri, device.rawModel);
       if (res.success && res.queueName) {
         setQueueName(res.queueName);
-        
-        if (alias !== device.makeModel) {
+
+        if (alias !== device.rawModel) {
           await api.updateAlias(res.queueName, alias);
         }
 
         await loadPrinters();
         const newPrinter = useAdminStore.getState().printers.find(p => p.name === res.queueName);
         if (newPrinter && newPrinter.capabilities) {
-           setCapabilities(newPrinter.capabilities);
+          setCapabilities(newPrinter.capabilities);
         }
 
         setStep(2);
@@ -97,11 +98,11 @@ const SetupWizardModalBody = ({ device, closeModal }: { device: any, closeModal:
       const success = await updatePrinterCapabilities(queueName, capabilities);
       if (success) {
         addToast({ type: 'success', title: 'Setup Complete', description: `${alias} is ready to use.` });
-        
+
         useAdminStore.setState(state => ({
           detectedDevices: state.detectedDevices.filter(d => d.uri !== device.uri)
         }));
-        
+
         closeModal();
       } else {
         addToast({ type: 'error', title: 'Update Failed', description: 'Failed to save capabilities.' });
@@ -126,7 +127,7 @@ const SetupWizardModalBody = ({ device, closeModal }: { device: any, closeModal:
             Provide a friendly name for this hardware. The driver will be automatically selected based on the device model.
           </p>
         </div>
-        
+
         <div>
           <label className="custom-select-label" style={{ display: 'block', marginBottom: '0.5rem' }}>Alias Name</label>
           <input
@@ -142,7 +143,7 @@ const SetupWizardModalBody = ({ device, closeModal }: { device: any, closeModal:
         <div style={{ background: 'var(--bg-surface-alt)', padding: '1rem', borderRadius: '4px', fontSize: '0.85rem' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
             <span style={{ color: 'var(--text-secondary)' }}>Detected Model</span>
-            <span className="data-mono">{device.makeModel}</span>
+            <span className="data-mono">{device.rawModel}</span>
           </div>
           <div style={{ display: 'flex', justifyContent: 'space-between' }}>
             <span style={{ color: 'var(--text-secondary)' }}>Hardware URI</span>
@@ -178,8 +179,8 @@ const SetupWizardModalBody = ({ device, closeModal }: { device: any, closeModal:
         </label>
         <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer' }}>
           <input type="checkbox" checked={capabilities.includes('grayscale') && !capabilities.includes('color')} onChange={() => {
-              if (capabilities.includes('color')) return; // Color implies grayscale
-              toggleCapability('grayscale');
+            if (capabilities.includes('color')) return; // Color implies grayscale
+            toggleCapability('grayscale');
           }} disabled={capabilities.includes('color')} />
           <span style={{ opacity: capabilities.includes('color') ? 0.5 : 1 }}>Grayscale Only</span>
         </label>
@@ -193,7 +194,7 @@ const SetupWizardModalBody = ({ device, closeModal }: { device: any, closeModal:
   );
 };
 
-const ConfigureDeviceButton = ({ device }: { device: any }) => {
+const ConfigureDeviceButton = ({ device }: { device: {uri: string, rawModel: string} }) => {
   const { openModal, closeModal } = useModal();
   return (
     <Button
@@ -227,12 +228,12 @@ const RefreshPrinterButton = ({ printerName }: { printerName: string }) => {
         try {
           const success = await forceRefreshPrinter(printerName);
           if (success) {
-             addToast({ type: 'success', title: 'Refreshed', description: `Health status for ${printerName} updated.` });
+            addToast({ type: 'success', title: 'Refreshed', description: `Health status for ${printerName} updated.` });
           } else {
-             addToast({ type: 'error', title: 'Refresh Failed', description: `Failed to refresh ${printerName}.` });
+            addToast({ type: 'error', title: 'Refresh Failed', description: `Failed to refresh ${printerName}.` });
           }
         } catch (e: any) {
-           addToast({ type: 'error', title: 'Refresh Error', description: e.message || 'Unknown error' });
+          addToast({ type: 'error', title: 'Refresh Error', description: e.message || 'Unknown error' });
         } finally {
           setIsRefreshing(false);
         }
@@ -399,7 +400,7 @@ export function Fleet() {
             {useAdminStore.getState().detectedDevices.map(device => (
               <div key={device.uri} className="card" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '1rem' }}>
                 <div style={{ minWidth: 0 }}>
-                  <h3 style={{ margin: '0 0 0.25rem 0', fontSize: '1rem' }}>{device.makeModel}</h3>
+                  <h3 style={{ margin: '0 0 0.25rem 0', fontSize: '1rem' }}>{device.rawModel}</h3>
                   <div className="data-mono" style={{ color: 'var(--text-secondary)', fontSize: '0.75rem', overflow: 'hidden', textOverflow: 'ellipsis' }}>{device.uri}</div>
                 </div>
                 <ConfigureDeviceButton device={device} />
