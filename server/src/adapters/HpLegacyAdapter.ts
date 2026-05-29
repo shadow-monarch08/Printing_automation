@@ -60,6 +60,6 @@ export class HpLegacyAdapter implements IPrinterAdapter {
   }
 
   async configure(name: string): Promise<void> {
-    await hpCommands.setupPrinter(this.uri);
+    await hpCommands.setupPrinter(this.uri, name);
   }
 }

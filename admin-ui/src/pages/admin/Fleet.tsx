@@ -7,6 +7,8 @@ import { LoadingNet } from '../../components/shared/LoadingNet';
 import { useModal } from '../../context/ModalContext';
 import { Button } from '../../components/shared/Button';
 import { useState } from 'react';
+import { ValidatedInput } from '../../components/shared/ValidatedInput';
+import { validateRequired } from '../../utils/validationRules';
 
 const AliasModalBody = ({ printerName, currentAlias, closeModal }: { printerName: string, currentAlias?: string, closeModal: () => void }) => {
   const { updatePrinterAlias } = useAdminStore();
@@ -14,22 +16,21 @@ const AliasModalBody = ({ printerName, currentAlias, closeModal }: { printerName
   const [newAlias, setNewAlias] = useState(currentAlias || '');
   const [isSaving, setIsSaving] = useState(false);
 
+  const isFormValid = validateRequired(newAlias, 'Alias Name') === null;
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-      <div>
-        <label className="custom-select-label" style={{ display: 'block', marginBottom: '0.5rem' }}>Alias Name</label>
-        <input
-          type="text"
-          className="input-field"
-          value={newAlias}
-          onChange={(e) => setNewAlias(e.target.value)}
-          placeholder="e.g. Front Desk Printer"
-          autoFocus
-        />
-      </div>
+      <ValidatedInput
+        label="Alias Name"
+        value={newAlias}
+        onChange={setNewAlias}
+        placeholder="e.g. Front Desk Printer"
+        validateFn={(val) => validateRequired(val, 'Alias Name')}
+      />
       <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '1rem', marginTop: '1.5rem' }}>
         <Button variant="ghost" onClick={closeModal}>Cancel</Button>
-        <Button variant="mechanical" isLoading={isSaving} onClick={async () => {
+        <Button variant="mechanical" isLoading={isSaving} disabled={!isFormValid} onClick={async () => {
+          if (!isFormValid) return;
           setIsSaving(true);
           try {
             const success = await updatePrinterAlias(printerName, newAlias);
@@ -58,10 +59,13 @@ const SetupWizardModalBody = ({ device, closeModal }: { device: {uri: string, ra
   const [alias, setAlias] = useState(device.rawModel);
   const [isConfiguring, setIsConfiguring] = useState(false);
 
+  const isFormValid = validateRequired(alias, 'Alias Name') === null;
+
   const [queueName, setQueueName] = useState("");
   const [capabilities, setCapabilities] = useState<string[]>([]);
 
   const handleConfigure = async () => {
+    if (!isFormValid) return;
     setIsConfiguring(true);
     try {
       console.log(device);
@@ -128,17 +132,13 @@ const SetupWizardModalBody = ({ device, closeModal }: { device: {uri: string, ra
           </p>
         </div>
 
-        <div>
-          <label className="custom-select-label" style={{ display: 'block', marginBottom: '0.5rem' }}>Alias Name</label>
-          <input
-            type="text"
-            className="input-field"
-            value={alias}
-            onChange={(e) => setAlias(e.target.value)}
-            placeholder="e.g. Front Desk Printer"
-            autoFocus
-          />
-        </div>
+        <ValidatedInput
+          label="Alias Name"
+          value={alias}
+          onChange={setAlias}
+          placeholder="e.g. Front Desk Printer"
+          validateFn={(val) => validateRequired(val, 'Alias Name')}
+        />
 
         <div style={{ background: 'var(--bg-surface-alt)', padding: '1rem', borderRadius: '4px', fontSize: '0.85rem' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
@@ -153,7 +153,7 @@ const SetupWizardModalBody = ({ device, closeModal }: { device: {uri: string, ra
 
         <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '1rem', marginTop: '1rem' }}>
           <Button variant="ghost" onClick={closeModal}>Cancel</Button>
-          <Button variant="mechanical" isLoading={isConfiguring} onClick={handleConfigure}>Install Device</Button>
+          <Button variant="mechanical" isLoading={isConfiguring} disabled={!isFormValid} onClick={handleConfigure}>Install Device</Button>
         </div>
       </div>
     );

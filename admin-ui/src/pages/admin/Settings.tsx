@@ -8,6 +8,7 @@ import { api } from '../../services/api';
 import type { PricingConfig } from '../../types';
 import { LoadingNet } from '../../components/shared/LoadingNet';
 import { Button } from '../../components/shared/Button';
+import { ValidatedInput } from '../../components/shared/ValidatedInput';
 
 export function Settings() {
   const { pricingConfig, isLoadingPricing, loadPricingConfig, updatePricingConfig } = useAdminStore();
@@ -39,7 +40,15 @@ export function Settings() {
       setLocalConfig(prev => prev ? { ...prev, [key]: value } : null);
   };
 
+  const isFormValid = localConfig &&
+    localConfig.bwPerPage >= 0 &&
+    localConfig.colorPerPage >= 0 &&
+    localConfig.duplexDiscount >= 0 &&
+    localConfig.bulkThreshold >= 0 &&
+    localConfig.bulkDiscount >= 0;
+
   const handleSave = async () => {
+      if (!isFormValid) return;
       setIsSaving(true);
       try {
         const success = await updatePricingConfig(localConfig);
@@ -99,12 +108,12 @@ export function Settings() {
                   </label>
                   <div style={{ display: 'flex', alignItems: 'center' }}>
                       <span style={{ padding: '0.6rem 1rem', background: 'var(--bg-surface-alt)', border: '1px solid var(--input-border)', borderRight: 'none', borderRadius: '2px 0 0 2px', flexShrink: 0 }}>{localConfig.currency}</span>
-                      <input 
+                      <ValidatedInput 
                          type="number" 
-                         className="input-field" 
-                         style={{ borderRadius: '0 2px 2px 0' }}
-                         value={localConfig.bwPerPage} 
-                         onChange={e => handleChange('bwPerPage', Number(e.target.value))} 
+                         className="flex-input-override" 
+                         value={String(localConfig.bwPerPage)} 
+                         onChange={v => handleChange('bwPerPage', Number(v))} 
+                         validateFn={v => Number(v) < 0 ? 'Cannot be negative' : null}
                       />
                   </div>
                </div>
@@ -115,12 +124,12 @@ export function Settings() {
                   </label>
                   <div style={{ display: 'flex', alignItems: 'center' }}>
                       <span style={{ padding: '0.6rem 1rem', background: 'var(--bg-surface-alt)', border: '1px solid var(--input-border)', borderRight: 'none', borderRadius: '2px 0 0 2px', flexShrink: 0 }}>{localConfig.currency}</span>
-                      <input 
+                      <ValidatedInput 
                          type="number" 
-                         className="input-field" 
-                         style={{ borderRadius: '0 2px 2px 0' }}
-                         value={localConfig.colorPerPage} 
-                         onChange={e => handleChange('colorPerPage', Number(e.target.value))} 
+                         className="flex-input-override" 
+                         value={String(localConfig.colorPerPage)} 
+                         onChange={v => handleChange('colorPerPage', Number(v))} 
+                         validateFn={v => Number(v) < 0 ? 'Cannot be negative' : null}
                       />
                   </div>
                </div>
@@ -133,11 +142,11 @@ export function Settings() {
                   <label style={{ display: 'block', fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '0.5rem' }}>
                      Duplex Discount (%)
                   </label>
-                  <input 
+                  <ValidatedInput 
                      type="number" 
-                     className="input-field" 
-                     value={localConfig.duplexDiscount} 
-                     onChange={e => handleChange('duplexDiscount', Number(e.target.value))} 
+                     value={String(localConfig.duplexDiscount)} 
+                     onChange={v => handleChange('duplexDiscount', Number(v))} 
+                     validateFn={v => Number(v) < 0 ? 'Cannot be negative' : null}
                   />
                </div>
                <div />
@@ -146,11 +155,11 @@ export function Settings() {
                   <label style={{ display: 'block', fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '0.5rem' }}>
                      Bulk Volume Threshold (Pages)
                   </label>
-                  <input 
+                  <ValidatedInput 
                      type="number" 
-                     className="input-field" 
-                     value={localConfig.bulkThreshold} 
-                     onChange={e => handleChange('bulkThreshold', Number(e.target.value))} 
+                     value={String(localConfig.bulkThreshold)} 
+                     onChange={v => handleChange('bulkThreshold', Number(v))} 
+                     validateFn={v => Number(v) < 0 ? 'Cannot be negative' : null}
                   />
                </div>
                
@@ -158,18 +167,18 @@ export function Settings() {
                   <label style={{ display: 'block', fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '0.5rem' }}>
                      Bulk Volume Discount (%)
                   </label>
-                  <input 
+                  <ValidatedInput 
                      type="number" 
-                     className="input-field" 
-                     value={localConfig.bulkDiscount} 
-                     onChange={e => handleChange('bulkDiscount', Number(e.target.value))} 
+                     value={String(localConfig.bulkDiscount)} 
+                     onChange={v => handleChange('bulkDiscount', Number(v))} 
+                     validateFn={v => Number(v) < 0 ? 'Cannot be negative' : null}
                   />
                </div>
             </div>
          </div>
 
          <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
-            <Button variant="mechanical" onClick={handleSave} isLoading={isSaving} leftIcon={<Save size={18} />} style={{ padding: '0.75rem 2rem' }}>
+            <Button variant="mechanical" onClick={handleSave} isLoading={isSaving} disabled={!isFormValid} leftIcon={<Save size={18} />} style={{ padding: '0.75rem 2rem' }}>
                Compile Changes
             </Button>
             <Button variant="ghost" onClick={handleReset} leftIcon={<RefreshCw size={18} />}>

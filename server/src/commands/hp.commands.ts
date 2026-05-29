@@ -1,8 +1,9 @@
 import { runSecureCommand, runSecureCommandWithTimeout } from "../app/utils/exec";
 
 export const hpCommands = {
-  setupPrinter: async (uri: string) => {
-    return Promise.resolve(runSecureCommand('sudo', ['hp-setup', '-i', '-a', uri]));
+  setupPrinter: async (uri: string, printerName: string) => {
+    const args = ['-i', '-a', '-q', '-n', `--printer=${printerName}`, uri];
+    return Promise.resolve(runSecureCommand('sudo', ['hp-setup', ...args]));
   },
 
   getLevels: async (printerName: string) => {
