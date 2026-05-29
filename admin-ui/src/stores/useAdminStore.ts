@@ -19,6 +19,8 @@ export interface AdminState {
   setDefaultPrinter: (name: string) => Promise<boolean>;
   updatePrinterAlias: (name: string, alias: string) => Promise<boolean>;
   updatePrinterCapabilities: (name: string, capabilities: string[], type?: string) => Promise<boolean>;
+  deletePrinter: (name: string) => Promise<boolean>;
+  deleteAllPrinters: () => Promise<boolean>;
 
   queue: BackendJob[];
   isLoadingQueue: boolean;
@@ -148,6 +150,32 @@ export const useAdminStore = create<AdminState>((set, get) => ({
       const res = await api.updateCapabilities(name, capabilities, type);
       if (res.success) {
         get().loadPrinters(); // Refresh the printer list
+        return true;
+      }
+      return false;
+    } catch (e) {
+      console.error(e);
+      throw e;
+    }
+  },
+  deletePrinter: async (name: string) => {
+    try {
+      const res = await api.deletePrinter(name);
+      if (res.success) {
+        get().loadPrinters();
+        return true;
+      }
+      return false;
+    } catch (e) {
+      console.error(e);
+      throw e;
+    }
+  },
+  deleteAllPrinters: async () => {
+    try {
+      const res = await api.deleteAllPrinters();
+      if (res.success) {
+        get().loadPrinters();
         return true;
       }
       return false;

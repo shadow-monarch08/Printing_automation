@@ -146,5 +146,13 @@ export const api = {
 
   forceRefreshPrinter: async (printerName: string) => {
     return apiClient.post<{ success: boolean; status?: string; message?: string }>(`/printers/${encodeURIComponent(printerName)}/refresh`);
+  },
+
+  deletePrinter: async (printerName: string) => {
+    return apiClient.delete<{ success: boolean; message: string }>(`/printers/${encodeURIComponent(printerName)}`);
+  },
+
+  deleteAllPrinters: async () => {
+    return apiClient.delete<{ success: boolean; message: string }>('/printers');
   }
 };

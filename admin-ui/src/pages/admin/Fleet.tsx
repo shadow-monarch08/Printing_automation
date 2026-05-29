@@ -1,7 +1,7 @@
 import { useEffect } from 'react';
 import { useAdminStore } from '../../stores/useAdminStore';
 import { useToast } from '../../context/ToastContext';
-import { Printer, Usb, Wifi, Search, PlusCircle, Edit3, RefreshCw } from 'lucide-react';
+import { Printer, Usb, Wifi, Search, PlusCircle, Edit3, RefreshCw, Trash2 } from 'lucide-react';
 import { api } from '../../services/api';
 import { LoadingNet } from '../../components/shared/LoadingNet';
 import { useModal } from '../../context/ModalContext';
@@ -46,6 +46,72 @@ const AliasModalBody = ({ printerName, currentAlias, closeModal }: { printerName
             setIsSaving(false);
           }
         }}>Save Alias</Button>
+      </div>
+    </div>
+  );
+};
+
+const DeletePrinterModalBody = ({ printerName, closeModal }: { printerName: string, closeModal: () => void }) => {
+  const { deletePrinter } = useAdminStore();
+  const { addToast } = useToast();
+  const [isDeleting, setIsDeleting] = useState(false);
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+      <p style={{ margin: 0, color: 'var(--text-secondary)' }}>
+        Are you sure you want to delete <strong>{printerName}</strong>? This action cannot be undone and will remove it from the system queue.
+      </p>
+      <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '1rem', marginTop: '1.5rem' }}>
+        <Button variant="ghost" onClick={closeModal} disabled={isDeleting}>Cancel</Button>
+        <Button variant="mechanical" style={{ background: 'var(--status-error)', borderColor: 'var(--status-error)', color: 'var(--text-primary)' }} isLoading={isDeleting} onClick={async () => {
+          setIsDeleting(true);
+          try {
+            const success = await deletePrinter(printerName);
+            if (success) {
+              addToast({ type: 'success', title: 'Printer Deleted', description: `${printerName} has been removed.` });
+              closeModal();
+            } else {
+              addToast({ type: 'error', title: 'Deletion Failed', description: `Could not delete ${printerName}.` });
+            }
+          } catch (error: any) {
+            addToast({ type: 'error', title: 'Deletion Failed', description: error.message || 'Unknown error occurred.' });
+          } finally {
+            setIsDeleting(false);
+          }
+        }}>Delete Printer</Button>
+      </div>
+    </div>
+  );
+};
+
+const DeleteAllPrintersModalBody = ({ closeModal }: { closeModal: () => void }) => {
+  const { deleteAllPrinters } = useAdminStore();
+  const { addToast } = useToast();
+  const [isDeleting, setIsDeleting] = useState(false);
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+      <p style={{ margin: 0, color: 'var(--text-secondary)' }}>
+        Are you sure you want to delete <strong>all printers</strong>? This action cannot be undone and will completely clear the fleet.
+      </p>
+      <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '1rem', marginTop: '1.5rem' }}>
+        <Button variant="ghost" onClick={closeModal} disabled={isDeleting}>Cancel</Button>
+        <Button variant="mechanical" style={{ background: 'var(--status-error)', borderColor: 'var(--status-error)', color: 'var(--text-primary)' }} isLoading={isDeleting} onClick={async () => {
+          setIsDeleting(true);
+          try {
+            const success = await deleteAllPrinters();
+            if (success) {
+              addToast({ type: 'success', title: 'Fleet Cleared', description: `All printers have been removed.` });
+              closeModal();
+            } else {
+              addToast({ type: 'error', title: 'Deletion Failed', description: `Could not delete printers.` });
+            }
+          } catch (error: any) {
+            addToast({ type: 'error', title: 'Deletion Failed', description: error.message || 'Unknown error occurred.' });
+          } finally {
+            setIsDeleting(false);
+          }
+        }}>Delete All</Button>
       </div>
     </div>
   );
@@ -284,6 +350,21 @@ export function Fleet() {
     }
   };
 
+  const handleDeletePrinter = (printerName: string) => {
+    openModal({
+      title: 'Delete Printer',
+      content: <DeletePrinterModalBody printerName={printerName} closeModal={closeModal} />
+    });
+  };
+
+  const handleDeleteAllPrinters = () => {
+    openModal({
+      title: 'Delete All Printers',
+      content: <DeleteAllPrintersModalBody closeModal={closeModal} />
+    });
+  };
+
+
   const getPaperColor = (status: string) => {
     if (status === 'ready') return 'var(--text-primary)';
     if (status === 'empty') return 'var(--status-error)';
@@ -298,9 +379,14 @@ export function Fleet() {
           <h1 className="page-title">Hardware Fleet</h1>
           <p className="page-desc">Physical device topology and consumable levels</p>
         </div>
-        <Button variant="mechanical" onClick={handleDetect} isLoading={isDetecting} rightIcon={<Search size={18} />}>
-          Detect Legacy Hardware
-        </Button>
+        <div style={{ display: 'flex', gap: '1rem' }}>
+          <Button variant="ghost" onClick={handleDeleteAllPrinters} rightIcon={<Trash2 size={18} />}>
+            Delete All
+          </Button>
+          <Button variant="mechanical" onClick={handleDetect} isLoading={isDetecting} rightIcon={<Search size={18} />}>
+            Detect Legacy Hardware
+          </Button>
+        </div>
       </div>
 
       {isLoadingPrinters ? (
@@ -383,13 +469,21 @@ export function Fleet() {
                 </div>
               </div>
 
-              {!printer.isDefault && (
-                <Button variant="ghost" style={{ width: '100%' }} onClick={() => handleSetDefault(printer.name)}>
-                  Set as Default
+              <div style={{ display: 'flex', gap: '0.5rem', width: '100%' }}>
+                {!printer.isDefault ? (
+                  <Button variant="ghost" style={{ flex: 1 }} onClick={() => handleSetDefault(printer.name)}>
+                    Set as Default
+                  </Button>
+                ) : (
+                  <div style={{ flex: 1 }} />
+                )}
+                <Button variant="ghost" style={{ padding: '0.5rem', color: 'var(--status-error)' }} onClick={() => handleDeletePrinter(printer.name)}>
+                  <Trash2 size={18} />
                 </Button>
-              )}
+              </div>
             </div>
           ))}
+
         </div>
       )}
 

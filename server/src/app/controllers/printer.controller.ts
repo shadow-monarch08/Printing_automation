@@ -309,3 +309,39 @@ export async function deletePrinter(req: Request, res: Response) {
     res.status(500).json({ success: false, message: "Failed to delete printer", error: String(err) });
   }
 }
+
+export async function deleteAllPrinters(req: Request, res: Response) {
+  try {
+    const printerNames = await redisConnection.smembers("fleet:printers");
+    
+    if (printerNames.length === 0) {
+      return res.json({ success: true, message: "No printers to delete." });
+    }
+
+    for (const name of printerNames) {
+      // 1. OS Level — Remove CUPS queue
+      try {
+        await cupsCommands.deletePrinter(name);
+      } catch (e) {
+        console.warn(`[deleteAllPrinters] Failed to delete ${name} from CUPS:`, e);
+      }
+
+      // 2. Cache Level — Purge ALL Redis keys
+      await redisConnection.srem("fleet:printers", name);
+      await redisConnection.del(
+        `printer:${name}:health`,
+        `printer:${name}:state`,
+        `printer:${name}:strikes`,
+        `printer:${name}:info`,
+        `supplies:${name}`
+      );
+    }
+
+    // 3. Notify frontend
+    eventBus.emit("printer_discovery", { timestamp: new Date().toISOString() });
+
+    res.json({ success: true, message: `Deleted ${printerNames.length} printers.` });
+  } catch (err: any) {
+    res.status(500).json({ success: false, message: "Failed to delete all printers", error: String(err) });
+  }
+}
