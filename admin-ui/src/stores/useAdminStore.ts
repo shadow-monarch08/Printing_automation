@@ -356,16 +356,49 @@ export const useAdminStore = create<AdminState>((set, get) => ({
   handleSSEEvent: (event) => {
     const state = get();
     switch (event.type) {
+      // --- Phase 1: Silent Delta Merging ---
       case 'job_queued':
+        set((state) => {
+          const { type, ...jobData } = event as any;
+          return { queue: [jobData, ...state.queue] };
+        });
+        break;
       case 'job_active':
       case 'job_completed':
-      case 'job_failed':
-        state.loadQueue();
+        set((state) => ({
+          queue: state.queue.map(job => 
+            job.id === event.id 
+              ? { ...job, ...((event as any).data || {}), status: event.type === 'job_active' ? 'printing' : 'done' } 
+              : job
+          )
+        }));
         break;
-      case 'printer_discovery':
+      case 'job_failed':
+        set((state) => ({
+          queue: state.queue.map(job => 
+            job.id === event.id 
+              ? { ...job, status: 'failed', error: (event as any).reason || null } 
+              : job
+          )
+        }));
+        break;
       case 'printer_state_changed':
+        set((state) => ({
+          printers: state.printers.map(p => 
+            p.name === (event as any).printer 
+              ? { ...p, status: (event as any).state === 'flagged' ? 'error' : (event as any).state } 
+              : p
+          )
+        }));
+        break;
       case 'printer_quarantined':
-        state.loadPrinters();
+        set((state) => ({
+          printers: state.printers.map(p => 
+            p.name === (event as any).printer 
+              ? { ...p, status: 'error', description: (event as any).message || p.description } 
+              : p
+          )
+        }));
         break;
       case 'queue_paused':
         set({ isQueuePaused: true });
@@ -373,8 +406,19 @@ export const useAdminStore = create<AdminState>((set, get) => ({
       case 'queue_resumed':
         set({ isQueuePaused: false });
         break;
+
+      // --- Phase 2: Full HTTP Reloads ---
+      case 'printer_discovery':
+        state.loadPrinters();
+        break;
       case 'system_critical':
         state.checkQueueStatus();
+        state.loadMetrics();
+        state.loadQueue();
+        break;
+      case 'connected':
+        state.loadPrinters();
+        state.loadQueue();
         state.loadMetrics();
         break;
     }

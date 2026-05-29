@@ -189,13 +189,39 @@ export const useUserPrintStore = create<UserPrintState>()(
       handleSSEEvent: (event) => {
         const { jobId, reset, fetchJobs } = get();
         
-        if (['job_queued', 'job_active', 'job_completed', 'job_failed'].includes(event.type)) {
-          fetchJobs();
+        // --- Phase 1: Silent Delta Merging ---
+        if (event.type === 'job_queued') {
+          set((state) => {
+            const { type, ...jobData } = event as any;
+            return { jobs: [jobData, ...state.jobs] };
+          });
+        } else if (event.type === 'job_active' || event.type === 'job_completed') {
+          set((state) => ({
+            jobs: state.jobs.map(job => 
+              job.id === event.id 
+                ? { ...job, ...((event as any).data || {}), status: event.type === 'job_active' ? 'printing' : 'done' } 
+                : job
+            )
+          }));
+        } else if (event.type === 'job_failed') {
+          set((state) => ({
+            jobs: state.jobs.map(job => 
+              job.id === event.id 
+                ? { ...job, status: 'failed', error: (event as any).reason || null } 
+                : job
+            )
+          }));
         }
         
         if (event.type === 'queue_paused') {
           set({ isAcceptingJobs: false });
         } else if (event.type === 'queue_resumed') {
+          get().fetchKioskStatus();
+        }
+
+        // --- Phase 2: Full HTTP Reloads ---
+        if (event.type === 'connected') {
+          fetchJobs();
           get().fetchKioskStatus();
         }
 
