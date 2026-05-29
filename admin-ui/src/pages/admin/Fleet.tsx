@@ -9,6 +9,7 @@ import { Button } from '../../components/shared/Button';
 import { useState } from 'react';
 import { ValidatedInput } from '../../components/shared/ValidatedInput';
 import { validateRequired } from '../../utils/validationRules';
+import { EmptyState } from '../../components/shared/EmptyState';
 
 const AliasModalBody = ({ printerName, currentAlias, closeModal }: { printerName: string, currentAlias?: string, closeModal: () => void }) => {
   const { updatePrinterAlias } = useAdminStore();
@@ -391,6 +392,12 @@ export function Fleet() {
 
       {isLoadingPrinters ? (
         <LoadingNet message="Scanning hardware topology..." />
+      ) : printers.length === 0 ? (
+        <EmptyState
+          icon={<Printer size={48} />}
+          title="Your fleet is empty"
+          description="Get started by detecting hardware or manually adding your first printer to track consumable levels and monitor activity."
+        />
       ) : (
         <div className="fleet-grid">
           {printers.map(printer => (
