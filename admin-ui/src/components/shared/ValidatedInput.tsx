@@ -11,6 +11,8 @@ export interface ValidatedInputProps {
   sanitizeFn?: (val: string) => string;
   validateFn?: (val: string) => string | null;
   className?: string; // Optional override/addition
+  addonLeft?: React.ReactNode;
+  addonRight?: React.ReactNode;
 }
 
 export function ValidatedInput({
@@ -24,6 +26,8 @@ export function ValidatedInput({
   sanitizeFn,
   validateFn,
   className = '',
+  addonLeft,
+  addonRight,
 }: ValidatedInputProps) {
   const [error, setError] = useState<string | null>(null);
   const [touched, setTouched] = useState<boolean>(false);
@@ -71,24 +75,68 @@ export function ValidatedInput({
           {label}
         </label>
       )}
-      <input
-        id={inputId}
-        name={name}
-        type={type}
-        className="input-field"
-        value={value}
-        onChange={handleChange}
-        onBlur={handleBlur}
-        placeholder={placeholder}
-        disabled={disabled}
-        aria-invalid={!!error}
-        aria-errormessage={error ? errorId : undefined}
-        style={{
-          width: '100%',
-          borderColor: error ? 'var(--status-error)' : undefined,
-          transition: 'border-color 0.2s ease, box-shadow 0.2s ease',
-        }}
-      />
+      <div style={{ display: 'flex', alignItems: 'stretch', width: '100%' }}>
+        {addonLeft && (
+          <span 
+            style={{ 
+              display: 'flex', 
+              alignItems: 'center', 
+              justifyContent: 'center', 
+              padding: '0.6rem 1rem', 
+              background: 'var(--bg-surface-alt)', 
+              border: '1px solid var(--input-border)', 
+              borderRight: 'none', 
+              borderRadius: '2px 0 0 2px', 
+              flexShrink: 0,
+              color: 'var(--text-primary)',
+              fontSize: '0.95rem',
+            }}
+          >
+            {addonLeft}
+          </span>
+        )}
+        <input
+          id={inputId}
+          name={name}
+          type={type}
+          className="input-field"
+          value={value}
+          onChange={handleChange}
+          onBlur={handleBlur}
+          placeholder={placeholder}
+          disabled={disabled}
+          aria-invalid={!!error}
+          aria-errormessage={error ? errorId : undefined}
+          style={{
+            width: '100%',
+            borderColor: error ? 'var(--status-error)' : undefined,
+            transition: 'border-color 0.2s ease, box-shadow 0.2s ease',
+            borderTopLeftRadius: addonLeft ? 0 : undefined,
+            borderBottomLeftRadius: addonLeft ? 0 : undefined,
+            borderTopRightRadius: addonRight ? 0 : undefined,
+            borderBottomRightRadius: addonRight ? 0 : undefined,
+          }}
+        />
+        {addonRight && (
+          <span 
+            style={{ 
+              display: 'flex', 
+              alignItems: 'center', 
+              justifyContent: 'center', 
+              padding: '0.6rem 1rem', 
+              background: 'var(--bg-surface-alt)', 
+              border: '1px solid var(--input-border)', 
+              borderLeft: 'none', 
+              borderRadius: '0 2px 2px 0', 
+              flexShrink: 0,
+              color: 'var(--text-primary)',
+              fontSize: '0.95rem',
+            }}
+          >
+            {addonRight}
+          </span>
+        )}
+      </div>
       
       {/* Error Message Container (Smooth CSS Transition via max-height) */}
       <div 

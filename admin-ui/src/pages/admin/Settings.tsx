@@ -106,32 +106,28 @@ export function Settings() {
                   <label style={{ display: 'block', fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '0.5rem' }}>
                      Base Rate (Black & White)
                   </label>
-                  <div style={{ display: 'flex', alignItems: 'center' }}>
-                      <span style={{ padding: '0.6rem 1rem', background: 'var(--bg-surface-alt)', border: '1px solid var(--input-border)', borderRight: 'none', borderRadius: '2px 0 0 2px', flexShrink: 0 }}>{localConfig.currency}</span>
-                      <ValidatedInput 
-                         type="number" 
-                         className="flex-input-override" 
-                         value={String(localConfig.bwPerPage)} 
-                         onChange={v => handleChange('bwPerPage', Number(v))} 
-                         validateFn={v => Number(v) < 0 ? 'Cannot be negative' : null}
-                      />
-                  </div>
+                  <ValidatedInput 
+                     type="number" 
+                     className="flex-input-override" 
+                     value={String(localConfig.bwPerPage)} 
+                     onChange={v => handleChange('bwPerPage', Number(v))} 
+                     validateFn={v => Number(v) < 0 ? 'Cannot be negative' : null}
+                     addonLeft={localConfig.currency}
+                  />
                </div>
                
                <div>
                   <label style={{ display: 'block', fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '0.5rem' }}>
                      Color Premium Rate
                   </label>
-                  <div style={{ display: 'flex', alignItems: 'center' }}>
-                      <span style={{ padding: '0.6rem 1rem', background: 'var(--bg-surface-alt)', border: '1px solid var(--input-border)', borderRight: 'none', borderRadius: '2px 0 0 2px', flexShrink: 0 }}>{localConfig.currency}</span>
-                      <ValidatedInput 
-                         type="number" 
-                         className="flex-input-override" 
-                         value={String(localConfig.colorPerPage)} 
-                         onChange={v => handleChange('colorPerPage', Number(v))} 
-                         validateFn={v => Number(v) < 0 ? 'Cannot be negative' : null}
-                      />
-                  </div>
+                  <ValidatedInput 
+                     type="number" 
+                     className="flex-input-override" 
+                     value={String(localConfig.colorPerPage)} 
+                     onChange={v => handleChange('colorPerPage', Number(v))} 
+                     validateFn={v => Number(v) < 0 ? 'Cannot be negative' : null}
+                     addonLeft={localConfig.currency}
+                  />
                </div>
             </div>
 
