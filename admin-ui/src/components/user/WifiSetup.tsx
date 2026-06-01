@@ -113,6 +113,7 @@ export function WifiSetup() {
   }, []);
 
   const handleNetworkClick = (net: WifiNetwork) => {
+    if (net.isActive) return;
     openModal({
       title: `Connect to ${net.ssid}`,
       content: (
@@ -147,6 +148,9 @@ export function WifiSetup() {
       </div>
     );
   }
+
+  const activeNetworks = networks.filter(n => n.isActive);
+  const availableNetworks = networks.filter(n => !n.isActive);
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem', flex: 1 }}>
@@ -185,19 +189,45 @@ export function WifiSetup() {
         </div>
       )}
 
+      {/* Connected Network */}
+      {status === 'ready' && activeNetworks.length > 0 && (
+        <div>
+          <h3 style={{ fontSize: '0.9rem', textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--text-secondary)', marginBottom: '0.75rem', fontWeight: 600 }}>Currently Connected</h3>
+          <div className="card" style={{ padding: '1rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between', border: '2px solid var(--status-idle)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+              <div style={{ background: 'rgba(56, 189, 113, 0.15)', padding: '0.6rem', borderRadius: '50%' }}>
+                <ShieldCheck size={28} style={{ color: 'var(--status-idle)' }} />
+              </div>
+              <div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                  <span className="data-mono" style={{ fontSize: '1.2rem', fontWeight: 700, color: 'var(--text-primary)' }}>{activeNetworks[0].ssid}</span>
+                  <span className="badge" style={{ background: 'var(--status-idle)', color: '#fff', fontSize: '0.7rem', padding: '0.2rem 0.5rem', textTransform: 'none' }}>Active Connection</span>
+                </div>
+                <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginTop: '0.25rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                  <Wifi size={14} />
+                  <span>Signal Strength: {activeNetworks[0].signal}%</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Network List Card */}
-      <div className="card" style={{ padding: '0.5rem', display: 'flex', flexDirection: 'column' }}>
+      <div>
+        <h3 style={{ fontSize: '0.9rem', textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--text-secondary)', marginBottom: '0.75rem', fontWeight: 600 }}>Available Networks</h3>
+        <div className="card" style={{ padding: '0.5rem', display: 'flex', flexDirection: 'column' }}>
         {status === 'scanning' && networks.length === 0 ? (
           <div style={{ padding: '4rem 2rem', textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1rem' }}>
             <Loader2 className="animate-spin" size={36} style={{ color: 'var(--accent-primary)' }} />
             <p style={{ color: 'var(--text-secondary)', margin: 0, fontSize: '0.95rem' }}>Searching for local networks...</p>
           </div>
-        ) : networks.length === 0 ? (
+        ) : availableNetworks.length === 0 ? (
           <div style={{ padding: '4rem 2rem', textAlign: 'center', color: 'var(--text-secondary)', fontSize: '0.95rem' }}>
-            No networks found.
+            No additional networks found.
           </div>
         ) : (
-          networks.map((net) => (
+          availableNetworks.map((net) => (
             <div 
               key={net.ssid} 
               className="wifi-network-item-row"
@@ -206,15 +236,13 @@ export function WifiSetup() {
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
                 <Wifi size={20} style={{ color: 'var(--accent-primary)', flexShrink: 0 }} />
                 <span className="data-mono" style={{ fontSize: '1.05rem', fontWeight: 600, color: 'var(--text-primary)' }}>{net.ssid}</span>
-                {net.isActive && (
-                  <span className="badge" style={{ background: 'var(--status-idle)', color: '#fff', fontSize: '0.7rem', padding: '0.15rem 0.4rem', textTransform: 'none' }}>Connected</span>
-                )}
                 <span className="badge badge-default" style={{ fontSize: '0.7rem', padding: '0.15rem 0.4rem', textTransform: 'none' }}>{net.signal}%</span>
               </div>
               <ArrowRight size={18} className="wifi-arrow-icon" />
             </div>
           ))
         )}
+      </div>
       </div>
     </div>
   );
