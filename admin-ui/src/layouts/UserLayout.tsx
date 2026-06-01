@@ -4,7 +4,7 @@ import { Moon, Sun } from 'lucide-react';
 import { useTheme } from '../context/ThemeContext';
 import { Button } from '../components/shared/Button';
 
-export function UserLayout({ children }: { children: ReactNode }) {
+export function UserLayout({ children, subtitle = '// PRINT QUEUE SYSTEM' }: { children: ReactNode; subtitle?: string }) {
   const { theme, toggleTheme } = useTheme();
 
   return (
@@ -12,7 +12,7 @@ export function UserLayout({ children }: { children: ReactNode }) {
       <header className="user-header">
         <div>
           <h1 className="user-header-title">Modern Press</h1>
-          <div className="data-mono user-header-sub">// PRINT QUEUE SYSTEM</div>
+          <div className="data-mono user-header-sub">{subtitle}</div>
         </div>
         
         <Button 
@@ -28,7 +28,7 @@ export function UserLayout({ children }: { children: ReactNode }) {
       <main className="user-main" style={{ paddingBottom: '80px' }}>
         {children}
       </main>
-
+      
       <footer className="user-footer">
         <p>Built for efficiency. Powered by Modern Press local infrastructure.</p>
       </footer>

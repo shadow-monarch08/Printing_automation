@@ -1,21 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { Loader2, ShieldCheck, AlertCircle, RefreshCw, ChevronDown } from 'lucide-react';
+import { Loader2, ShieldCheck, AlertCircle, RefreshCw, Wifi, ArrowRight } from 'lucide-react';
 import { Button } from '../shared/Button';
 import { useModal } from '../../context/ModalContext';
 import { api } from '../../services/api';
 import type { WifiNetwork } from '../../types';
-
-const getSignalIcon = (signal: number) => {
-  const bars = signal > 75 ? 4 : signal > 50 ? 3 : signal > 25 ? 2 : 1;
-  return (
-    <svg className="wifi-signal-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M1.42 9a16 16 0 0 1 21.16 0" strokeOpacity={bars >= 4 ? 1 : 0.2} />
-      <path d="M5 12.55a11 11 0 0 1 14.08 0" strokeOpacity={bars >= 3 ? 1 : 0.2} />
-      <path d="M8.53 16.11a6 6 0 0 1 6.95 0" strokeOpacity={bars >= 2 ? 1 : 0.2} />
-      <line x1="12" y1="20" x2="12.01" y2="20" strokeOpacity={bars >= 1 ? 1 : 0.2} />
-    </svg>
-  );
-};
 
 interface WifiConnectModalBodyProps {
   ssid: string;
@@ -42,19 +30,30 @@ const WifiConnectModalBody = ({ ssid, closeModal, onConnectStart }: WifiConnectM
   };
 
   return (
-    <form onSubmit={handleSubmit} className="wifi-network-form">
-      <div className="wifi-form-group">
-        <label className="wifi-form-label">Password</label>
+    <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+      <div>
+        <label className="custom-select-label" style={{ display: 'block', marginBottom: '0.5rem' }}>Password</label>
         <input
           type="password"
           value={password}
           onChange={(e) => setPassword(e.target.value)}
           placeholder="Leave blank if open"
           className="wifi-form-input"
+          style={{
+            width: '100%',
+            background: 'var(--input-bg)',
+            color: 'var(--text-primary)',
+            border: '1px solid var(--input-border)',
+            padding: '0.6rem 0.8rem',
+            fontSize: '0.95rem',
+            borderRadius: '2px',
+            outline: 'none',
+            transition: 'border-color 0.2s ease, box-shadow 0.2s ease',
+          }}
           autoFocus
         />
       </div>
-      <div style={{ display: 'flex', gap: '1rem', marginTop: '1.5rem', justifyContent: 'flex-end' }}>
+      <div style={{ display: 'flex', gap: '1rem', marginTop: '1rem', justifyContent: 'flex-end' }}>
         <Button type="button" variant="ghost" onClick={closeModal} disabled={isConnecting}>
           Cancel
         </Button>
@@ -76,7 +75,6 @@ const WifiConnectModalBody = ({ ssid, closeModal, onConnectStart }: WifiConnectM
 export function WifiSetup() {
   const [networks, setNetworks] = useState<WifiNetwork[]>([]);
   const [isScanning, setIsScanning] = useState(false);
-  const [selectedSsid, setSelectedSsid] = useState<string | null>(null);
   const [errorMsg, setErrorMsg] = useState('');
   const [status, setStatus] = useState<'scanning' | 'ready' | 'connecting' | 'error'>('scanning');
 
@@ -105,7 +103,6 @@ export function WifiSetup() {
   }, []);
 
   const handleNetworkClick = (net: WifiNetwork) => {
-    setSelectedSsid(net.ssid);
     openModal({
       title: `Connect to ${net.ssid}`,
       content: (
@@ -123,16 +120,16 @@ export function WifiSetup() {
 
   if (status === 'connecting') {
     return (
-      <div className="wifi-connecting-container">
-        <div className="wifi-connecting-card">
-          <div className="wifi-connecting-icon-wrap">
+      <div style={{ display: 'flex', flex: 1, flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '4rem 1.5rem', textAlign: 'center' }}>
+        <div className="card" style={{ maxWidth: '440px', width: '100%', padding: '2.5rem 2rem', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1.25rem', border: '2px solid var(--border-default)', borderRadius: '2px' }}>
+          <div style={{ color: 'var(--status-idle)' }}>
             <ShieldCheck size={48} />
           </div>
-          <h2>Applying Credentials</h2>
-          <p>
-            The Spooler will now reboot its network. Please close this window and reconnect your phone to your main Wi-Fi.
+          <h2 style={{ margin: 0, fontSize: '1.5rem', fontWeight: 700, color: 'var(--text-primary)' }}>Applying Credentials</h2>
+          <p style={{ margin: 0, fontSize: '0.95rem', color: 'var(--text-secondary)', lineHeight: 1.5 }}>
+            The Spooler will now reboot its network. Please close this window and reconnect your device to your main Wi-Fi.
           </p>
-          <div className="wifi-connecting-loader-wrap">
+          <div style={{ display: 'flex', justifyContent: 'center', marginTop: '0.5rem', color: 'var(--accent-primary)' }}>
             <Loader2 className="animate-spin" size={32} />
           </div>
         </div>
@@ -141,60 +138,68 @@ export function WifiSetup() {
   }
 
   return (
-    <div className="wifi-setup-container">
-      <div className="wifi-setup-content">
-        {/* Header */}
-        <div className="wifi-setup-header-card">
-          <div className="wifi-setup-header-text">
-            <h1>Wi-Fi Setup</h1>
-            <p>Connect to your local network</p>
-          </div>
-          <button 
-            onClick={fetchNetworks}
-            disabled={isScanning}
-            className="wifi-setup-refresh-btn"
-            aria-label="Refresh List"
-          >
-            <RefreshCw className={isScanning ? 'animate-spin' : ''} size={20} />
-          </button>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem', flex: 1 }}>
+      {/* Title Area */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem' }}>
+        <div>
+          <h2 className="page-title" style={{ margin: 0 }}>Wi-Fi Connection Setup</h2>
+          <p className="page-desc" style={{ margin: '0.25rem 0 0 0' }}>Provision the Spooler by linking it to a local hotspot</p>
         </div>
+        <Button 
+          variant="mechanical" 
+          onClick={fetchNetworks}
+          disabled={isScanning}
+          rightIcon={<RefreshCw className={isScanning ? 'animate-spin' : ''} size={18} />}
+        >
+          Refresh List
+        </Button>
+      </div>
 
-        {/* Status / Error */}
-        {status === 'error' && (
-          <div className="wifi-setup-error-card">
-            <AlertCircle size={20} className="wifi-setup-error-text" />
-            <p className="wifi-setup-error-text">{errorMsg}</p>
+      {/* Status / Error */}
+      {status === 'error' && (
+        <div 
+          style={{ 
+            background: 'rgba(255, 68, 68, 0.08)', 
+            border: '1px solid var(--border-default)', 
+            borderLeft: '4px solid var(--status-error)', 
+            borderRadius: '2px', 
+            padding: '1rem', 
+            display: 'flex', 
+            alignItems: 'center', 
+            gap: '0.75rem' 
+          }}
+        >
+          <AlertCircle size={20} style={{ color: 'var(--status-error)', flexShrink: 0 }} />
+          <p style={{ color: 'var(--status-error)', margin: 0, fontSize: '0.9rem' }}>{errorMsg}</p>
+        </div>
+      )}
+
+      {/* Network List Card */}
+      <div className="card" style={{ padding: '0.5rem', display: 'flex', flexDirection: 'column' }}>
+        {status === 'scanning' && networks.length === 0 ? (
+          <div style={{ padding: '4rem 2rem', textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1rem' }}>
+            <Loader2 className="animate-spin" size={36} style={{ color: 'var(--accent-primary)' }} />
+            <p style={{ color: 'var(--text-secondary)', margin: 0, fontSize: '0.95rem' }}>Searching for local networks...</p>
           </div>
-        )}
-
-        {/* Network List */}
-        <div className="wifi-network-list">
-          {status === 'scanning' && networks.length === 0 ? (
-            <div className="wifi-setup-loading-state">
-              <Loader2 className="animate-spin" size={32} />
-              <p className="wifi-setup-loading-text">Searching for networks...</p>
-            </div>
-          ) : networks.length === 0 ? (
-            <div className="wifi-setup-empty-state">
-              <p className="wifi-setup-empty-text">No networks found.</p>
-            </div>
-          ) : (
-            networks.map((net) => (
-              <div key={net.ssid} className="wifi-network-item">
-                <button
-                  onClick={() => handleNetworkClick(net)}
-                  className="wifi-network-trigger"
-                >
-                  <div className="wifi-network-info">
-                    {getSignalIcon(net.signal)}
-                    <span className="wifi-network-ssid">{net.ssid}</span>
-                  </div>
-                  <ChevronDown className={`wifi-network-chevron ${selectedSsid === net.ssid ? 'open' : ''}`} size={20} />
-                </button>
+        ) : networks.length === 0 ? (
+          <div style={{ padding: '4rem 2rem', textAlign: 'center', color: 'var(--text-secondary)', fontSize: '0.95rem' }}>
+            No networks found.
+          </div>
+        ) : (
+          networks.map((net) => (
+            <div 
+              key={net.ssid} 
+              className="wifi-network-item-row"
+              onClick={() => handleNetworkClick(net)}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                <Wifi size={20} style={{ color: 'var(--accent-primary)', flexShrink: 0 }} />
+                <span className="data-mono" style={{ fontSize: '1.05rem', fontWeight: 600, color: 'var(--text-primary)' }}>{net.ssid}</span>
               </div>
-            ))
-          )}
-        </div>
+              <ArrowRight size={18} className="wifi-arrow-icon" />
+            </div>
+          ))
+        )}
       </div>
     </div>
   );
