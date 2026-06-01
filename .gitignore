@@ -4,4 +4,4 @@ dist/
 uploads/
 server/public/
 .DS_Store
-admin/
+/admin/

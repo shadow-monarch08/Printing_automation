@@ -7,6 +7,11 @@ export interface WiFiNetwork {
 
 export async function scanNetworks(): Promise<WiFiNetwork[]> {
   try {
+    try {
+      await systemCommands.rescanWifi();
+    } catch (rescanError: any) {
+      console.warn('[WiFi Service] Rescan failed/throttled:', rescanError.message || rescanError);
+    }
     const { stdout } = await systemCommands.getWifiStatus();
     
     const lines = stdout.split('\n');

@@ -9,6 +9,10 @@ export const systemCommands = {
     return runSecureCommand('nmcli', ['-t', '-f', 'ssid,signal', 'dev', 'wifi']);
   },
 
+  rescanWifi: async () => {
+    return runSecureCommand('nmcli', ['device', 'wifi', 'rescan']);
+  },
+
   snmpWalk: async (ip: string, oid: string) => {
     return runSecureCommandWithTimeout('snmpwalk', ['-v1', '-c', 'public', ip, oid], 4000);
   },
