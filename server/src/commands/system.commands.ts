@@ -10,11 +10,11 @@ export const systemCommands = {
   },
 
   getSavedNetworks: async () => {
-    return runSecureCommand('sudo', ["wpa_cli", "-i", "wlan0", "scan"]);
+    return runSecureCommand('nmcli', ['-t', '-f', 'NAME', 'connection', 'show']);
   },
 
   rescanWifi: async () => {
-    return runSecureCommand('nmcli', ['device', 'wifi', 'rescan']);
+    return runSecureCommand('sudo', ['wpa_cli', '-i', 'wlan0', 'scan']);
   },
 
   snmpWalk: async (ip: string, oid: string) => {
