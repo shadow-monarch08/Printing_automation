@@ -7,11 +7,12 @@ import type { WifiNetwork } from '../../types';
 
 interface WifiConnectModalBodyProps {
   ssid: string;
+  isSaved?: boolean;
   closeModal: () => void;
   onConnectStart: () => void;
 }
 
-const WifiConnectModalBody = ({ ssid, closeModal, onConnectStart }: WifiConnectModalBodyProps) => {
+const WifiConnectModalBody = ({ ssid, isSaved, closeModal, onConnectStart }: WifiConnectModalBodyProps) => {
   const [password, setPassword] = useState('');
   const [isConnecting, setIsConnecting] = useState(false);
 
@@ -31,28 +32,35 @@ const WifiConnectModalBody = ({ ssid, closeModal, onConnectStart }: WifiConnectM
 
   return (
     <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
-      <div>
-        <label className="custom-select-label" style={{ display: 'block', marginBottom: '0.5rem' }}>Password</label>
-        <input
-          type="password"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          placeholder="Leave blank if open"
-          className="wifi-form-input"
-          style={{
-            width: '100%',
-            background: 'var(--input-bg)',
-            color: 'var(--text-primary)',
-            border: '1px solid var(--input-border)',
-            padding: '0.6rem 0.8rem',
-            fontSize: '0.95rem',
-            borderRadius: '2px',
-            outline: 'none',
-            transition: 'border-color 0.2s ease, box-shadow 0.2s ease',
-          }}
-          autoFocus
-        />
-      </div>
+      {!isSaved && (
+        <div>
+          <label className="custom-select-label" style={{ display: 'block', marginBottom: '0.5rem' }}>Password</label>
+          <input
+            type="password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            placeholder="Leave blank if open"
+            className="wifi-form-input"
+            style={{
+              width: '100%',
+              background: 'var(--input-bg)',
+              color: 'var(--text-primary)',
+              border: '1px solid var(--input-border)',
+              padding: '0.6rem 0.8rem',
+              fontSize: '0.95rem',
+              borderRadius: '2px',
+              outline: 'none',
+              transition: 'border-color 0.2s ease, box-shadow 0.2s ease',
+            }}
+            autoFocus
+          />
+        </div>
+      )}
+      {isSaved && (
+        <p style={{ color: 'var(--text-secondary)', fontSize: '0.95rem', margin: 0 }}>
+          This network is already saved. You can connect without entering a password.
+        </p>
+      )}
       <div style={{ display: 'flex', gap: '1rem', marginTop: '1rem', justifyContent: 'flex-end' }}>
         <Button type="button" variant="ghost" onClick={closeModal} disabled={isConnecting}>
           Cancel
@@ -63,6 +71,8 @@ const WifiConnectModalBody = ({ ssid, closeModal, onConnectStart }: WifiConnectM
               <Loader2 className="animate-spin" size={16} />
               <span>Connecting...</span>
             </span>
+          ) : isSaved ? (
+            'Connect'
           ) : (
             'Join Network'
           )}
@@ -108,6 +118,7 @@ export function WifiSetup() {
       content: (
         <WifiConnectModalBody
           ssid={net.ssid}
+          isSaved={net.isSaved}
           closeModal={closeModal}
           onConnectStart={() => {
             setStatus('connecting');
@@ -195,6 +206,10 @@ export function WifiSetup() {
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
                 <Wifi size={20} style={{ color: 'var(--accent-primary)', flexShrink: 0 }} />
                 <span className="data-mono" style={{ fontSize: '1.05rem', fontWeight: 600, color: 'var(--text-primary)' }}>{net.ssid}</span>
+                {net.isActive && (
+                  <span className="badge" style={{ background: 'var(--status-idle)', color: '#fff', fontSize: '0.7rem', padding: '0.15rem 0.4rem', textTransform: 'none' }}>Connected</span>
+                )}
+                <span className="badge badge-default" style={{ fontSize: '0.7rem', padding: '0.15rem 0.4rem', textTransform: 'none' }}>{net.signal}%</span>
               </div>
               <ArrowRight size={18} className="wifi-arrow-icon" />
             </div>

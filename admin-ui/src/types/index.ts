@@ -91,4 +91,6 @@ export interface PricingConfig {
 export interface WifiNetwork {
   ssid: string;
   signal: number;
+  isActive?: boolean;
+  isSaved?: boolean;
 }

@@ -6,7 +6,11 @@ export const systemCommands = {
   },
 
   getWifiStatus: async () => {
-    return runSecureCommand('nmcli', ['-t', '-f', 'ssid,signal', 'dev', 'wifi']);
+    return runSecureCommand('nmcli', ['-t', '-f', 'IN-USE,SSID,SIGNAL', 'dev', 'wifi']);
+  },
+
+  getSavedNetworks: async () => {
+    return runSecureCommand('sudo', ["wpa_cli", "-i", "wlan0", "scan"]);
   },
 
   rescanWifi: async () => {
