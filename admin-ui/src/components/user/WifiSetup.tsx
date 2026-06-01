@@ -77,7 +77,6 @@ export function WifiSetup() {
   const [networks, setNetworks] = useState<WifiNetwork[]>([]);
   const [isScanning, setIsScanning] = useState(false);
   const [selectedSsid, setSelectedSsid] = useState<string | null>(null);
-  const [isConnecting, setIsConnecting] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
   const [status, setStatus] = useState<'scanning' | 'ready' | 'connecting' | 'error'>('scanning');
 
@@ -114,7 +113,6 @@ export function WifiSetup() {
           ssid={net.ssid}
           closeModal={closeModal}
           onConnectStart={() => {
-            setIsConnecting(true);
             setStatus('connecting');
             closeModal();
           }}
