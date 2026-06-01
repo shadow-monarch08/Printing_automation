@@ -11,6 +11,7 @@ import { ValidatedInput } from '../../components/shared/ValidatedInput';
 import { validateRequired } from '../../utils/validationRules';
 import { EmptyState } from '../../components/shared/EmptyState';
 import { PrinterCard } from '../../components/admin/PrinterCard';
+import { Checkbox } from '../../components/shared/Checkbox';
 
 const AliasModalBody = ({ printerName, currentAlias, closeModal }: { printerName: string, currentAlias?: string, closeModal: () => void }) => {
   const { updatePrinterAlias } = useAdminStore();
@@ -237,21 +238,28 @@ const SetupWizardModalBody = ({ device, closeModal }: { device: { uri: string, r
       </div>
 
       <div style={{ display: 'flex', gap: '1rem', flexDirection: 'column' }}>
-        <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer' }}>
-          <input type="checkbox" checked={capabilities.includes('color')} onChange={() => toggleCapability('color')} />
-          <span>Color Printing Support</span>
-        </label>
-        <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer' }}>
-          <input type="checkbox" checked={capabilities.includes('duplex')} onChange={() => toggleCapability('duplex')} />
-          <span>Automatic Duplex (Two-Sided)</span>
-        </label>
-        <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer' }}>
-          <input type="checkbox" checked={capabilities.includes('grayscale') && !capabilities.includes('color')} onChange={() => {
+        <Checkbox
+          checked={capabilities.includes('color')}
+          onChange={() => toggleCapability('color')}
+        >
+          Color Printing Support
+        </Checkbox>
+        <Checkbox
+          checked={capabilities.includes('duplex')}
+          onChange={() => toggleCapability('duplex')}
+        >
+          Automatic Duplex (Two-Sided)
+        </Checkbox>
+        <Checkbox
+          checked={capabilities.includes('grayscale') && !capabilities.includes('color')}
+          onChange={() => {
             if (capabilities.includes('color')) return; // Color implies grayscale
             toggleCapability('grayscale');
-          }} disabled={capabilities.includes('color')} />
+          }}
+          disabled={capabilities.includes('color')}
+        >
           <span style={{ opacity: capabilities.includes('color') ? 0.5 : 1 }}>Grayscale Only</span>
-        </label>
+        </Checkbox>
       </div>
 
       <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '1rem', marginTop: '1rem' }}>

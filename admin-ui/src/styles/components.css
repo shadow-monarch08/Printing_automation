@@ -347,3 +347,82 @@
   line-height: 1.5;
 }
 
+/* Custom Checkbox */
+.custom-checkbox-container {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.6rem;
+  cursor: pointer;
+  user-select: none;
+  font-family: inherit;
+  font-size: 0.95rem;
+  color: var(--text-primary);
+  vertical-align: middle;
+}
+
+.custom-checkbox-container.disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+/* Visually hide the native input but keep keyboard accessibility */
+.custom-checkbox-input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.custom-checkbox-box {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  background: var(--input-bg);
+  border: 2px solid var(--input-border);
+  border-radius: 2px;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  flex-shrink: 0;
+  box-sizing: border-box;
+}
+
+/* Checked state */
+.custom-checkbox-box.checked {
+  background: var(--accent-primary);
+  border-color: var(--accent-primary);
+}
+
+/* Dark mode neon active glow on focus */
+.custom-checkbox-input:focus-visible + .custom-checkbox-box {
+  border-color: var(--input-focus-border);
+  box-shadow: 0 0 0 3px var(--input-focus-glow);
+}
+
+/* Hover effects */
+.custom-checkbox-container:hover:not(.disabled) .custom-checkbox-box {
+  border-color: var(--input-focus-border);
+}
+
+.custom-checkbox-tick {
+  color: var(--bg-primary); /* Use background color for the tick color to contrast with the accent color background */
+  opacity: 0;
+  transform: scale(0.6);
+  transition: transform 0.15s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.15s ease;
+  pointer-events: none;
+}
+
+.custom-checkbox-tick.visible {
+  opacity: 1;
+  transform: scale(1);
+}
+
+.custom-checkbox-label {
+  line-height: 1.2;
+}
+
