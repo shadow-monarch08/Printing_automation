@@ -353,9 +353,11 @@ export function Fleet() {
           <p className="page-desc">Physical device topology and consumable levels</p>
         </div>
         <div style={{ display: 'flex', gap: '1rem' }}>
-          <Button variant="danger" onClick={handleDeleteAllPrinters} rightIcon={<Trash2 size={18} />}>
-            Delete All
-          </Button>
+          {printers.length !== 0 && (
+            <Button variant="danger" onClick={handleDeleteAllPrinters} rightIcon={<Trash2 size={18} />}>
+              Delete All
+            </Button>
+          )}
           <Button variant="mechanical" onClick={handleDetect} isLoading={isDetecting} rightIcon={<Search size={18} />}>
             Detect Legacy Hardware
           </Button>
