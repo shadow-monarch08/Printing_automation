@@ -1,16 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { Loader2, ShieldCheck, AlertCircle, RefreshCw, ChevronDown } from 'lucide-react';
 import { Button } from '../shared/Button';
-
-interface Network {
-  ssid: string;
-  signal: number;
-}
+import { useModal } from '../../context/ModalContext';
+import { api } from '../../services/api';
+import type { WifiNetwork } from '../../types';
 
 const getSignalIcon = (signal: number) => {
   const bars = signal > 75 ? 4 : signal > 50 ? 3 : signal > 25 ? 2 : 1;
   return (
-    <svg className="w-5 h-5 text-gray-700" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <svg className="wifi-signal-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
       <path d="M1.42 9a16 16 0 0 1 21.16 0" strokeOpacity={bars >= 4 ? 1 : 0.2} />
       <path d="M5 12.55a11 11 0 0 1 14.08 0" strokeOpacity={bars >= 3 ? 1 : 0.2} />
       <path d="M8.53 16.11a6 6 0 0 1 6.95 0" strokeOpacity={bars >= 2 ? 1 : 0.2} />
@@ -19,31 +17,85 @@ const getSignalIcon = (signal: number) => {
   );
 };
 
+interface WifiConnectModalBodyProps {
+  ssid: string;
+  closeModal: () => void;
+  onConnectStart: () => void;
+}
+
+const WifiConnectModalBody = ({ ssid, closeModal, onConnectStart }: WifiConnectModalBodyProps) => {
+  const [password, setPassword] = useState('');
+  const [isConnecting, setIsConnecting] = useState(false);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsConnecting(true);
+    onConnectStart();
+    try {
+      await api.connectToWifi(ssid, password);
+      // Connection drops, swallow error as Captive Portal reboots network
+    } catch (err) {
+      console.warn('Network connection dropped as expected:', err);
+    } finally {
+      closeModal();
+    }
+  };
+
+  return (
+    <form onSubmit={handleSubmit} className="wifi-network-form">
+      <div className="wifi-form-group">
+        <label className="wifi-form-label">Password</label>
+        <input
+          type="password"
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+          placeholder="Leave blank if open"
+          className="wifi-form-input"
+          autoFocus
+        />
+      </div>
+      <div style={{ display: 'flex', gap: '1rem', marginTop: '1.5rem', justifyContent: 'flex-end' }}>
+        <Button type="button" variant="ghost" onClick={closeModal} disabled={isConnecting}>
+          Cancel
+        </Button>
+        <Button type="submit" variant="primary" disabled={isConnecting}>
+          {isConnecting ? (
+            <span style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              <Loader2 className="animate-spin" size={16} />
+              <span>Connecting...</span>
+            </span>
+          ) : (
+            'Join Network'
+          )}
+        </Button>
+      </div>
+    </form>
+  );
+};
+
 export function WifiSetup() {
-  const [networks, setNetworks] = useState<Network[]>([]);
+  const [networks, setNetworks] = useState<WifiNetwork[]>([]);
   const [isScanning, setIsScanning] = useState(false);
   const [selectedSsid, setSelectedSsid] = useState<string | null>(null);
-  const [password, setPassword] = useState('');
   const [isConnecting, setIsConnecting] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
   const [status, setStatus] = useState<'scanning' | 'ready' | 'connecting' | 'error'>('scanning');
+
+  const { openModal, closeModal } = useModal();
 
   const fetchNetworks = async () => {
     setIsScanning(true);
     if (status !== 'ready') setStatus('scanning');
     
     try {
-      const baseUrl = import.meta.env.VITE_API_URL || '';
-      const response = await fetch(`${baseUrl}/wifi/scan`);
-      if (!response.ok) throw new Error('Failed to scan networks');
-      const data = await response.json();
+      const data = await api.scanWifiNetworks();
       setNetworks(data);
       setStatus('ready');
       setErrorMsg('');
-    } catch (err) {
+    } catch (err: any) {
       console.error(err);
       setStatus('error');
-      setErrorMsg('Could not scan for Wi-Fi networks. Please refresh or try again.');
+      setErrorMsg(err.message || 'Could not scan for Wi-Fi networks. Please refresh or try again.');
     } finally {
       setIsScanning(false);
     }
@@ -53,39 +105,37 @@ export function WifiSetup() {
     fetchNetworks();
   }, []);
 
-  const handleSubmit = async (e: React.FormEvent | React.MouseEvent) => {
-    e.preventDefault();
-    if (!selectedSsid) return;
-
-    setIsConnecting(true);
-    setStatus('connecting');
-    try {
-      const baseUrl = import.meta.env.VITE_API_URL || '';
-      await fetch(`${baseUrl}/wifi/connect`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ssid: selectedSsid, password }),
-      });
-      // We don't check for response.ok here because the connection WILL drop
-    } catch (err) {
-      // Swallowing errors as per instructions since the network will drop
-      console.warn('Network connection dropped as expected:', err);
-    }
+  const handleNetworkClick = (net: WifiNetwork) => {
+    setSelectedSsid(net.ssid);
+    openModal({
+      title: `Connect to ${net.ssid}`,
+      content: (
+        <WifiConnectModalBody
+          ssid={net.ssid}
+          closeModal={closeModal}
+          onConnectStart={() => {
+            setIsConnecting(true);
+            setStatus('connecting');
+            closeModal();
+          }}
+        />
+      )
+    });
   };
 
   if (status === 'connecting') {
     return (
-      <div className="flex items-center justify-center min-h-screen bg-gray-50 p-4">
-        <div className="bg-white rounded-xl shadow-lg p-8 max-w-md w-full text-center space-y-6">
-          <div className="flex justify-center text-green-500">
+      <div className="wifi-connecting-container">
+        <div className="wifi-connecting-card">
+          <div className="wifi-connecting-icon-wrap">
             <ShieldCheck size={48} />
           </div>
-          <h2 className="text-2xl font-bold text-gray-900">Applying Credentials</h2>
-          <p className="text-gray-600">
+          <h2>Applying Credentials</h2>
+          <p>
             The Spooler will now reboot its network. Please close this window and reconnect your phone to your main Wi-Fi.
           </p>
-          <div className="flex justify-center pt-4">
-            <Loader2 className="animate-spin text-blue-500" size={32} />
+          <div className="wifi-connecting-loader-wrap">
+            <Loader2 className="animate-spin" size={32} />
           </div>
         </div>
       </div>
@@ -93,93 +143,56 @@ export function WifiSetup() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-100 flex justify-center pt-8 px-4 pb-12 font-sans">
-      <div className="w-full max-w-md space-y-4">
+    <div className="wifi-setup-container">
+      <div className="wifi-setup-content">
         {/* Header */}
-        <div className="bg-white rounded-t-xl rounded-b-md shadow p-5 flex items-center justify-between">
-          <div>
-            <h1 className="text-xl font-bold text-gray-900">Wi-Fi Setup</h1>
-            <p className="text-sm text-gray-500">Connect to your local network</p>
+        <div className="wifi-setup-header-card">
+          <div className="wifi-setup-header-text">
+            <h1>Wi-Fi Setup</h1>
+            <p>Connect to your local network</p>
           </div>
           <button 
             onClick={fetchNetworks}
             disabled={isScanning}
-            className={`p-2 rounded-full bg-gray-100 hover:bg-gray-200 transition-colors ${isScanning ? 'opacity-50 cursor-not-allowed' : ''}`}
+            className="wifi-setup-refresh-btn"
             aria-label="Refresh List"
           >
-            <RefreshCw className={`w-5 h-5 text-gray-700 ${isScanning ? 'animate-spin' : ''}`} />
+            <RefreshCw className={isScanning ? 'animate-spin' : ''} size={20} />
           </button>
         </div>
 
         {/* Status / Error */}
         {status === 'error' && (
-          <div className="bg-red-50 border-l-4 border-red-500 p-4 rounded-md shadow flex items-start space-x-3">
-            <AlertCircle className="w-5 h-5 text-red-500 mt-0.5" />
-            <p className="text-sm text-red-700">{errorMsg}</p>
+          <div className="wifi-setup-error-card">
+            <AlertCircle size={20} className="wifi-setup-error-text" />
+            <p className="wifi-setup-error-text">{errorMsg}</p>
           </div>
         )}
 
         {/* Network List */}
-        <div className="bg-white rounded-xl shadow overflow-hidden divide-y divide-gray-100">
+        <div className="wifi-network-list">
           {status === 'scanning' && networks.length === 0 ? (
-            <div className="p-8 text-center space-y-4">
-              <Loader2 className="w-8 h-8 animate-spin text-blue-500 mx-auto" />
-              <p className="text-gray-500 text-sm">Searching for networks...</p>
+            <div className="wifi-setup-loading-state">
+              <Loader2 className="animate-spin" size={32} />
+              <p className="wifi-setup-loading-text">Searching for networks...</p>
             </div>
           ) : networks.length === 0 ? (
-            <div className="p-8 text-center text-gray-500 text-sm">
-              No networks found.
+            <div className="wifi-setup-empty-state">
+              <p className="wifi-setup-empty-text">No networks found.</p>
             </div>
           ) : (
             networks.map((net) => (
-              <div key={net.ssid} className="flex flex-col">
+              <div key={net.ssid} className="wifi-network-item">
                 <button
-                  onClick={() => {
-                    setSelectedSsid(selectedSsid === net.ssid ? null : net.ssid);
-                    setPassword('');
-                  }}
-                  className="w-full px-5 py-4 flex items-center justify-between hover:bg-gray-50 focus:outline-none transition-colors"
+                  onClick={() => handleNetworkClick(net)}
+                  className="wifi-network-trigger"
                 >
-                  <div className="flex items-center space-x-3">
+                  <div className="wifi-network-info">
                     {getSignalIcon(net.signal)}
-                    <span className="font-medium text-gray-800">{net.ssid}</span>
+                    <span className="wifi-network-ssid">{net.ssid}</span>
                   </div>
-                  <ChevronDown className={`w-5 h-5 text-gray-400 transition-transform ${selectedSsid === net.ssid ? 'rotate-180' : ''}`} />
+                  <ChevronDown className={`wifi-network-chevron ${selectedSsid === net.ssid ? 'open' : ''}`} size={20} />
                 </button>
-                
-                {/* Accordion Content */}
-                {selectedSsid === net.ssid && (
-                  <div className="bg-gray-50 px-5 py-4 border-t border-gray-100 animate-in slide-in-from-top-2">
-                    <form onSubmit={handleSubmit} className="space-y-4">
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                          Password
-                        </label>
-                        <input
-                          type="password"
-                          value={password}
-                          onChange={(e) => setPassword(e.target.value)}
-                          placeholder="Leave blank if open"
-                          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-shadow"
-                        />
-                      </div>
-                      <Button
-                        type="submit"
-                        disabled={isConnecting}
-                        className="w-full flex justify-center py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors"
-                      >
-                        {isConnecting ? (
-                          <span className="flex items-center space-x-2">
-                            <Loader2 className="w-5 h-5 animate-spin" />
-                            <span>Connecting...</span>
-                          </span>
-                        ) : (
-                          'Join Network'
-                        )}
-                      </Button>
-                    </form>
-                  </div>
-                )}
               </div>
             ))
           )}

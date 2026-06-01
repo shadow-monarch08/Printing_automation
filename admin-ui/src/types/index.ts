@@ -87,3 +87,8 @@ export interface PricingConfig {
   bulkThreshold: number;
   bulkDiscount: number;
 }
+
+export interface WifiNetwork {
+  ssid: string;
+  signal: number;
+}

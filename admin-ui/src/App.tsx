@@ -76,6 +76,7 @@ function App() {
     <>
       <Routes>
         <Route path="/" element={<UserLayout><UserKioskPage /></UserLayout>} />
+        <Route path="/setup" element={<WifiSetup />} />
         <Route path="/admin" element={<AdminLayout><Dashboard /></AdminLayout>} />
         <Route path="/admin/fleet" element={<AdminLayout><Fleet /></AdminLayout>} />
         <Route path="/admin/queue" element={<AdminLayout><Queue /></AdminLayout>} />

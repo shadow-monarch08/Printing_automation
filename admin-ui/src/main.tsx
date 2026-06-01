@@ -13,6 +13,7 @@ import './styles/modal.css'
 import './styles/toast.css'
 import './styles/animations.css'
 import './styles/responsive.css'
+import './styles/wifi-setup.css'
 
 import { sseService } from './services/sseService'
 
