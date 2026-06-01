@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Loader2, ShieldCheck, AlertCircle, RefreshCw, Wifi, ArrowRight } from 'lucide-react';
 import { Button } from '../shared/Button';
+import { ValidatedInput } from '../shared/ValidatedInput';
 import { useModal } from '../../context/ModalContext';
 import { api } from '../../services/api';
 import type { WifiNetwork } from '../../types';
@@ -33,28 +34,13 @@ const WifiConnectModalBody = ({ ssid, isSaved, closeModal, onConnectStart }: Wif
   return (
     <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
       {!isSaved && (
-        <div>
-          <label className="custom-select-label" style={{ display: 'block', marginBottom: '0.5rem' }}>Password</label>
-          <input
-            type="password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            placeholder="Leave blank if open"
-            className="wifi-form-input"
-            style={{
-              width: '100%',
-              background: 'var(--input-bg)',
-              color: 'var(--text-primary)',
-              border: '1px solid var(--input-border)',
-              padding: '0.6rem 0.8rem',
-              fontSize: '0.95rem',
-              borderRadius: '2px',
-              outline: 'none',
-              transition: 'border-color 0.2s ease, box-shadow 0.2s ease',
-            }}
-            autoFocus
-          />
-        </div>
+        <ValidatedInput
+          label="Password"
+          type="password"
+          value={password}
+          onChange={setPassword}
+          placeholder="Leave blank if open"
+        />
       )}
       {isSaved && (
         <p style={{ color: 'var(--text-secondary)', fontSize: '0.95rem', margin: 0 }}>

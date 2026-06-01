@@ -1,4 +1,5 @@
 import React, { useState, useId } from 'react';
+import { Eye, EyeOff } from 'lucide-react';
 
 export interface ValidatedInputProps {
   label?: string;
@@ -31,6 +32,7 @@ export function ValidatedInput({
 }: ValidatedInputProps) {
   const [error, setError] = useState<string | null>(null);
   const [touched, setTouched] = useState<boolean>(false);
+  const [showPassword, setShowPassword] = useState<boolean>(false);
   
   const generatedId = useId();
   const inputId = name || generatedId;
@@ -64,6 +66,9 @@ export function ValidatedInput({
     }
   };
 
+  const isPasswordType = type === 'password';
+  const resolvedType = isPasswordType ? (showPassword ? 'text' : 'password') : type;
+
   return (
     <div className={`validated-input-container ${className}`} style={{ marginBottom: '1rem', width: '100%' }}>
       {label && (
@@ -95,28 +100,54 @@ export function ValidatedInput({
             {addonLeft}
           </span>
         )}
-        <input
-          id={inputId}
-          name={name}
-          type={type}
-          className="input-field"
-          value={value}
-          onChange={handleChange}
-          onBlur={handleBlur}
-          placeholder={placeholder}
-          disabled={disabled}
-          aria-invalid={!!error}
-          aria-errormessage={error ? errorId : undefined}
-          style={{
-            width: '100%',
-            borderColor: error ? 'var(--status-error)' : undefined,
-            transition: 'border-color 0.2s ease, box-shadow 0.2s ease',
-            borderTopLeftRadius: addonLeft ? 0 : undefined,
-            borderBottomLeftRadius: addonLeft ? 0 : undefined,
-            borderTopRightRadius: addonRight ? 0 : undefined,
-            borderBottomRightRadius: addonRight ? 0 : undefined,
-          }}
-        />
+        <div style={{ position: 'relative', flex: 1, display: 'flex', alignItems: 'stretch' }}>
+          <input
+            id={inputId}
+            name={name}
+            type={resolvedType}
+            className="input-field"
+            value={value}
+            onChange={handleChange}
+            onBlur={handleBlur}
+            placeholder={placeholder}
+            disabled={disabled}
+            aria-invalid={!!error}
+            aria-errormessage={error ? errorId : undefined}
+            style={{
+              width: '100%',
+              borderColor: error ? 'var(--status-error)' : undefined,
+              transition: 'border-color 0.2s ease, box-shadow 0.2s ease',
+              borderTopLeftRadius: addonLeft ? 0 : undefined,
+              borderBottomLeftRadius: addonLeft ? 0 : undefined,
+              borderTopRightRadius: addonRight ? 0 : undefined,
+              borderBottomRightRadius: addonRight ? 0 : undefined,
+              paddingRight: isPasswordType ? '2.5rem' : undefined,
+            }}
+          />
+          {isPasswordType && (
+            <button
+              type="button"
+              onClick={() => setShowPassword(!showPassword)}
+              style={{
+                position: 'absolute',
+                right: '0.75rem',
+                top: '50%',
+                transform: 'translateY(-50%)',
+                background: 'none',
+                border: 'none',
+                padding: 0,
+                color: 'var(--text-secondary)',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                zIndex: 2,
+              }}
+            >
+              {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+            </button>
+          )}
+        </div>
         {addonRight && (
           <span 
             style={{ 
