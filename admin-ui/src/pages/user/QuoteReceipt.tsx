@@ -14,9 +14,14 @@ export function QuoteReceipt() {
 
   const handleSubmit = async () => {
     setIsSubmitting(true);
-    await submitJob();
-    setIsSubmitting(false);
-    addToast({ type: 'success', title: 'Job Dispatched', description: 'Your document is heading to the local printer queue.' });
+    try {
+      await submitJob();
+      addToast({ type: 'success', title: 'Job Dispatched', description: 'Your document is heading to the local printer queue.' });
+    } catch (err: any) {
+      addToast({ type: 'error', title: 'Dispatch Failed', description: err.message || 'Failed to dispatch print job.' });
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (

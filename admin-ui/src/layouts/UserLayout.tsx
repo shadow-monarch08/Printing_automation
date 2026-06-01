@@ -2,6 +2,7 @@
 import type { ReactNode } from 'react';
 import { Moon, Sun } from 'lucide-react';
 import { useTheme } from '../context/ThemeContext';
+import { Button } from '../components/shared/Button';
 
 export function UserLayout({ children }: { children: ReactNode }) {
   const { theme, toggleTheme } = useTheme();
@@ -14,14 +15,14 @@ export function UserLayout({ children }: { children: ReactNode }) {
           <div className="data-mono user-header-sub">// PRINT QUEUE SYSTEM</div>
         </div>
         
-        <button 
-          className="btn-ghost" 
+        <Button 
+          variant='ghost' 
           onClick={toggleTheme} 
           aria-label="Toggle theme"
           style={{ padding: '0.5rem' }}
         >
           {theme === 'dark' ? <Sun size={20} /> : <Moon size={20} />}
-        </button>
+        </Button>
       </header>
       
       <main className="user-main" style={{ paddingBottom: '80px' }}>

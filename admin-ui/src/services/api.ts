@@ -16,7 +16,7 @@ export const api = {
   updateAlias: async (printerName: string, alias: string) => {
     return apiClient.put<{ success: boolean; message: string }>(`/printers/${encodeURIComponent(printerName)}/alias`, { alias });
   },
-  
+
   fetchDefaultPrinter: async () => {
     const data = await apiClient.get<{ success: boolean; default?: string }>('/printers/default');
     return data.default || '';

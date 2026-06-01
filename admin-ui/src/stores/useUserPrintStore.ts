@@ -31,17 +31,17 @@ interface Quote {
 interface UserPrintState {
   sessionId: string;
   currentStep: 1 | 2 | 3 | 4;
-  
+
   file: File | null;
   filePreview: FilePreview | null;
-  
+
   copies: number;
   colorMode: 'color' | 'grayscale';
   duplex: 'single' | 'double';
   orientation: 'portrait' | 'landscape';
-  
+
   quote: Quote | null;
-  
+
   jobId: string | null;
   jobStatus: 'queued' | 'spooling' | 'printing' | 'done' | 'failed' | null;
   jobsAhead: number;
@@ -70,17 +70,17 @@ export const useUserPrintStore = create<UserPrintState>()(
     (set, get) => ({
       sessionId: generateUUID(),
       currentStep: 1,
-      
+
       file: null,
       filePreview: null,
-      
+
       copies: 1,
       colorMode: 'grayscale',
       duplex: 'single',
       orientation: 'portrait',
-      
+
       quote: null,
-      
+
       jobId: null,
       jobStatus: null,
       jobsAhead: 0,
@@ -148,7 +148,7 @@ export const useUserPrintStore = create<UserPrintState>()(
       generateQuote: async () => {
         const state = get();
         if (!state.filePreview) return;
-        
+
         try {
           const quoteDetails = await api.calculateQuote({
             pages: state.filePreview.pages,
@@ -170,7 +170,7 @@ export const useUserPrintStore = create<UserPrintState>()(
             quote: state.quote,
             sessionId: state.sessionId
           });
-          
+
           set({
             jobId: result.jobId,
             jobStatus: 'queued',
@@ -188,7 +188,7 @@ export const useUserPrintStore = create<UserPrintState>()(
 
       handleSSEEvent: (event) => {
         const { jobId, reset, fetchJobs } = get();
-        
+
         // --- Phase 1: Silent Delta Merging ---
         if (event.type === 'job_queued') {
           set((state) => {
@@ -197,22 +197,22 @@ export const useUserPrintStore = create<UserPrintState>()(
           });
         } else if (event.type === 'job_active' || event.type === 'job_completed') {
           set((state) => ({
-            jobs: state.jobs.map(job => 
-              job.id === event.id 
-                ? { ...job, ...((event as any).data || {}), status: event.type === 'job_active' ? 'printing' : 'done' } 
+            jobs: state.jobs.map(job =>
+              job.id === event.id
+                ? { ...job, ...((event as any).data || {}), status: event.type === 'job_active' ? 'printing' : 'done' }
                 : job
             )
           }));
         } else if (event.type === 'job_failed') {
           set((state) => ({
-            jobs: state.jobs.map(job => 
-              job.id === event.id 
-                ? { ...job, status: 'failed', error: (event as any).reason || null } 
+            jobs: state.jobs.map(job =>
+              job.id === event.id
+                ? { ...job, status: 'failed', error: (event as any).reason || null }
                 : job
             )
           }));
         }
-        
+
         if (event.type === 'queue_paused') {
           set({ isAcceptingJobs: false });
         } else if (event.type === 'queue_resumed') {
@@ -226,12 +226,12 @@ export const useUserPrintStore = create<UserPrintState>()(
         }
 
         if (!jobId) return;
-        
+
         // Backend event shapes (from events.controller.ts + printMaster.worker.ts):
         //   job_active:    { type: "job_active",    id: "...", data: { ... } }
         //   job_completed: { type: "job_completed", id: "...", data: { ... } }
         //   job_failed:    { type: "job_failed",    id: "...", reason: "..." }
-        
+
         if (event.type === 'job_active' && event.id === jobId) {
           set({ jobStatus: 'printing' });
         } else if (event.type === 'job_completed' && event.id === jobId) {
