@@ -15,7 +15,7 @@ export async function getWifiSetupMode(req: Request, res: Response) {
 }
 
 export async function connectWifiNetwork(req: Request, res: Response) {
-  const { ssid, password } = req.body;
+  const { ssid, profileName, password } = req.body;
   
   if (!ssid) {
     return res.status(400).json({ error: "SSID is required" });
@@ -30,7 +30,7 @@ export async function connectWifiNetwork(req: Request, res: Response) {
   // Execute connection after a short delay to allow the response to be sent
   setTimeout(async () => {
     try {
-      await wifiService.connectToNetwork(ssid, password);
+      await wifiService.connectToWifi({ ssid, profileName, password });
     } catch (err) {
       console.error("[WiFi Controller] Connection background task failed:", err);
     }

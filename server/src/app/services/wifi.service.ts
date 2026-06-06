@@ -1,10 +1,18 @@
 import { systemCommands } from "../../commands/system.commands";
+import { runSecureCommand } from "../utils/exec";
+
+export interface ConnectPayload {
+  ssid: string;
+  profileName?: string;
+  password?: string;
+}
 
 export interface WiFiNetwork {
   ssid: string;
   signal: number;
   isActive?: boolean;
   isSaved?: boolean;
+  profileName?: string;
 }
 
 export async function scanNetworks(): Promise<WiFiNetwork[]> {
@@ -47,12 +55,17 @@ export async function scanNetworks(): Promise<WiFiNetwork[]> {
       if (!ssid || ssid === '--') continue;
 
       const isActive = inUse === '*';
-      const isSaved = savedNetworks.has(ssid);
+      const savedProfiles = Array.from(savedNetworks);
+      const matchedProfile = savedProfiles.find(profile => 
+          profile === ssid || profile === `netplan-wlan0-${ssid}`
+      );
+      const isSaved = !!matchedProfile;
+      const profileName = matchedProfile || undefined;
 
       // Deduplicate: keep the one with stronger signal, but preserve isActive if one of them is active
       const existing = networksMap.get(ssid);
       if (!existing) {
-        networksMap.set(ssid, { ssid, signal, isActive, isSaved });
+        networksMap.set(ssid, { ssid, signal, isActive, isSaved, profileName });
       } else {
         if (signal > existing.signal) {
           existing.signal = signal;
@@ -79,10 +92,37 @@ export async function scanNetworks(): Promise<WiFiNetwork[]> {
   }
 }
 
-export async function connectToNetwork(ssid: string, password?: string): Promise<boolean> {
+export async function connectToWifi(payload: ConnectPayload): Promise<boolean> {
+  const { ssid, profileName, password } = payload;
+  
   try {
-    console.log(`[WiFi Service] Attempting connection to "${ssid}"...`);
-    await systemCommands.connectToWifi(ssid, password);
+    // FLOW A: Saved Network
+    if (profileName) {
+      console.log(`[WiFi Service] Connecting to saved profile "${profileName}"...`);
+      await runSecureCommand('sudo', ['nmcli', 'connection', 'up', profileName]);
+      return true;
+    }
+
+    // FLOW B: New Network
+    if (!password) throw new Error("Password is required for new networks");
+
+    console.log(`[WiFi Service] Connecting to new network "${ssid}"...`);
+    try {
+      // Attempt cleanup of ghost profiles, ignore if it fails
+      await runSecureCommand('sudo', ['nmcli', 'connection', 'delete', ssid]);
+    } catch (e) { /* ignored */ }
+
+    await runSecureCommand('sudo', [
+      'nmcli', 'connection', 'add', 
+      'type', 'wifi', 
+      'ifname', 'wlan0', 
+      'con-name', ssid, 
+      'ssid', ssid, 
+      'wifi-sec.key-mgmt', 'wpa-psk', 
+      'wifi-sec.psk', password
+    ]);
+
+    await runSecureCommand('sudo', ['nmcli', 'connection', 'up', ssid]);
     return true;
   } catch (error: any) {
     console.error(`[WiFi Service] Connection to "${ssid}" failed:`, error.message || error);

@@ -93,4 +93,11 @@ export interface WifiNetwork {
   signal: number;
   isActive?: boolean;
   isSaved?: boolean;
+  profileName?: string | null;
+}
+
+export interface ConnectPayload {
+  ssid: string;
+  profileName?: string;
+  password?: string;
 }

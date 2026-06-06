@@ -14,7 +14,7 @@ export const systemCommands = {
   },
 
   rescanWifi: async () => {
-    return runSecureCommand('sudo', ['wpa_cli', '-i', 'wlan0', 'scan']);
+    return runSecureCommand('sudo', ['wpa_cli', '-i', 'wlan0', 'scan']); 
   },
 
   snmpWalk: async (ip: string, oid: string) => {
@@ -37,11 +37,4 @@ export const systemCommands = {
      return runSecureCommand('lsusb', []);
   },
 
-  connectToWifi: async (ssid: string, password?: string): Promise<{ stdout: string; stderr: string }> => {
-    const args = ['nmcli', 'device', 'wifi', 'connect', ssid];
-    if (password) {
-      args.push('password', password);
-    }
-    return runSecureCommand('sudo', args);
-  }
 };

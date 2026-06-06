@@ -9,11 +9,12 @@ import type { WifiNetwork } from '../../types';
 interface WifiConnectModalBodyProps {
   ssid: string;
   isSaved?: boolean;
+  profileName?: string | null;
   closeModal: () => void;
   onConnectStart: () => void;
 }
 
-const WifiConnectModalBody = ({ ssid, isSaved, closeModal, onConnectStart }: WifiConnectModalBodyProps) => {
+const WifiConnectModalBody = ({ ssid, isSaved, profileName, closeModal, onConnectStart }: WifiConnectModalBodyProps) => {
   const [password, setPassword] = useState('');
   const [isConnecting, setIsConnecting] = useState(false);
 
@@ -22,7 +23,11 @@ const WifiConnectModalBody = ({ ssid, isSaved, closeModal, onConnectStart }: Wif
     setIsConnecting(true);
     onConnectStart();
     try {
-      await api.connectToWifi(ssid, password);
+      if (isSaved) {
+        await api.connectToWifi({ ssid, profileName: profileName || ssid });
+      } else {
+        await api.connectToWifi({ ssid, password });
+      }
       // Connection drops, swallow error as Captive Portal reboots network
     } catch (err) {
       console.warn('Network connection dropped as expected:', err);
@@ -106,6 +111,7 @@ export function WifiSetup() {
         <WifiConnectModalBody
           ssid={net.ssid}
           isSaved={net.isSaved}
+          profileName={net.profileName}
           closeModal={closeModal}
           onConnectStart={() => {
             setStatus('connecting');

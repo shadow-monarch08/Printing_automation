@@ -1,6 +1,6 @@
 // src/services/api.ts
 import { apiClient } from './apiClient';
-import type { BackendPrinter, BackendJob, BackendMetrics, PricingConfig, WifiNetwork } from '../types';
+import type { BackendPrinter, BackendJob, BackendMetrics, PricingConfig, WifiNetwork, ConnectPayload } from '../types';
 
 export const api = {
   fetchPrinters: async () => {
@@ -160,7 +160,7 @@ export const api = {
     return apiClient.get<WifiNetwork[]>('/wifi/scan');
   },
 
-  connectToWifi: async (ssid: string, password?: string) => {
-    return apiClient.post<{ success: boolean; message: string }>('/wifi/connect', { ssid, password });
+  connectToWifi: async (payload: ConnectPayload) => {
+    return apiClient.post<{ success: boolean; message: string }>('/wifi/connect', payload);
   }
 };
