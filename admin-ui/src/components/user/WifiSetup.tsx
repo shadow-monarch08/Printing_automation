@@ -186,7 +186,7 @@ export function WifiSetup() {
           <h3 style={{ fontSize: '0.9rem', textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--text-secondary)', marginBottom: '0.75rem', fontWeight: 600 }}>Currently Connected</h3>
           <div className="card" style={{ padding: '1rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between', border: '2px solid var(--status-idle)' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-              <div style={{ background: 'rgba(56, 189, 113, 0.15)', padding: '0.6rem', borderRadius: '50%' }}>
+              <div style={{ background: 'rgba(56, 189, 113, 0.15)', padding: '0.6rem', borderRadius: '100%' }}>
                 <ShieldCheck size={28} style={{ color: 'var(--status-idle)' }} />
               </div>
               <div>
