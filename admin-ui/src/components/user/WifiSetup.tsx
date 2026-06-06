@@ -104,7 +104,6 @@ export function WifiSetup() {
   }, []);
 
   const handleNetworkClick = (net: WifiNetwork) => {
-    if (net.isActive) return;
     openModal({
       title: `Connect to ${net.ssid}`,
       content: (
@@ -222,12 +221,18 @@ export function WifiSetup() {
           availableNetworks.map((net) => (
             <div 
               key={net.ssid} 
-              className="wifi-network-item-row"
+              className={`wifi-network-item-row ${net.isSaved ? 'is-saved' : ''}`}
+              style={net.isSaved ? { borderLeft: '4px solid var(--status-idle)', paddingLeft: '0.8rem' } : undefined}
               onClick={() => handleNetworkClick(net)}
             >
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
                 <Wifi size={20} style={{ color: 'var(--accent-primary)', flexShrink: 0 }} />
                 <span className="data-mono" style={{ fontSize: '1.05rem', fontWeight: 600, color: 'var(--text-primary)' }}>{net.ssid}</span>
+                {net.isSaved && (
+                  <span className="badge badge-idle" style={{ fontSize: '0.7rem', padding: '0.15rem 0.4rem', textTransform: 'none' }}>
+                    Saved
+                  </span>
+                )}
                 <span className="badge badge-default" style={{ fontSize: '0.7rem', padding: '0.15rem 0.4rem', textTransform: 'none' }}>{net.signal}%</span>
               </div>
               <ArrowRight size={18} className="wifi-arrow-icon" />
