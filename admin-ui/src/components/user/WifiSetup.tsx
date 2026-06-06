@@ -84,7 +84,7 @@ export function WifiSetup() {
   const fetchNetworks = async () => {
     setIsScanning(true);
     if (status !== 'ready') setStatus('scanning');
-    
+
     try {
       const data = await api.scanWifiNetworks();
       setNetworks(data);
@@ -151,8 +151,8 @@ export function WifiSetup() {
           <h2 className="page-title" style={{ margin: 0 }}>Wi-Fi Connection Setup</h2>
           <p className="page-desc" style={{ margin: '0.25rem 0 0 0' }}>Provision the Spooler by linking it to a local hotspot</p>
         </div>
-        <Button 
-          variant="mechanical" 
+        <Button
+          variant="mechanical"
           onClick={fetchNetworks}
           disabled={isScanning}
           rightIcon={<RefreshCw className={isScanning ? 'animate-spin' : ''} size={18} />}
@@ -163,16 +163,16 @@ export function WifiSetup() {
 
       {/* Status / Error */}
       {status === 'error' && (
-        <div 
-          style={{ 
-            background: 'rgba(255, 68, 68, 0.08)', 
-            border: '1px solid var(--border-default)', 
-            borderLeft: '4px solid var(--status-error)', 
-            borderRadius: '2px', 
-            padding: '1rem', 
-            display: 'flex', 
-            alignItems: 'center', 
-            gap: '0.75rem' 
+        <div
+          style={{
+            background: 'rgba(255, 68, 68, 0.08)',
+            border: '1px solid var(--border-default)',
+            borderLeft: '4px solid var(--status-error)',
+            borderRadius: '2px',
+            padding: '1rem',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '0.75rem'
           }}
         >
           <AlertCircle size={20} style={{ color: 'var(--status-error)', flexShrink: 0 }} />
@@ -186,7 +186,7 @@ export function WifiSetup() {
           <h3 style={{ fontSize: '0.9rem', textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--text-secondary)', marginBottom: '0.75rem', fontWeight: 600 }}>Currently Connected</h3>
           <div className="card" style={{ padding: '1rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between', border: '2px solid var(--status-idle)' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-              <div style={{ background: 'rgba(56, 189, 113, 0.15)', padding: '0.6rem', borderRadius: '100%' }}>
+              <div style={{ background: 'rgba(56, 189, 113, 0.15)', height: '32px', width: '32px', borderRadius: '100%' }}>
                 <ShieldCheck size={28} style={{ color: 'var(--status-idle)' }} />
               </div>
               <div>
@@ -208,38 +208,38 @@ export function WifiSetup() {
       <div>
         <h3 style={{ fontSize: '0.9rem', textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--text-secondary)', marginBottom: '0.75rem', fontWeight: 600 }}>Available Networks</h3>
         <div className="card" style={{ padding: '0.5rem', display: 'flex', flexDirection: 'column' }}>
-        {status === 'scanning' && networks.length === 0 ? (
-          <div style={{ padding: '4rem 2rem', textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1rem' }}>
-            <Loader2 className="animate-spin" size={36} style={{ color: 'var(--accent-primary)' }} />
-            <p style={{ color: 'var(--text-secondary)', margin: 0, fontSize: '0.95rem' }}>Searching for local networks...</p>
-          </div>
-        ) : availableNetworks.length === 0 ? (
-          <div style={{ padding: '4rem 2rem', textAlign: 'center', color: 'var(--text-secondary)', fontSize: '0.95rem' }}>
-            No additional networks found.
-          </div>
-        ) : (
-          availableNetworks.map((net) => (
-            <div 
-              key={net.ssid} 
-              className={`wifi-network-item-row ${net.isSaved ? 'is-saved' : ''}`}
-              style={net.isSaved ? { borderLeft: '4px solid var(--status-idle)', paddingLeft: '0.8rem' } : undefined}
-              onClick={() => handleNetworkClick(net)}
-            >
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                <Wifi size={20} style={{ color: 'var(--accent-primary)', flexShrink: 0 }} />
-                <span className="data-mono" style={{ fontSize: '1.05rem', fontWeight: 600, color: 'var(--text-primary)' }}>{net.ssid}</span>
-                {net.isSaved && (
-                  <span className="badge badge-idle" style={{ fontSize: '0.7rem', padding: '0.15rem 0.4rem', textTransform: 'none' }}>
-                    Saved
-                  </span>
-                )}
-                <span className="badge badge-default" style={{ fontSize: '0.7rem', padding: '0.15rem 0.4rem', textTransform: 'none' }}>{net.signal}%</span>
-              </div>
-              <ArrowRight size={18} className="wifi-arrow-icon" />
+          {status === 'scanning' && networks.length === 0 ? (
+            <div style={{ padding: '4rem 2rem', textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1rem' }}>
+              <Loader2 className="animate-spin" size={36} style={{ color: 'var(--accent-primary)' }} />
+              <p style={{ color: 'var(--text-secondary)', margin: 0, fontSize: '0.95rem' }}>Searching for local networks...</p>
             </div>
-          ))
-        )}
-      </div>
+          ) : availableNetworks.length === 0 ? (
+            <div style={{ padding: '4rem 2rem', textAlign: 'center', color: 'var(--text-secondary)', fontSize: '0.95rem' }}>
+              No additional networks found.
+            </div>
+          ) : (
+            availableNetworks.map((net) => (
+              <div
+                key={net.ssid}
+                className={`wifi-network-item-row ${net.isSaved ? 'is-saved' : ''}`}
+                style={net.isSaved ? { borderLeft: '4px solid var(--status-idle)', paddingLeft: '0.8rem' } : undefined}
+                onClick={() => handleNetworkClick(net)}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                  <Wifi size={20} style={{ color: 'var(--accent-primary)', flexShrink: 0 }} />
+                  <span className="data-mono" style={{ fontSize: '1.05rem', fontWeight: 600, color: 'var(--text-primary)' }}>{net.ssid}</span>
+                  {net.isSaved && (
+                    <span className="badge badge-idle" style={{ fontSize: '0.7rem', padding: '0.15rem 0.4rem', textTransform: 'none' }}>
+                      Saved
+                    </span>
+                  )}
+                  <span className="badge badge-default" style={{ fontSize: '0.7rem', padding: '0.15rem 0.4rem', textTransform: 'none' }}>{net.signal}%</span>
+                </div>
+                <ArrowRight size={18} className="wifi-arrow-icon" />
+              </div>
+            ))
+          )}
+        </div>
       </div>
     </div>
   );
