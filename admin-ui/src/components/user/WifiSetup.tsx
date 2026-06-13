@@ -18,7 +18,7 @@ const WifiConnectModalBody = ({ ssid, isSaved, profileName, closeModal, onConnec
   const [password, setPassword] = useState('');
   const [isConnecting, setIsConnecting] = useState(false);
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.SubmitEvent) => {
     e.preventDefault();
     setIsConnecting(true);
     onConnectStart();

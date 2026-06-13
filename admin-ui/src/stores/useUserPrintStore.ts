@@ -1,7 +1,7 @@
 // src/stores/useUserPrintStore.ts
 import { create } from 'zustand';
 import { api } from '../services/api';
-import type { SSEEvent, BackendJob } from '../types';
+import type { WebSocketEvent, BackendJob } from '../types';
 
 function generateUUID(): string {
   if (typeof crypto !== 'undefined' && crypto.randomUUID) {
@@ -55,7 +55,7 @@ interface UserPrintState {
   generateQuote: () => Promise<void>;
   submitJob: () => Promise<void>;
   goToStep: (step: 1 | 2 | 3 | 4) => void;
-  handleSSEEvent: (event: SSEEvent) => void;
+  handleWebSocketEvent: (event: WebSocketEvent) => void;
   reset: () => void;
   fetchKioskStatus: () => Promise<void>;
   fetchJobs: () => Promise<void>;
@@ -178,7 +178,7 @@ export const useUserPrintStore = create<UserPrintState>()(
             currentStep: 4
           });
           get().fetchJobs();
-          // SSE will handle further status transitions automatically
+          // WebSocket will handle further status transitions automatically
         } catch (e) {
           console.error(e);
         }
@@ -186,7 +186,7 @@ export const useUserPrintStore = create<UserPrintState>()(
 
       goToStep: (step) => set({ currentStep: step }),
 
-      handleSSEEvent: (event) => {
+      handleWebSocketEvent: (event) => {
         const { jobId, reset, fetchJobs } = get();
 
         // --- Phase 1: Silent Delta Merging ---

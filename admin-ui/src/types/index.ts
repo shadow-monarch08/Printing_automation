@@ -66,7 +66,7 @@ export interface BackendSupplies {
   };
 }
 
-export type SSEEvent =
+export type WebSocketEvent =
   | { type: 'connected'; timestamp: string }
   | { type: 'job_queued'; id: string; filename: string; owner: string; sessionId?: string; [key: string]: any }
   | { type: 'job_active'; id: string; data: { id: string; filename: string; sessionId?: string; [key: string]: any } }

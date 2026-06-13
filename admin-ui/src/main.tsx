@@ -15,9 +15,9 @@ import './styles/animations.css'
 import './styles/responsive.css'
 import './styles/wifi-setup.css'
 
-import { sseService } from './services/sseService'
+import { websocketService } from './services/websocketService'
 
-sseService.connect();
+websocketService.connect();
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>

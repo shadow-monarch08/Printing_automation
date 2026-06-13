@@ -2,7 +2,7 @@
 import { create } from 'zustand';
 import { api } from '../services/api';
 import { apiClient } from '../services/apiClient';
-import type { BackendPrinter, BackendJob, BackendMetrics, PricingConfig, SSEEvent, MetricSnapshot } from '../types';
+import type { BackendPrinter, BackendJob, BackendMetrics, PricingConfig, WebSocketEvent, MetricSnapshot } from '../types';
 
 export interface AdminState {
   isAuthenticated: boolean;
@@ -49,7 +49,7 @@ export interface AdminState {
   loadPricingConfig: () => Promise<void>;
   updatePricingConfig: (config: Partial<PricingConfig>) => Promise<boolean>;
 
-  handleSSEEvent: (event: SSEEvent) => void;
+  handleWebSocketEvent: (event: WebSocketEvent) => void;
   forceRefreshPrinter: (printerName: string) => Promise<boolean>;
 }
 
@@ -353,7 +353,7 @@ export const useAdminStore = create<AdminState>((set, get) => ({
     return false;
   },
 
-  handleSSEEvent: (event) => {
+  handleWebSocketEvent: (event) => {
     const state = get();
     switch (event.type) {
       // --- Phase 1: Silent Delta Merging ---

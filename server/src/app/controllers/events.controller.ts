@@ -1,51 +1,56 @@
 import { Request, Response } from "express";
+import { WebSocketServer, WebSocket } from "ws";
 import { eventBus } from "../utils/eventBus";
 import { printMasterQueue } from "../../infrastructure/printMaster.queue";
 import { listPrinters } from "../services/printer.service";
 import os from "os";
 import { getDiskUsagePercent } from "../services/metrics.service";
 
-export async function sseEndpoint(req: Request, res: Response) {
-  // Set headers for SSE
-  res.writeHead(200, {
-    "Content-Type": "text/event-stream",
-    "Cache-Control": "no-cache",
-    "Connection": "keep-alive",
+export function initWebSocketServer(server: any) {
+  const wss = new WebSocketServer({ noServer: true });
+
+  server.on("upgrade", (request: any, socket: any, head: any) => {
+    if (request.url === "/events") {
+      wss.handleUpgrade(request, socket, head, (ws) => {
+        wss.emit("connection", ws, request);
+      });
+    }
   });
 
-  // Flush headers immediately
-  res.flushHeaders();
+  wss.on("connection", (ws: WebSocket) => {
+    // Send initial connected event
+    ws.send(JSON.stringify({ event: "connected", data: { timestamp: new Date().toISOString() } }));
 
-  // Send initial connected event
-  res.write(`data: ${JSON.stringify({ type: "connected", timestamp: new Date().toISOString() })}\n\n`);
-
-  // Event listener function
-  const onEvent = (eventName: string, data: any) => {
-    res.write(`data: ${JSON.stringify({ type: eventName, ...data })}\n\n`);
-  };
-
-  // Bind to all known events.
-  const eventsToListen = [
-    "job_queued", "job_active", "job_completed", "job_failed",
-    "printer_discovery", "system_critical",
-    "printer_state_changed", "printer_quarantined",
-    "queue_paused", "queue_resumed"
-  ];
-  
-  // Create bound listeners so we can remove them later
-  const listeners: Record<string, (data: any) => void> = {};
-
-  eventsToListen.forEach((eventName) => {
-    listeners[eventName] = (data: any) => onEvent(eventName, data);
-    eventBus.on(eventName, listeners[eventName]);
-  });
-
-  // Cleanup on client disconnect
-  req.on("close", () => {
-    eventsToListen.forEach((eventName) => {
-      if (listeners[eventName]) {
-        eventBus.removeListener(eventName, listeners[eventName]);
+    // Event listener function
+    const onEvent = (eventName: string, data: any) => {
+      if (ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify({ event: eventName, data }));
       }
+    };
+
+    // Bind to all known events.
+    const eventsToListen = [
+      "job_queued", "job_active", "job_completed", "job_failed",
+      "printer_discovery", "system_critical",
+      "printer_state_changed", "printer_quarantined",
+      "queue_paused", "queue_resumed"
+    ];
+    
+    // Create bound listeners so we can remove them later
+    const listeners: Record<string, (data: any) => void> = {};
+
+    eventsToListen.forEach((eventName) => {
+      listeners[eventName] = (data: any) => onEvent(eventName, data);
+      eventBus.on(eventName, listeners[eventName]);
+    });
+
+    // Cleanup on client disconnect
+    ws.on("close", () => {
+      eventsToListen.forEach((eventName) => {
+        if (listeners[eventName]) {
+          eventBus.removeListener(eventName, listeners[eventName]);
+        }
+      });
     });
   });
 }
