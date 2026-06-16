@@ -60,33 +60,49 @@ This file is the single source of truth for the SQLite schema. It will:
 3. Instantiate the `Database` singleton.
 4. Enable WAL mode via `db.pragma('journal_mode = WAL')`.
 5. Enable foreign keys via `db.pragma('foreign_keys = ON')`.
-6. Execute four `CREATE TABLE IF NOT EXISTS` statements inside a single `db.exec()` call:
+6. Execute five `CREATE TABLE IF NOT EXISTS` statements inside a single `db.exec()` call:
 
-**`users` table:**
+**`kiosk_sessions` table (replaces the former `users` table):**
 ```sql
-CREATE TABLE IF NOT EXISTS users (
-  id TEXT PRIMARY KEY,
-  session_id TEXT UNIQUE NOT NULL,
-  role TEXT NOT NULL DEFAULT 'kiosk',
-  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+CREATE TABLE IF NOT EXISTS kiosk_sessions (
+  session_id TEXT PRIMARY KEY,
+  ip_address TEXT,
+  user_agent TEXT,
+  created_at TEXT NOT NULL DEFAULT (datetime('now')),
+  expires_at TEXT
 );
 ```
 
-**`printers` table:**
+**`system_config` table (NEW — single-row hardware/shop config):**
+```sql
+CREATE TABLE IF NOT EXISTS system_config (
+  id INTEGER PRIMARY KEY CHECK (id = 1),
+  is_onboarded BOOLEAN NOT NULL DEFAULT 0,
+  cloudflare_url TEXT,
+  shop_name TEXT DEFAULT 'Modern Press',
+  admin_pin_hash TEXT,
+  updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+```
+
+**`printers` table (updated with quarantine fields):**
 ```sql
 CREATE TABLE IF NOT EXISTS printers (
   id TEXT PRIMARY KEY,
   alias TEXT,
   capabilities TEXT DEFAULT '[]',
+  is_quarantined BOOLEAN NOT NULL DEFAULT 0,
+  strike_count INTEGER NOT NULL DEFAULT 0,
+  last_error TEXT,
   added_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 ```
 
-**`print_jobs` table:**
+**`print_jobs` table (updated FK: `user_id` → `session_id`):**
 ```sql
 CREATE TABLE IF NOT EXISTS print_jobs (
   id TEXT PRIMARY KEY,
-  user_id TEXT,
+  session_id TEXT NOT NULL,
   filename TEXT NOT NULL,
   pages INTEGER NOT NULL DEFAULT 1,
   copies INTEGER NOT NULL DEFAULT 1,
@@ -98,7 +114,7 @@ CREATE TABLE IF NOT EXISTS print_jobs (
   error_message TEXT,
   submitted_at TEXT NOT NULL DEFAULT (datetime('now')),
   completed_at TEXT,
-  FOREIGN KEY (user_id) REFERENCES users(id),
+  FOREIGN KEY (session_id) REFERENCES kiosk_sessions(session_id),
   FOREIGN KEY (executed_by_printer) REFERENCES printers(id)
 );
 ```
@@ -125,7 +141,7 @@ CREATE INDEX IF NOT EXISTS idx_print_jobs_status ON print_jobs(status);
 CREATE INDEX IF NOT EXISTS idx_print_jobs_submitted_at ON print_jobs(submitted_at);
 CREATE INDEX IF NOT EXISTS idx_print_jobs_printer ON print_jobs(executed_by_printer);
 CREATE INDEX IF NOT EXISTS idx_print_jobs_color ON print_jobs(color_mode);
-CREATE INDEX IF NOT EXISTS idx_users_session ON users(session_id);
+CREATE INDEX IF NOT EXISTS idx_sessions_expires ON kiosk_sessions(expires_at);
 ```
 
 7. Export the `db` singleton for use across the codebase.
@@ -237,7 +253,7 @@ This service encapsulates all SQLite `print_jobs` table operations. Controllers 
 ```typescript
 insertJob(job: {
   id: string;
-  userId: string | null;
+  sessionId: string;
   filename: string;
   pages: number;
   copies: number;
@@ -247,7 +263,7 @@ insertJob(job: {
   submittedAt: string;
 }): void
 ```
-- Executes: `INSERT INTO print_jobs (id, user_id, filename, pages, copies, color_mode, duplex, cost, status, submitted_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'queued', ?)`
+- Executes: `INSERT INTO print_jobs (id, session_id, filename, pages, copies, color_mode, duplex, cost, status, submitted_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'queued', ?)`
 - Uses a **prepared statement** (`.prepare().run()`) for performance.
 
 ```typescript
@@ -261,12 +277,11 @@ markFailed(jobId: string, printer: string | null, errorMessage: string, complete
 - Executes: `UPDATE print_jobs SET status = 'failed', executed_by_printer = ?, error_message = ?, completed_at = ? WHERE id = ?`
 
 ```typescript
-upsertUser(sessionId: string): string
+upsertSession(sessionId: string, userAgent?: string, ipAddress?: string): void
 ```
-- First: `SELECT id FROM users WHERE session_id = ?`
-- If found: return existing `id`.
-- If not: generate UUID, `INSERT INTO users (id, session_id) VALUES (?, ?)`, return new `id`.
-- This handles the anonymous kiosk user model — no passwords, no auth changes needed.
+- Executes: `INSERT INTO kiosk_sessions (session_id, user_agent, ip_address) VALUES (?, ?, ?) ON CONFLICT DO NOTHING`
+- Idempotent — safe to call on every request; a repeat `session_id` is silently ignored.
+- This is the anonymous kiosk session model — no passwords, no auth changes needed.
 
 ---
 
@@ -366,7 +381,7 @@ In the `printFile` function, insert a SQLite record **immediately before** the B
 
 Add imports at the top:
 ```typescript
-import { insertJob, upsertUser } from "../services/printJob.db.service";
+import { insertJob, upsertSession } from "../services/printJob.db.service";
 ```
 
 Insert between line 49 (end of `jobData` construction) and line 52 (`printMasterQueue.add`):
@@ -374,10 +389,10 @@ Insert between line 49 (end of `jobData` construction) and line 52 (`printMaster
 // === COLD TIER SEAM ===
 // Future: This INSERT will use status 'pending_payment' and the BullMQ
 // enqueue below will move to a POST /print/confirm webhook handler.
-const userId = sessionId ? upsertUser(sessionId) : null;
+if (sessionId) upsertSession(sessionId, req.headers['user-agent'], req.ip);
 insertJob({
   id: jobId,
-  userId,
+  sessionId: sessionId ?? 'anonymous',
   filename: req.file.originalname,
   pages,
   copies,

@@ -1,0 +1,5 @@
+Ok so I like your idea, but here are some suggestions, tell me if they are feasable.
+
+
+
+First of all we need to make sure that the onboarding doesn't starts up every time the pi starts, but connection is not established and system goes into setup mode, for that we need to set the user state to onboarding complete, currently in a process to set up sqlite database so that we have permanent data storage option, we have a users table in there where we can have a special onboarding flag only for role kiosk as we will have other users as well.

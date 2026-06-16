@@ -162,5 +162,39 @@ export const api = {
 
   connectToWifi: async (payload: ConnectPayload) => {
     return apiClient.post<{ success: boolean; message: string }>('/wifi/connect', payload);
+  },
+
+  // Analytics API
+  fetchFinancialSummary: async (startDate: string, endDate: string) => {
+    const res = await apiClient.get<{ success: boolean; totalRevenue: number; totalJobs: number; completedJobs: number; failedJobs: number; avgCostPerJob: number }>(`/analytics/financial/summary?startDate=${startDate}&endDate=${endDate}`);
+    return res;
+  },
+  fetchRevenueTrend: async (startDate: string, endDate: string) => {
+    const res = await apiClient.get<{ success: boolean; trend: any[] }>(`/analytics/financial/trend?startDate=${startDate}&endDate=${endDate}`);
+    return res.trend;
+  },
+  fetchColorSplit: async (startDate: string, endDate: string) => {
+    const res = await apiClient.get<{ success: boolean; colorRevenue: number; colorJobs: number; bwRevenue: number; bwJobs: number }>(`/analytics/financial/color-split?startDate=${startDate}&endDate=${endDate}`);
+    return res;
+  },
+  fetchFleetTelemetry: async (startDate: string, endDate: string) => {
+    const res = await apiClient.get<{ success: boolean; telemetry: any[] }>(`/analytics/fleet?startDate=${startDate}&endDate=${endDate}`);
+    return res.telemetry;
+  },
+  fetchJobArchive: async (params: { startDate: string; endDate: string; status?: string; printer?: string; page: number; limit: number; }) => {
+    const query = new URLSearchParams({ startDate: params.startDate, endDate: params.endDate, page: params.page.toString(), limit: params.limit.toString() });
+    if (params.status) query.set('status', params.status);
+    if (params.printer) query.set('printer', params.printer);
+    const res = await apiClient.get<{ success: boolean; jobs: any[]; total: number; page: number; limit: number; totalPages: number; }>(`/analytics/jobs?${query.toString()}`);
+    return res;
+  },
+  exportJobsCSV: (startDate: string, endDate: string, status?: string, printer?: string) => {
+    const params = new URLSearchParams({ startDate, endDate });
+    if (status) params.set('status', status);
+    if (printer) params.set('printer', printer);
+    const token = localStorage.getItem('auth_token');
+    if (token) params.set('token', token);
+    const baseUrl = import.meta.env.VITE_API_URL || '';
+    return `${baseUrl}/analytics/jobs/export?${params.toString()}`;
   }
 };

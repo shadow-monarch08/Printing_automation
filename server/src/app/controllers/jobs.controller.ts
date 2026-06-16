@@ -3,7 +3,7 @@ import * as jobService from "../services/job.service";
 
 export async function getJobs(req: Request, res: Response) {
   try {
-    const sessionId = req.query.sessionId as string | undefined;
+    const sessionId = (req as any).session?.id || req.query.sessionId as string | undefined;
     const jobs = await jobService.getAllJobs(sessionId);
     res.json({ success: true, jobs });
   } catch (err: any) {

@@ -19,6 +19,7 @@ import { Dashboard } from './pages/admin/Dashboard';
 import { Fleet } from './pages/admin/Fleet';
 import { Queue } from './pages/admin/Queue';
 import { Settings } from './pages/admin/Settings';
+import { Analytics } from './pages/admin/Analytics';
 
 function UserKioskPage() {
   const currentStep = useUserPrintStore(s => s.currentStep);
@@ -85,6 +86,7 @@ function App() {
         <Route path="/admin/fleet" element={<AdminLayout><Fleet /></AdminLayout>} />
         <Route path="/admin/queue" element={<AdminLayout><Queue /></AdminLayout>} />
         <Route path="/admin/settings" element={<AdminLayout><Settings /></AdminLayout>} />
+        <Route path="/admin/analytics" element={<AdminLayout><Analytics /></AdminLayout>} />
       </Routes>
       <Modal />
       <ToastStack />

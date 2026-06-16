@@ -1,5 +1,6 @@
 import { Request, Response } from "express";
 import * as pricingService from "../services/pricing.service";
+import { insertJob, upsertSession } from "../services/printJob.db.service";
 import { printMasterQueue } from "../../infrastructure/printMaster.queue";
 import { systemCommands } from "../../commands/system.commands";
 import path from "path";
@@ -25,7 +26,7 @@ export async function printFile(req: Request, res: Response) {
   const duplex = req.body.duplex || "single";
   const orientation = req.body.orientation || "portrait";
   const owner = req.body.owner || "Guest";
-  const sessionId = req.body.sessionId || null;
+  const sessionId = (req as any).session?.id || req.body.sessionId || null;
 
   try {
     const { cost } = await pricingService.calculateQuote(pages, copies, colorMode as any, duplex as any);
@@ -47,6 +48,23 @@ export async function printFile(req: Request, res: Response) {
       attemptedPrinters: [],
       submittedAt: new Date().toISOString()
     };
+
+    // === COLD TIER SEAM ===
+    // Future: This INSERT will use status 'pending_payment' and the BullMQ
+    // enqueue below will move to a POST /print/confirm webhook handler.
+    if (sessionId) upsertSession(sessionId, req.headers['user-agent'], req.ip);
+    insertJob({
+      id: jobId,
+      sessionId: sessionId ?? 'anonymous',
+      filename: req.file.originalname,
+      pages,
+      copies,
+      colorMode,
+      duplex,
+      cost,
+      submittedAt: new Date().toISOString(),
+    });
+    // === END COLD TIER SEAM ===
 
     // Enqueue job via BullMQ
     await printMasterQueue.add("print", jobData as any, { jobId });

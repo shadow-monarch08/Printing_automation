@@ -32,7 +32,7 @@ export const printMasterWorker = new Worker<PrintJobData>(
       );
       console.log(`[Worker] Successfully dispatched job ${job.id} -> CUPS ID: ${cupsJobId} on ${matchedPrinter}`);
       
-      await job.updateData({ ...job.data, cupsJobId });
+      await job.updateData({ ...job.data, cupsJobId, executedByPrinter: matchedPrinter });
 
       let staleCounter = 0;
       while (true) {
@@ -90,7 +90,7 @@ export const printMasterWorker = new Worker<PrintJobData>(
           const attempts = job.data.attemptedPrinters || [];
           attempts.push(matchedPrinter);
 
-          await job.updateData({ ...job.data, attemptedPrinters: attempts });
+          await job.updateData({ ...job.data, attemptedPrinters: attempts, executedByPrinter: matchedPrinter });
 
           // Step 3.4: Bad Document Isolation
           if (attempts.length >= 2) {

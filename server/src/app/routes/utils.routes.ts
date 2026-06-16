@@ -2,6 +2,7 @@ import { Router } from "express";
 import multer from "multer";
 import path from "path";
 import * as printController from "../controllers/print.controller";
+import { requireValidSession } from "../middlewares/auth.middleware";
 
 const upload = multer({
   dest: path.join(__dirname, "../../../uploads"),
@@ -10,6 +11,6 @@ const upload = multer({
 
 const router = Router();
 
-router.post("/pagecount", upload.single("file"), printController.getPageCount);
+router.post("/pagecount", requireValidSession, upload.single("file"), printController.getPageCount);
 
 export default router;

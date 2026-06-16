@@ -5,3 +5,4 @@ uploads/
 server/public/
 .DS_Store
 /admin/
+server/data/

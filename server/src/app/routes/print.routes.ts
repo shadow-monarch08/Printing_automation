@@ -2,6 +2,7 @@ import { Router } from "express";
 import multer from "multer";
 import path from "path";
 import * as printController from "../controllers/print.controller";
+import { requireValidSession } from "../middlewares/auth.middleware";
 
 const upload = multer({
   dest: path.join(__dirname, "../../../uploads"),
@@ -10,7 +11,7 @@ const upload = multer({
 
 const router = Router();
 
-router.post("/", upload.single("file"), printController.printFile);
-router.post("/quote", printController.calculateQuote);
+router.post("/", requireValidSession, upload.single("file"), printController.printFile);
+router.post("/quote", requireValidSession, printController.calculateQuote);
 
 export default router;

@@ -16,6 +16,7 @@ export interface PrintJobData {
   attemptedPrinters: string[];  // Failover blacklist
   submittedAt: string;
   cupsJobId?: string; // Phase 3: track CUPS job ID
+  executedByPrinter?: string;  // Populated by worker on dispatch
 }
 
 export const printMasterQueue = new Queue<PrintJobData>("print-master", {
