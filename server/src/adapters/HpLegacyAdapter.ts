@@ -1,5 +1,5 @@
 import { IPrinterAdapter } from "./IPrinterAdapter";
-import { PrinterSupplyStatus } from "../app/services/supplies.service";
+import { PrinterSupplyStatus } from "../app/types";
 import { hpCommands } from "../commands/hp.commands";
 import { systemCommands } from "../commands/system.commands";
 

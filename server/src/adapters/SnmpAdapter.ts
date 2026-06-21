@@ -1,5 +1,5 @@
 import { IPrinterAdapter } from "./IPrinterAdapter";
-import { PrinterSupplyStatus } from "../app/services/supplies.service";
+import { PrinterSupplyStatus } from "../app/types";
 import { systemCommands } from "../commands/system.commands";
 
 export class SnmpAdapter implements IPrinterAdapter {

@@ -2,24 +2,14 @@ import { cupsCommands } from "../../commands/cups.commands";
 import fs from "fs/promises";
 import path from "path";
 import { redisConnection } from "../../infrastructure/redis";
+import { REDIS_KEYS, REDIS_TTLS } from "../../infrastructure/redisKeys";
 import { eventBus } from "../utils/eventBus";
 import { PrinterFactory } from "../../factories/printer.factory";
-import { PrinterSupplyStatus } from "./supplies.service";
 import { removePrinterFromAttemptedJobs } from "../../infrastructure/printMaster.queue";
+import db from "../../infrastructure/database";
+import { PrinterInfo, PrinterSupplyStatus } from "../types";
 
 const capabilitiesPath = path.resolve(__dirname, "../../config/capabilities.json");
-
-export interface PrinterInfo {
-  name: string;
-  description: string;
-  status: string;
-  alias?: string;
-  capabilities?: string[];
-  type?: string;
-  paper?: string;
-  supplyBlack?: number | null;
-  supplyColor?: number | null;
-}
 
 export async function getCapabilitiesConfig(): Promise<any> {
   try {
@@ -34,6 +24,23 @@ export async function updateCapabilitiesConfig(newConfig: any): Promise<void> {
   await fs.writeFile(capabilitiesPath, JSON.stringify(newConfig, null, 2), "utf-8");
 }
 
+export function upsertPrinterToDB(id: string, alias?: string, capabilities?: string[]): void {
+  const stmt = db.prepare(`
+    INSERT INTO printers (id, alias, capabilities, added_at)
+    VALUES (?, ?, ?, datetime('now'))
+    ON CONFLICT(id) DO UPDATE SET
+      alias = COALESCE(?, alias),
+      capabilities = COALESCE(?, capabilities)
+  `);
+  stmt.run(
+    id,
+    alias || null,
+    capabilities ? JSON.stringify(capabilities) : null,
+    alias || null,
+    capabilities ? JSON.stringify(capabilities) : null
+  );
+}
+
 export async function updateAlias(printerName: string, alias: string): Promise<void> {
   const config = await getCapabilitiesConfig();
   if (!config[printerName]) {
@@ -41,6 +48,7 @@ export async function updateAlias(printerName: string, alias: string): Promise<v
   }
   config[printerName].alias = alias;
   await updateCapabilitiesConfig(config);
+  upsertPrinterToDB(printerName, alias, config[printerName].capabilities);
 }
 
 export async function detectPrinters(): Promise<string[]> {
@@ -137,15 +145,15 @@ export async function listPrintersFromCUPS(): Promise<PrinterInfo[]> {
  */
 export async function listPrinters(): Promise<PrinterInfo[]> {
   try {
-    const printerNames = await redisConnection.smembers("fleet:printers");
+    const printerNames = await redisConnection.smembers(REDIS_KEYS.FLEET_PRINTERS);
     const printers: PrinterInfo[] = [];
 
     for (const name of printerNames) {
       const [health, state, infoRaw, suppliesRaw] = await Promise.all([
-        redisConnection.get(`printer:${name}:health`),
-        redisConnection.get(`printer:${name}:state`),
-        redisConnection.get(`printer:${name}:info`),
-        redisConnection.get(`supplies:${name}`)
+        redisConnection.get(REDIS_KEYS.printerHealth(name)),
+        redisConnection.get(REDIS_KEYS.printerState(name)),
+        redisConnection.get(REDIS_KEYS.printerInfo(name)),
+        redisConnection.get(REDIS_KEYS.supplies(name))
       ]);
 
       let info: any = {};
@@ -356,7 +364,7 @@ export async function probePrinterCapabilities(queueName: string): Promise<strin
  */
 export async function runComprehensiveHealthCheck(name: string): Promise<void> {
   try {
-    const strikes = await redisConnection.get(`printer:${name}:strikes`);
+    const strikes = await redisConnection.get(REDIS_KEYS.printerStrikes(name));
     if (parseInt(strikes || "0") >= 3) {
       console.log(`[HealthCheck] Skipping ${name} — quarantined (${strikes} strikes)`);
       return;
@@ -365,48 +373,48 @@ export async function runComprehensiveHealthCheck(name: string): Promise<void> {
     const adapter = await PrinterFactory.getAdapter(name);
     if (!adapter) {
       console.warn(`[HealthCheck] No adapter found for ${name}`);
-      await redisConnection.set(`printer:${name}:health`, "flagged");
+      await redisConnection.set(REDIS_KEYS.printerHealth(name), "flagged");
       return;
     }
 
     // 1. Digital Probe
     const isHealthy = await adapter.healthCheck();
     if (!isHealthy) {
-      await redisConnection.set(`printer:${name}:health`, "flagged");
+      await redisConnection.set(REDIS_KEYS.printerHealth(name), "flagged");
       return;
     }
 
     // 2. CUPS Status Check
     const { stdout } = await cupsCommands.getPrinterStatusByName(name);
     if (stdout.toLowerCase().includes("stopped") || stdout.toLowerCase().includes("rejecting")) {
-      await redisConnection.set(`printer:${name}:health`, "flagged");
+      await redisConnection.set(REDIS_KEYS.printerHealth(name), "flagged");
       return;
     }
 
-    const currentState = await redisConnection.get(`printer:${name}:state`);
+    const currentState = await redisConnection.get(REDIS_KEYS.printerState(name));
     if (stdout.toLowerCase().includes("idle") && currentState === "busy") {
-      await redisConnection.set(`printer:${name}:state`, "idle");
+      await redisConnection.set(REDIS_KEYS.printerState(name), "idle");
     } else if (stdout.toLowerCase().includes("printing")) {
-      await redisConnection.set(`printer:${name}:state`, "busy");
+      await redisConnection.set(REDIS_KEYS.printerState(name), "busy");
     }
 
     // 3. Supplies Check
     try {
       const supplies = await adapter.getSupplies();
-      await redisConnection.setex(`supplies:${name}`, 300, JSON.stringify(supplies));
+      await redisConnection.setex(REDIS_KEYS.supplies(name), REDIS_TTLS.SUPPLIES, JSON.stringify(supplies));
     } catch (suppliesErr) {
       console.warn(`[HealthCheck] Failed to get supplies for ${name}:`, suppliesErr);
     }
 
     // 4. Finalize
-    const prevHealth = await redisConnection.get(`printer:${name}:health`);
-    await redisConnection.set(`printer:${name}:health`, "healthy");
+    const prevHealth = await redisConnection.get(REDIS_KEYS.printerHealth(name));
+    await redisConnection.set(REDIS_KEYS.printerHealth(name), "healthy");
 
     if (prevHealth !== "healthy") {
       await removePrinterFromAttemptedJobs(name);
     }
 
-    const infoStr = await redisConnection.get(`printer:${name}:info`) || "{}";
+    const infoStr = await redisConnection.get(REDIS_KEYS.printerInfo(name)) || "{}";
     const info = JSON.parse(infoStr);
 
     const capabilities = await getCapabilitiesConfig();
@@ -419,11 +427,11 @@ export async function runComprehensiveHealthCheck(name: string): Promise<void> {
       capabilities: caps.capabilities || [],
       type: caps.type || "unknown"
     };
-    await redisConnection.set(`printer:${name}:info`, JSON.stringify(newInfo));
+    await redisConnection.set(REDIS_KEYS.printerInfo(name), JSON.stringify(newInfo));
 
   } catch (err) {
     console.error(`[HealthCheck] Failed for ${name}:`, err);
-    await redisConnection.set(`printer:${name}:health`, "flagged");
+    await redisConnection.set(REDIS_KEYS.printerHealth(name), "flagged");
   }
 }
 
@@ -441,24 +449,27 @@ export async function startHeartbeatLoop(): Promise<void> {
       const printerNames = printers.map(p => p.name);
 
       if (printerNames.length > 0) {
-        await redisConnection.sadd("fleet:printers", ...printerNames);
+        await redisConnection.sadd(REDIS_KEYS.FLEET_PRINTERS, ...printerNames);
       }
 
       for (const p of printers) {
         // Save description
-        const infoStr = await redisConnection.get(`printer:${p.name}:info`) || "{}";
+        const infoStr = await redisConnection.get(REDIS_KEYS.printerInfo(p.name)) || "{}";
         const info = JSON.parse(infoStr);
         info.description = p.description;
-        await redisConnection.set(`printer:${p.name}:info`, JSON.stringify(info));
+        await redisConnection.set(REDIS_KEYS.printerInfo(p.name), JSON.stringify(info));
+
+        // Sync with SQLite Database
+        upsertPrinterToDB(p.name, p.alias, p.capabilities);
 
         // Track previous health and state
-        const prevHealth = await redisConnection.get(`printer:${p.name}:health`);
-        const prevState = await redisConnection.get(`printer:${p.name}:state`);
+        const prevHealth = await redisConnection.get(REDIS_KEYS.printerHealth(p.name));
+        const prevState = await redisConnection.get(REDIS_KEYS.printerState(p.name));
 
         await runComprehensiveHealthCheck(p.name);
 
-        const newHealth = await redisConnection.get(`printer:${p.name}:health`);
-        const newState = await redisConnection.get(`printer:${p.name}:state`);
+        const newHealth = await redisConnection.get(REDIS_KEYS.printerHealth(p.name));
+        const newState = await redisConnection.get(REDIS_KEYS.printerState(p.name));
 
         if (prevHealth !== newHealth || prevState !== newState) {
           eventBus.emit("printer_state_changed", {

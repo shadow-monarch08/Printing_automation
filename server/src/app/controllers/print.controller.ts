@@ -1,6 +1,6 @@
 import { Request, Response } from "express";
 import * as pricingService from "../services/pricing.service";
-import { insertJob, upsertSession } from "../services/printJob.db.service";
+import { insertJob } from "../services/printJob.db.service";
 import { printMasterQueue } from "../../infrastructure/printMaster.queue";
 import { systemCommands } from "../../commands/system.commands";
 import path from "path";
@@ -19,7 +19,7 @@ export async function printFile(req: Request, res: Response) {
 
   const filePath = path.resolve(req.file.path);
   const targetPrinter = req.body.printer || undefined;
-  
+
   const pages = parseInt(req.body.pages || "1", 10);
   const copies = parseInt(req.body.copies || "1", 10);
   const colorMode = req.body.colorMode || "grayscale";
@@ -30,7 +30,7 @@ export async function printFile(req: Request, res: Response) {
 
   try {
     const { cost } = await pricingService.calculateQuote(pages, copies, colorMode as any, duplex as any);
-    
+
     const jobId = uuidv4();
     const jobData = {
       id: jobId,
@@ -52,7 +52,6 @@ export async function printFile(req: Request, res: Response) {
     // === COLD TIER SEAM ===
     // Future: This INSERT will use status 'pending_payment' and the BullMQ
     // enqueue below will move to a POST /print/confirm webhook handler.
-    if (sessionId) upsertSession(sessionId, req.headers['user-agent'], req.ip);
     insertJob({
       id: jobId,
       sessionId: sessionId ?? 'anonymous',
@@ -68,7 +67,7 @@ export async function printFile(req: Request, res: Response) {
 
     // Enqueue job via BullMQ
     await printMasterQueue.add("print", jobData as any, { jobId });
-    
+
     eventBus.emit("job_queued", jobData);
 
     res.json({
@@ -114,7 +113,7 @@ export async function getPageCount(req: Request, res: Response) {
     // 1. If it's an image, it's always 1 page
     if (mimeType.startsWith('image/')) {
       pages = 1;
-    } 
+    }
     // 2. Only run pdfinfo if it's actually a PDF
     else if (mimeType === 'application/pdf' || req.file.originalname.toLowerCase().endsWith('.pdf')) {
       try {
@@ -136,11 +135,11 @@ export async function getPageCount(req: Request, res: Response) {
     if (fs.existsSync(filePath)) {
       fs.unlinkSync(filePath);
     }
-    
+
     res.json({ success: true, pages });
   } catch (err: any) {
     console.error("getPageCount Critical Error:", err);
-    
+
     // Clean up temporary file
     const fs = require('fs');
     if (fs.existsSync(filePath)) {

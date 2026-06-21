@@ -1,14 +1,14 @@
 import db from '../../infrastructure/database';
+import { globalSystemConfig, setGlobalSystemConfig, SystemConfigRow } from '../../infrastructure/boot';
 
 export function getSystemConfig() {
-  const row = db.prepare(`SELECT * FROM system_config WHERE id = 1`).get() as any;
-  if (!row) return null;
+  if (!globalSystemConfig) return null;
   return {
-    isOnboarded: Boolean(row.is_onboarded),
-    cloudflareUrl: row.cloudflare_url,
-    shopName: row.shop_name,
-    adminPinHash: row.admin_pin_hash,
-    updatedAt: row.updated_at
+    isOnboarded: Boolean(globalSystemConfig.is_onboarded),
+    cloudflareUrl: globalSystemConfig.cloudflare_url,
+    shopName: globalSystemConfig.shop_name,
+    adminPinHash: globalSystemConfig.admin_pin_hash,
+    updatedAt: globalSystemConfig.updated_at
   };
 }
 
@@ -47,6 +47,9 @@ export function updateSystemConfig(data: {
     shopName,
     adminPinHash
   );
+
+  const newRow = db.prepare(`SELECT * FROM system_config WHERE id = 1`).get() as SystemConfigRow | undefined;
+  setGlobalSystemConfig(newRow || null);
 
   return getSystemConfig();
 }

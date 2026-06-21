@@ -5,7 +5,7 @@ export async function initKioskSession(req: Request, res: Response) {
   try {
     const userAgent = req.headers["user-agent"] || "Unknown";
     const ipAddress = req.ip || "Unknown";
-    const sessionId = sessionService.initSession(userAgent, ipAddress);
+    const sessionId = await sessionService.initSession(userAgent, ipAddress);
     
     res.json({ success: true, sessionId });
   } catch (err: any) {

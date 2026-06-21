@@ -100,11 +100,12 @@ export async function getSupplies(req: Request, res: Response) {
 }
 
 import { redisConnection } from "../../infrastructure/redis";
+import { REDIS_KEYS, REDIS_TTLS } from "../../infrastructure/redisKeys";
 import { PrinterFactory } from "../../factories/printer.factory";
 
 export async function forceRefreshPrinter(req: Request, res: Response) {
   const name = req.params.name as string;
-  const healthKey = `printer:${name}:health`;
+  const healthKey = REDIS_KEYS.printerHealth(name);
   
   try {
     // 1. Delete Redis cache for this printer
@@ -123,15 +124,15 @@ export async function forceRefreshPrinter(req: Request, res: Response) {
     // 3. Update Health
     if (isHealthy) {
        await redisConnection.set(healthKey, "healthy");
-       await redisConnection.set(`printer:${name}:strikes`, "0");
-       await redisConnection.set(`printer:${name}:state`, "idle");
+       await redisConnection.set(REDIS_KEYS.printerStrikes(name), "0");
+       await redisConnection.set(REDIS_KEYS.printerState(name), "idle");
        
        // Remove printer from blacklist of all active/delayed jobs
        await removePrinterFromAttemptedJobs(name);
        
        // Pre-fetch supplies to update cache
        const supplies = await adapter.getSupplies(); 
-       await redisConnection.setex(`supplies:${name}`, 300, JSON.stringify(supplies));
+       await redisConnection.setex(REDIS_KEYS.supplies(name), REDIS_TTLS.SUPPLIES, JSON.stringify(supplies));
        
        const isPaused = await printMasterQueue.isPaused();
        if (isPaused) {
@@ -189,6 +190,9 @@ export async function configurePrinter(req: Request, res: Response) {
     
     await printerService.updateCapabilitiesConfig(config);
 
+    // Sync with SQLite Database
+    printerService.upsertPrinterToDB(queueName, rawModel, capabilities);
+
     // ── Universal Redis Handshake ──
     const printerInfo = {
       name: queueName,
@@ -197,11 +201,11 @@ export async function configurePrinter(req: Request, res: Response) {
       type: printerType,
     };
 
-    await redisConnection.sadd("fleet:printers", queueName);
-    await redisConnection.set(`printer:${queueName}:health`, "healthy");
-    await redisConnection.set(`printer:${queueName}:state`, "idle");
-    await redisConnection.set(`printer:${queueName}:strikes`, "0");
-    await redisConnection.set(`printer:${queueName}:info`, JSON.stringify(printerInfo));
+    await redisConnection.sadd(REDIS_KEYS.FLEET_PRINTERS, queueName);
+    await redisConnection.set(REDIS_KEYS.printerHealth(queueName), "healthy");
+    await redisConnection.set(REDIS_KEYS.printerState(queueName), "idle");
+    await redisConnection.set(REDIS_KEYS.printerStrikes(queueName), "0");
+    await redisConnection.set(REDIS_KEYS.printerInfo(queueName), JSON.stringify(printerInfo));
 
     // Emit SSE event to force frontend reload
     eventBus.emit("printer_discovery", { timestamp: new Date().toISOString() });
@@ -231,6 +235,9 @@ export async function updateCapabilities(req: Request, res: Response) {
     if (alias !== undefined) config[name].alias = alias;
     
     await printerService.updateCapabilitiesConfig(config);
+
+    // Sync with SQLite Database
+    printerService.upsertPrinterToDB(name, alias, capabilities);
     
     // Emit SSE event to trigger fleet update in UI
     eventBus.emit("printer_discovery", { timestamp: new Date().toISOString() });
@@ -292,13 +299,13 @@ export async function deletePrinter(req: Request, res: Response) {
     await cupsCommands.deletePrinter(name);
 
     // 2. Cache Level — Purge ALL Redis keys
-    await redisConnection.srem("fleet:printers", name);
+    await redisConnection.srem(REDIS_KEYS.FLEET_PRINTERS, name);
     await redisConnection.del(
-      `printer:${name}:health`,
-      `printer:${name}:state`,
-      `printer:${name}:strikes`,
-      `printer:${name}:info`,
-      `supplies:${name}`
+      REDIS_KEYS.printerHealth(name),
+      REDIS_KEYS.printerState(name),
+      REDIS_KEYS.printerStrikes(name),
+      REDIS_KEYS.printerInfo(name),
+      REDIS_KEYS.supplies(name)
     );
 
     // 3. Notify frontend
@@ -312,7 +319,7 @@ export async function deletePrinter(req: Request, res: Response) {
 
 export async function deleteAllPrinters(req: Request, res: Response) {
   try {
-    const printerNames = await redisConnection.smembers("fleet:printers");
+    const printerNames = await redisConnection.smembers(REDIS_KEYS.FLEET_PRINTERS);
     
     if (printerNames.length === 0) {
       return res.json({ success: true, message: "No printers to delete." });
@@ -327,13 +334,13 @@ export async function deleteAllPrinters(req: Request, res: Response) {
       }
 
       // 2. Cache Level — Purge ALL Redis keys
-      await redisConnection.srem("fleet:printers", name);
+      await redisConnection.srem(REDIS_KEYS.FLEET_PRINTERS, name);
       await redisConnection.del(
-        `printer:${name}:health`,
-        `printer:${name}:state`,
-        `printer:${name}:strikes`,
-        `printer:${name}:info`,
-        `supplies:${name}`
+        REDIS_KEYS.printerHealth(name),
+        REDIS_KEYS.printerState(name),
+        REDIS_KEYS.printerStrikes(name),
+        REDIS_KEYS.printerInfo(name),
+        REDIS_KEYS.supplies(name)
       );
     }
 

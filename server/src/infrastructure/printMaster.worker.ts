@@ -1,5 +1,6 @@
 import { Worker, Job, DelayedError } from "bullmq";
 import { redisConnection } from "./redis";
+import { REDIS_KEYS } from "./redisKeys";
 import { PrintJobData, printMasterQueue } from "./printMaster.queue";
 import * as printerService from "../app/services/printer.service";
 import * as matchmakerService from "../app/services/matchmaker.service";
@@ -21,7 +22,7 @@ export const printMasterWorker = new Worker<PrintJobData>(
     
     try {
       // Step 2.2: Add Optimistic Lock in Worker (Pre-Dispatch)
-      await redisConnection.set(`printer:${matchedPrinter}:state`, "busy");
+      await redisConnection.set(REDIS_KEYS.printerState(matchedPrinter), "busy");
       eventBus.emit("printer_state_changed", { printer: matchedPrinter, state: "busy" });
 
       const cupsJobId = await printerService.printFile(
@@ -55,13 +56,13 @@ export const printMasterWorker = new Worker<PrintJobData>(
           }
 
           // Step 3.1: Increment Strike Counter on Failure
-          const strikeKey = `printer:${matchedPrinter}:strikes`;
+          const strikeKey = REDIS_KEYS.printerStrikes(matchedPrinter);
           const newStrikes = await redisConnection.incr(strikeKey);
           console.log(`[Worker] Printer ${matchedPrinter} strike count: ${newStrikes}`);
 
           // Step 3.3: Quarantine at 3 Strikes
           if (newStrikes >= 3) {
-            await redisConnection.set(`printer:${matchedPrinter}:health`, "flagged");
+            await redisConnection.set(REDIS_KEYS.printerHealth(matchedPrinter), "flagged");
             eventBus.emit("printer_quarantined", {
               printer: matchedPrinter,
               message: `Printer ${matchedPrinter} quarantined after ${newStrikes} consecutive failures.`
@@ -69,10 +70,10 @@ export const printMasterWorker = new Worker<PrintJobData>(
             console.warn(`[Worker] QUARANTINE: ${matchedPrinter} flagged after ${newStrikes} strikes.`);
 
             // Step 3.5: Absolute Circuit Breaker (Global Queue Pause)
-            const allPrinterNames = await redisConnection.smembers("fleet:printers");
+            const allPrinterNames = await redisConnection.smembers(REDIS_KEYS.FLEET_PRINTERS);
             let hasHealthyPrinter = false;
             for (const name of allPrinterNames) {
-              const health = await redisConnection.get(`printer:${name}:health`);
+              const health = await redisConnection.get(REDIS_KEYS.printerHealth(name));
               if (health === "healthy") {
                 hasHealthyPrinter = true;
                 break;
@@ -150,8 +151,8 @@ printMasterWorker.on("completed", async (job) => {
   // Step 2.3 & 3.2: Release lock and reset strikes
   const printer = job.returnvalue?.printer;
   if (printer) {
-    await redisConnection.set(`printer:${printer}:state`, "idle");
-    await redisConnection.set(`printer:${printer}:strikes`, "0");
+    await redisConnection.set(REDIS_KEYS.printerState(printer), "idle");
+    await redisConnection.set(REDIS_KEYS.printerStrikes(printer), "0");
     eventBus.emit("printer_state_changed", { printer, state: "idle" });
   }
 
@@ -173,7 +174,7 @@ printMasterWorker.on("failed", async (job, err) => {
   // Step 2.3: Release lock for the printer that was being used
   const printer = job?.data?.attemptedPrinters?.[job.data.attemptedPrinters.length - 1] || job?.data?.targetPrinter;
   if (printer) {
-    await redisConnection.set(`printer:${printer}:state`, "idle");
+    await redisConnection.set(REDIS_KEYS.printerState(printer), "idle");
     eventBus.emit("printer_state_changed", { printer, state: "idle" });
   }
 

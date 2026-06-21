@@ -1,5 +1,5 @@
 import { IPrinterAdapter } from "./IPrinterAdapter";
-import { PrinterSupplyStatus } from "../app/services/supplies.service";
+import { PrinterSupplyStatus } from "../app/types";
 import { cupsCommands } from "../commands/cups.commands";
 
 export class IppModernAdapter implements IPrinterAdapter {

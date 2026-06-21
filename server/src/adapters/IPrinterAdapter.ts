@@ -1,4 +1,4 @@
-import { PrinterSupplyStatus } from "../app/services/supplies.service";
+import { PrinterSupplyStatus } from "../app/types";
 
 export interface IPrinterAdapter {
   /**

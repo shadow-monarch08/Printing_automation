@@ -1,14 +1,7 @@
 import { PrinterFactory } from "../../factories/printer.factory";
 import { redisConnection } from "../../infrastructure/redis";
-
-// ── Canonical return type ────────────────────────────────────────────────────
-export interface PrinterSupplyStatus {
-  paper: "ready" | "empty" | "unknown";
-  supplies: {
-    black: number | null;
-    color: number | null;
-  };
-}
+import { REDIS_KEYS } from "../../infrastructure/redisKeys";
+import { PrinterSupplyStatus } from "../types";
 
 export const EMPTY_RESULT: PrinterSupplyStatus = {
   paper: "unknown",
@@ -17,7 +10,7 @@ export const EMPTY_RESULT: PrinterSupplyStatus = {
 
 // ── Public entry point ───────────────────────────────────────────────────────
 export async function getSupplies(printerName: string): Promise<PrinterSupplyStatus> {
-  const cacheKey = `supplies:${printerName}`;
+  const cacheKey = REDIS_KEYS.supplies(printerName);
 
   // 1. Redis cache check ONLY - no hardware fallback
   const cached = await redisConnection.get(cacheKey);

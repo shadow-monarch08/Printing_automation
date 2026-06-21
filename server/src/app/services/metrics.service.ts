@@ -2,13 +2,7 @@ import os from 'os';
 import { systemCommands } from '../../commands/system.commands';
 import { pauseQueue } from './job.service';
 import { eventBus } from '../utils/eventBus';
-
-interface MetricSnapshot {
-  timestamp: string;
-  cpu: number;
-  memory: number;
-  disk: number;
-}
+import { MetricSnapshot } from '../types';
 
 const history: MetricSnapshot[] = [];
 let pollingInterval: NodeJS.Timeout | null = null;

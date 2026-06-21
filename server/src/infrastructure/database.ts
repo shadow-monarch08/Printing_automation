@@ -35,11 +35,20 @@ CREATE TABLE IF NOT EXISTS printers (
   id TEXT PRIMARY KEY,
   alias TEXT,
   capabilities TEXT DEFAULT '[]',
-  is_quarantined BOOLEAN NOT NULL DEFAULT 0,
-  strike_count INTEGER NOT NULL DEFAULT 0,
-  last_error TEXT,
   added_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
+
+CREATE TABLE IF NOT EXISTS pricing_config (
+  id INTEGER PRIMARY KEY CHECK (id = 1),
+  base_price_bw INTEGER NOT NULL DEFAULT 200,    -- Prices in Paise/Cents
+  base_price_color INTEGER NOT NULL DEFAULT 1000,
+  duplex_discount_percent INTEGER NOT NULL DEFAULT 0,
+  updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+UPDATE system_config SET is_onboarded = 1;
+
+INSERT OR IGNORE INTO pricing_config (id, base_price_bw, base_price_color, duplex_discount_percent) VALUES (1, 200, 1000, 0);
 
 CREATE TABLE IF NOT EXISTS print_jobs (
   id TEXT PRIMARY KEY,

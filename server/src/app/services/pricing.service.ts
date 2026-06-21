@@ -1,44 +1,64 @@
-import fs from "fs/promises";
-import path from "path";
-
-const configPath = path.resolve(__dirname, "../../config/pricing.json");
-
-export interface PricingConfig {
-  bwPerPage: number;
-  colorPerPage: number;
-  currency: string;
-  duplexDiscount: number;
-  bulkThreshold: number;
-  bulkDiscount: number;
-}
+import db from "../../infrastructure/database";
+import { globalPricingConfig, setGlobalPricingConfig, PricingConfigRow } from "../../infrastructure/boot";
+import { PricingConfig } from "../types";
 
 const DEFAULT_CONFIG: PricingConfig = {
-  bwPerPage: 2,
-  colorPerPage: 10,
+  bwPerPage: 200,
+  colorPerPage: 1000,
   currency: "₹",
-  duplexDiscount: 10,
+  duplexDiscount: 0,
   bulkThreshold: 50,
   bulkDiscount: 15
 };
 
 export async function getPricingConfig(): Promise<PricingConfig> {
-  try {
-    const data = await fs.readFile(configPath, "utf-8");
-    return JSON.parse(data) as PricingConfig;
-  } catch {
-    return DEFAULT_CONFIG;
+  if (globalPricingConfig) {
+    return {
+      bwPerPage: globalPricingConfig.base_price_bw,
+      colorPerPage: globalPricingConfig.base_price_color,
+      currency: DEFAULT_CONFIG.currency,
+      duplexDiscount: globalPricingConfig.duplex_discount_percent,
+      bulkThreshold: DEFAULT_CONFIG.bulkThreshold,
+      bulkDiscount: DEFAULT_CONFIG.bulkDiscount,
+    };
   }
+  return DEFAULT_CONFIG;
 }
 
 export async function updatePricingConfig(newConfig: Partial<PricingConfig>): Promise<PricingConfig> {
   const current = await getPricingConfig();
   const updated = { ...current, ...newConfig };
-  await fs.writeFile(configPath, JSON.stringify(updated, null, 2), "utf-8");
+  
+  db.prepare(`
+    UPDATE pricing_config 
+    SET base_price_bw = ?, base_price_color = ?, duplex_discount_percent = ?, updated_at = datetime('now')
+    WHERE id = 1
+  `).run(
+    updated.bwPerPage,
+    updated.colorPerPage,
+    updated.duplexDiscount
+  );
+  
+  const newRow = db.prepare("SELECT * FROM pricing_config WHERE id = 1").get() as PricingConfigRow | undefined;
+  setGlobalPricingConfig(newRow || null);
+  
   return updated;
 }
 
 export async function resetPricingConfig(): Promise<PricingConfig> {
-  await fs.writeFile(configPath, JSON.stringify(DEFAULT_CONFIG, null, 2), "utf-8");
+  db.prepare(`
+    UPDATE pricing_config 
+    SET base_price_bw = ?, base_price_color = ?, duplex_discount_percent = ?, updated_at = datetime('now')
+    WHERE id = 1
+  `).run(
+    DEFAULT_CONFIG.bwPerPage,
+    DEFAULT_CONFIG.colorPerPage,
+    DEFAULT_CONFIG.duplexDiscount
+  );
+
+  const newRow = db.prepare("SELECT * FROM pricing_config WHERE id = 1").get() as PricingConfigRow | undefined;
+  setGlobalPricingConfig(newRow || null);
+
   return DEFAULT_CONFIG;
 }
 

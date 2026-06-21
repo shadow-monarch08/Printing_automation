@@ -1,19 +1,6 @@
 import { systemCommands } from "../../commands/system.commands";
 import { runSecureCommand } from "../utils/exec";
-
-export interface ConnectPayload {
-  ssid: string;
-  profileName?: string;
-  password?: string;
-}
-
-export interface WiFiNetwork {
-  ssid: string;
-  signal: number;
-  isActive?: boolean;
-  isSaved?: boolean;
-  profileName?: string;
-}
+import { ConnectPayload, WiFiNetwork } from "../types";
 
 export async function scanNetworks(): Promise<WiFiNetwork[]> {
   try {

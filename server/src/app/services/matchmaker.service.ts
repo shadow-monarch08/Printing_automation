@@ -1,15 +1,16 @@
 import { PrintJobData } from "../../infrastructure/printMaster.queue";
 import { redisConnection } from "../../infrastructure/redis";
+import { REDIS_KEYS } from "../../infrastructure/redisKeys";
 
 export async function findPrinter(jobData: PrintJobData): Promise<string | null> {
-  const printerNames = await redisConnection.smembers("fleet:printers");
+  const printerNames = await redisConnection.smembers(REDIS_KEYS.FLEET_PRINTERS);
   const candidates: Array<{name: string, alias: string, capabilities: string[]}> = [];
 
   for (const name of printerNames) {
     const [health, state, infoRaw] = await Promise.all([
-      redisConnection.get(`printer:${name}:health`),
-      redisConnection.get(`printer:${name}:state`),
-      redisConnection.get(`printer:${name}:info`)
+      redisConnection.get(REDIS_KEYS.printerHealth(name)),
+      redisConnection.get(REDIS_KEYS.printerState(name)),
+      redisConnection.get(REDIS_KEYS.printerInfo(name))
     ]);
 
     // 1. health === "healthy" AND state === "idle"
