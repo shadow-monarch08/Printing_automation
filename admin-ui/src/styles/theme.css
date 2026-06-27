@@ -1,5 +1,17 @@
 /* src/styles/theme.css */
 
+:root {
+  --spacing-xs: 0.25rem; /* 4px */
+  --spacing-sm: 0.5rem;  /* 8px */
+  --spacing-md: 1rem;   /* 16px */
+  --spacing-lg: 1.5rem;  /* 24px */
+  --spacing-xl: 2.5rem;  /* 40px */
+
+  --radius-sm: 2px;
+  --radius-md: 4px;
+  --radius-lg: 8px;
+}
+
 /* Dark Mode — "The Darkroom" */
 [data-theme="dark"] {
   --bg-primary:         #121212;

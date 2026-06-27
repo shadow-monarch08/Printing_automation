@@ -6,14 +6,7 @@ import { ModalProvider } from './context/ModalContext';
 import { ToastProvider } from './context/ToastContext';
 import App from './App.tsx'
 
-import './styles/reset.css'
-import './styles/theme.css'
-import './styles/components.css'
-import './styles/modal.css'
-import './styles/toast.css'
-import './styles/animations.css'
-import './styles/responsive.css'
-import './styles/wifi-setup.css'
+import './index.css'
 
 import { websocketService } from './services/websocketService'
 

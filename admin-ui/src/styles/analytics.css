@@ -135,13 +135,15 @@
 }
 
 .date-picker-day.in-range {
-  background-color: rgba(0, 120, 255, 0.1);
+  background-color: var(--accent-glow);
+  color: var(--text-primary);
   border-radius: 0;
 }
 
 .date-picker-day.selected {
   background: var(--accent-primary);
-  color: white;
+  color: var(--bg-primary);
+  font-weight: 600;
 }
 
 .date-picker-day.today {
@@ -191,6 +193,10 @@
   gap: var(--spacing-md);
   margin-bottom: var(--spacing-md);
   align-items: center;
+}
+
+.analytics-filter-bar .custom-select-container {
+  width: 180px;
 }
 
 .analytics-pagination {

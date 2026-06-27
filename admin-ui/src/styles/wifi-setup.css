@@ -4,11 +4,11 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 1.1rem 1rem;
+  padding: 1.1rem var(--spacing-md);
   border-bottom: 1px dashed var(--border-default);
   cursor: pointer;
   transition: all 0.15s ease;
-  border-radius: 2px;
+  border-radius: var(--radius-sm);
 }
 
 .wifi-network-item-row:last-child {
@@ -17,7 +17,7 @@
 
 .wifi-network-item-row:hover {
   background-color: var(--bg-surface-hover);
-  padding-left: 1.25rem;
+  padding-left: var(--spacing-lg);
 }
 
 .wifi-network-item-row:hover .wifi-arrow-icon {

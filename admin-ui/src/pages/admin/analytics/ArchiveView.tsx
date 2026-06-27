@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { api } from '../../../services/api';
 import dayjs from 'dayjs';
 import { Download } from 'lucide-react';
+import { CustomSelect } from '../../../components/shared/CustomSelect';
 
 interface ArchiveViewProps {
   startDate: string;
@@ -49,25 +50,43 @@ export const ArchiveView: React.FC<ArchiveViewProps> = ({ startDate, endDate }) 
     window.open(url, '_blank');
   };
 
+  const statusOptions = [
+    { value: '', label: 'All Statuses' },
+    { value: 'queued', label: 'Queued' },
+    { value: 'completed', label: 'Completed' },
+    { value: 'failed', label: 'Failed' },
+    { value: 'cancelled', label: 'Cancelled' }
+  ];
+
+  const printerOptions = [
+    { value: '', label: 'All Printers' },
+    ...printers.map(p => ({ value: p, label: p }))
+  ];
+
+  const limitOptions = [
+    { value: '10', label: '10 per page' },
+    { value: '25', label: '25 per page' },
+    { value: '50', label: '50 per page' }
+  ];
+
   return (
     <div className="archive-view">
       <div className="analytics-filter-bar">
-        <select className="input" value={statusFilter} onChange={e => setStatusFilter(e.target.value)}>
-          <option value="">All Statuses</option>
-          <option value="queued">Queued</option>
-          <option value="completed">Completed</option>
-          <option value="failed">Failed</option>
-          <option value="cancelled">Cancelled</option>
-        </select>
-        <select className="input" value={printerFilter} onChange={e => setPrinterFilter(e.target.value)}>
-          <option value="">All Printers</option>
-          {printers.map(p => <option key={p} value={p}>{p}</option>)}
-        </select>
-        <select className="input" value={limit} onChange={e => setLimit(parseInt(e.target.value, 10))}>
-          <option value={10}>10 per page</option>
-          <option value={25}>25 per page</option>
-          <option value={50}>50 per page</option>
-        </select>
+        <CustomSelect
+          options={statusOptions}
+          value={statusFilter}
+          onChange={setStatusFilter}
+        />
+        <CustomSelect
+          options={printerOptions}
+          value={printerFilter}
+          onChange={setPrinterFilter}
+        />
+        <CustomSelect
+          options={limitOptions}
+          value={limit.toString()}
+          onChange={val => setLimit(parseInt(val, 10))}
+        />
         <button className="btn btn-secondary" onClick={handleExport} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
           <Download size={16} /> Export CSV
         </button>

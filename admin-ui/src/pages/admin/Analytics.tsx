@@ -4,7 +4,6 @@ import { DateRangePicker } from '../../components/shared/DateRangePicker';
 import { FinancialView } from './analytics/FinancialView';
 import { TelemetryView } from './analytics/TelemetryView';
 import { ArchiveView } from './analytics/ArchiveView';
-import '../../styles/analytics.css';
 
 type TabType = 'financial' | 'telemetry' | 'archive';
 
