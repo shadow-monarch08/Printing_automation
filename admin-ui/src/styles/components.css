@@ -79,22 +79,7 @@
   box-shadow: 0 1px 0 var(--accent-secondary);
 }
 
-.btn-secondary {
-  background: var(--bg-surface-hover);
-  color: var(--text-primary);
-  border: 2px solid var(--border-default);
-  box-shadow: 0 4px 0 var(--border-default);
-}
-.btn-secondary:hover:not(:disabled) {
-  background: var(--bg-surface-alt);
-  border-color: var(--border-active);
-}
-.btn-secondary:active:not(:disabled) {
-  transform: translateY(2px);
-  box-shadow: 0 1px 0 var(--border-default);
-}
-
-.btn-mechanical:disabled, .btn-danger:disabled, .btn-ghost:disabled, .btn-primary:disabled, .btn-secondary:disabled {
+.btn-mechanical:disabled, .btn-danger:disabled, .btn-ghost:disabled, .btn-primary:disabled {
   opacity: 0.5;
   cursor: not-allowed;
   transform: none;

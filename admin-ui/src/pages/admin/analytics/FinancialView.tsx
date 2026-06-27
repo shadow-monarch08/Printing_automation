@@ -1,6 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { api } from '../../../services/api';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar, Legend } from 'recharts';
+import { LoadingNet } from '../../../components/shared/LoadingNet';
+import { IndianRupee, Layers, CheckCircle2, Calculator } from 'lucide-react';
 
 interface FinancialViewProps {
   startDate: string;
@@ -34,7 +36,11 @@ export const FinancialView: React.FC<FinancialViewProps> = ({ startDate, endDate
     fetchData();
   }, [startDate, endDate]);
 
-  if (loading) return <div>Loading financial data...</div>;
+  if (loading) return (
+    <div style={{ padding: '4rem 0' }}>
+      <LoadingNet message="Loading financial data..." />
+    </div>
+  );
 
   const colorData = colorSplit ? [
     { name: 'Color', revenue: colorSplit.colorRevenue, jobs: colorSplit.colorJobs },
@@ -43,29 +49,49 @@ export const FinancialView: React.FC<FinancialViewProps> = ({ startDate, endDate
 
   return (
     <div className="financial-view">
-      <div className="analytics-summary-cards">
-        <div className="card">
-          <div className="card-title">Total Revenue</div>
-          <div className="card-value">₹{summary?.totalRevenue || 0}</div>
+      <div className="analytics-summary-cards dashboard-metrics" style={{ marginBottom: 'var(--spacing-lg)' }}>
+        <div className="card" style={{ borderLeft: '3px solid var(--accent-primary)' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--text-secondary)', marginBottom: '1rem' }}>
+            <span style={{ fontSize: '0.85rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Total Revenue</span>
+            <IndianRupee size={18} />
+          </div>
+          <div className="data-mono metric-value" style={{ color: 'var(--text-primary)' }}>
+            ₹{summary?.totalRevenue || 0}
+          </div>
         </div>
-        <div className="card">
-          <div className="card-title">Total Jobs</div>
-          <div className="card-value">{summary?.totalJobs || 0}</div>
+        <div className="card" style={{ borderLeft: '3px solid var(--accent-primary)' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--text-secondary)', marginBottom: '1rem' }}>
+            <span style={{ fontSize: '0.85rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Total Jobs</span>
+            <Layers size={18} />
+          </div>
+          <div className="data-mono metric-value" style={{ color: 'var(--text-primary)' }}>
+            {summary?.totalJobs || 0}
+          </div>
         </div>
-        <div className="card">
-          <div className="card-title">Completed Jobs</div>
-          <div className="card-value">{summary?.completedJobs || 0}</div>
+        <div className="card" style={{ borderLeft: '3px solid var(--accent-primary)' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--text-secondary)', marginBottom: '1rem' }}>
+            <span style={{ fontSize: '0.85rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Completed Jobs</span>
+            <CheckCircle2 size={18} />
+          </div>
+          <div className="data-mono metric-value" style={{ color: 'var(--text-primary)' }}>
+            {summary?.completedJobs || 0}
+          </div>
         </div>
-        <div className="card">
-          <div className="card-title">Avg Cost / Job</div>
-          <div className="card-value">₹{summary?.avgCostPerJob ? summary.avgCostPerJob.toFixed(2) : '0.00'}</div>
+        <div className="card" style={{ borderLeft: '3px solid var(--accent-primary)' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--text-secondary)', marginBottom: '1rem' }}>
+            <span style={{ fontSize: '0.85rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Avg Cost / Job</span>
+            <Calculator size={18} />
+          </div>
+          <div className="data-mono metric-value" style={{ color: 'var(--text-primary)' }}>
+            ₹{summary?.avgCostPerJob ? summary.avgCostPerJob.toFixed(2) : '0.00'}
+          </div>
         </div>
       </div>
 
       <div className="analytics-charts">
-        <div className="analytics-chart-card">
-          <div className="analytics-chart-title">Revenue Trend</div>
-          <div style={{ height: 300 }}>
+        <div className="card">
+          <h3 style={{ marginBottom: '1.5rem' }}>Revenue Trend</h3>
+          <div style={{ height: 300, marginLeft: '-15px' }}>
             <ResponsiveContainer width="100%" height="100%">
               <AreaChart data={trend} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
                 <defs>
@@ -84,9 +110,9 @@ export const FinancialView: React.FC<FinancialViewProps> = ({ startDate, endDate
           </div>
         </div>
 
-        <div className="analytics-chart-card">
-          <div className="analytics-chart-title">Color vs B&W Split</div>
-          <div style={{ height: 300 }}>
+        <div className="card">
+          <h3 style={{ marginBottom: '1.5rem' }}>Color vs B&W Split</h3>
+          <div style={{ height: 300, marginLeft: '-15px' }}>
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={colorData}>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} />

@@ -3,6 +3,8 @@ import { api } from '../../../services/api';
 import dayjs from 'dayjs';
 import { Download } from 'lucide-react';
 import { CustomSelect } from '../../../components/shared/CustomSelect';
+import { Button } from '../../../components/shared/Button';
+import { LoadingNet } from '../../../components/shared/LoadingNet';
 
 interface ArchiveViewProps {
   startDate: string;
@@ -87,16 +89,16 @@ export const ArchiveView: React.FC<ArchiveViewProps> = ({ startDate, endDate }) 
           value={limit.toString()}
           onChange={val => setLimit(parseInt(val, 10))}
         />
-        <button className="btn btn-secondary" onClick={handleExport} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <Download size={16} /> Export CSV
-        </button>
+        <Button variant="ghost" onClick={handleExport} leftIcon={<Download size={16} />}>
+          Export CSV
+        </Button>
       </div>
 
       <div style={{ marginBottom: 'var(--spacing-md)', fontSize: '0.9rem', color: 'var(--text-secondary)' }}>
         Showing {(page - 1) * limit + (total > 0 ? 1 : 0)}–{Math.min(page * limit, total)} of {total} records
       </div>
 
-      <div className="table-container">
+      <div className="card table-wrapper" style={{ padding: 0 }}>
         <table className="table">
           <thead>
             <tr>
@@ -112,22 +114,22 @@ export const ArchiveView: React.FC<ArchiveViewProps> = ({ startDate, endDate }) 
           </thead>
           <tbody>
             {loading ? (
-              <tr><td colSpan={8} style={{ textAlign: 'center' }}>Loading...</td></tr>
+              <tr className="loading-row"><td colSpan={8} style={{ padding: '3rem 0' }}><LoadingNet message="Loading archive..." /></td></tr>
             ) : jobs.length === 0 ? (
-              <tr><td colSpan={8} style={{ textAlign: 'center' }}>No jobs found for the selected criteria.</td></tr>
+              <tr><td colSpan={8} style={{ padding: '3rem 0', textAlign: 'center', color: 'var(--text-secondary)' }}>No jobs found for the selected criteria.</td></tr>
             ) : (
               jobs.map(job => (
                 <tr key={job.id}>
                   <td title={job.id}>{job.id.substring(0, 8)}...</td>
                   <td title={job.filename} style={{ maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{job.filename}</td>
                   <td>{job.pages}p × {job.copies} ({job.color_mode}, {job.duplex})</td>
-                  <td>₹{job.cost}</td>
+                  <td className="data-mono">₹{job.cost}</td>
                   <td>
-                    <span className={`status-badge ${job.status}`}>
+                    <span className={`badge badge-${job.status}`}>
                       {job.status}
                     </span>
                   </td>
-                  <td>{job.executed_by_printer || '-'}</td>
+                  <td className="target-printer-cell">{job.executed_by_printer || '-'}</td>
                   <td>{dayjs(job.submitted_at).format('MMM D, HH:mm')}</td>
                   <td>{job.completed_at ? dayjs(job.completed_at).format('MMM D, HH:mm') : '-'}</td>
                 </tr>
@@ -138,10 +140,10 @@ export const ArchiveView: React.FC<ArchiveViewProps> = ({ startDate, endDate }) 
       </div>
 
       {totalPages > 1 && (
-        <div className="analytics-pagination">
-          <button className="btn btn-secondary" disabled={page <= 1} onClick={() => setPage(p => p - 1)}>← Previous</button>
-          <span>Page {page} of {totalPages}</span>
-          <button className="btn btn-secondary" disabled={page >= totalPages} onClick={() => setPage(p => p + 1)}>Next →</button>
+        <div className="analytics-pagination" style={{ padding: '1rem', borderTop: '1px solid var(--border-default)' }}>
+          <Button variant="ghost" disabled={page <= 1} onClick={() => setPage(p => p - 1)}>← Previous</Button>
+          <span style={{ color: 'var(--text-secondary)', fontSize: '0.9rem' }}>Page {page} of {totalPages}</span>
+          <Button variant="ghost" disabled={page >= totalPages} onClick={() => setPage(p => p + 1)}>Next →</Button>
         </div>
       )}
     </div>

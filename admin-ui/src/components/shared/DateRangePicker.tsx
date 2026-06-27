@@ -142,7 +142,7 @@ export const DateRangePicker: React.FC<DateRangePickerProps> = ({ startDate, end
             {renderCalendar(viewMonthRight, (m) => { setViewMonthRight(m); if (m.isSame(viewMonthLeft, 'month') || m.isBefore(viewMonthLeft, 'month')) setViewMonthLeft(m.subtract(1, 'month')); })}
           </div>
           <div className="date-picker-actions">
-            <button className="btn btn-secondary" onClick={() => setIsCustomOpen(false)}>Cancel</button>
+            <button className="btn btn-ghost" onClick={() => setIsCustomOpen(false)}>Cancel</button>
             <button className="btn btn-primary" disabled={!selectionStart || !selectionEnd} onClick={handleApply}>Apply</button>
           </div>
         </div>

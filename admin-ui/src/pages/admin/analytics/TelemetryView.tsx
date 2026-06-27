@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { api } from '../../../services/api';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
+import { LoadingNet } from '../../../components/shared/LoadingNet';
 
 interface TelemetryViewProps {
   startDate: string;
@@ -26,16 +27,20 @@ export const TelemetryView: React.FC<TelemetryViewProps> = ({ startDate, endDate
     fetchData();
   }, [startDate, endDate]);
 
-  if (loading) return <div>Loading telemetry data...</div>;
+  if (loading) return (
+    <div style={{ padding: '4rem 0' }}>
+      <LoadingNet message="Loading telemetry data..." />
+    </div>
+  );
 
   const volumeLeaderboard = [...telemetry].sort((a, b) => b.totalPages - a.totalPages);
 
   return (
     <div className="telemetry-view">
       <div className="analytics-charts" style={{ marginBottom: 'var(--spacing-lg)' }}>
-        <div className="analytics-chart-card">
-          <div className="analytics-chart-title">Volume Leaderboard (Pages)</div>
-          <div style={{ height: 300 }}>
+        <div className="card">
+          <h3 style={{ marginBottom: '1.5rem' }}>Volume Leaderboard (Pages)</h3>
+          <div style={{ height: 300, marginLeft: '-15px' }}>
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={volumeLeaderboard} layout="vertical" margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
                 <CartesianGrid strokeDasharray="3 3" horizontal={true} vertical={false} />
@@ -48,9 +53,9 @@ export const TelemetryView: React.FC<TelemetryViewProps> = ({ startDate, endDate
           </div>
         </div>
 
-        <div className="analytics-chart-card">
-          <div className="analytics-chart-title">Job Error Rates</div>
-          <div style={{ height: 300 }}>
+        <div className="card">
+          <h3 style={{ marginBottom: '1.5rem' }}>Job Error Rates</h3>
+          <div style={{ height: 300, marginLeft: '-15px' }}>
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={telemetry} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} />
@@ -68,15 +73,33 @@ export const TelemetryView: React.FC<TelemetryViewProps> = ({ startDate, endDate
 
       <div className="analytics-summary-cards">
         {telemetry.map(t => (
-          <div className="card" key={t.printer}>
-            <div className="card-title" style={{ fontSize: '1.1rem', color: 'var(--text-primary)', marginBottom: 8 }}>{t.printer}</div>
-            <div style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', marginBottom: 4 }}>Total Pages: <strong style={{color: 'var(--text-primary)'}}>{t.totalPages}</strong></div>
-            <div style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', marginBottom: 4 }}>Completed: <strong style={{color: 'var(--success-color)'}}>{t.completedJobs}</strong></div>
-            <div style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', marginBottom: 4 }}>Failed: <strong style={{color: 'var(--error-color)'}}>{t.failedJobs}</strong></div>
-            <div style={{ fontSize: '0.9rem', color: 'var(--text-secondary)' }}>Error Rate: <strong>{t.errorRate.toFixed(1)}%</strong></div>
+          <div className="card" key={t.printer} style={{ borderLeft: '3px solid var(--accent-primary)' }}>
+            <h3 style={{ marginBottom: '1rem' }}>{t.printer}</h3>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.9rem' }}>
+                <span style={{ color: 'var(--text-secondary)' }}>Total Pages</span>
+                <span className="data-mono">{t.totalPages}</span>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.9rem' }}>
+                <span style={{ color: 'var(--text-secondary)' }}>Completed</span>
+                <span className="data-mono" style={{ color: 'var(--success-color, #28a745)' }}>{t.completedJobs}</span>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.9rem' }}>
+                <span style={{ color: 'var(--text-secondary)' }}>Failed</span>
+                <span className="data-mono" style={{ color: 'var(--error-color, #dc3545)' }}>{t.failedJobs}</span>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.9rem', borderTop: '1px solid var(--border-default)', paddingTop: '0.5rem', marginTop: '0.25rem' }}>
+                <span style={{ color: 'var(--text-secondary)' }}>Error Rate</span>
+                <span className="data-mono">{t.errorRate.toFixed(1)}%</span>
+              </div>
+            </div>
           </div>
         ))}
-        {telemetry.length === 0 && <div className="text-secondary">No telemetry data for this period.</div>}
+        {telemetry.length === 0 && (
+          <div className="card" style={{ gridColumn: '1 / -1', textAlign: 'center', padding: '3rem', color: 'var(--text-secondary)' }}>
+            No telemetry data available for this period.
+          </div>
+        )}
       </div>
     </div>
   );
