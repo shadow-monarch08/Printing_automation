@@ -45,6 +45,11 @@
 }
 
 /* DateRangePicker */
+/* DateRangePicker Responsive Rules */
+.mobile-date-trigger-wrap {
+  display: none;
+}
+
 .date-picker-container {
   position: relative;
   display: inline-block;
@@ -235,6 +240,14 @@
 }
 
 @media (max-width: 640px) {
+  .desktop-date-presets {
+    display: none !important;
+  }
+
+  .mobile-date-trigger-wrap {
+    display: flex !important;
+  }
+
   .analytics-summary-cards {
     grid-template-columns: 1fr !important;
     gap: 12px !important;
