@@ -5,6 +5,7 @@ import { NavLink, useNavigate } from 'react-router-dom';
 import { Lock, LayoutDashboard, Printer, ListOrdered, Settings, LogOut, Menu, X, Sun, Moon, BarChart3 } from 'lucide-react';
 import { useAdminStore } from '../stores/useAdminStore';
 import { Button } from '../components/shared/Button';
+import { LoadingNet } from '../components/shared/LoadingNet';
 
 export function AdminLayout({ children }: { children: ReactNode }) {
   const { isAuthenticated, authenticate, logout, checkAuth } = useAdminStore();
@@ -45,10 +46,12 @@ export function AdminLayout({ children }: { children: ReactNode }) {
 
   const closeSidebar = () => setSidebarOpen(false);
 
+
+
   if (isChecking) {
     return (
       <div style={{ height: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--bg-primary)' }}>
-        <p style={{ color: 'var(--text-muted)' }}>Verifying session...</p>
+        <LoadingNet message="Verifying Admin Session Authentication..." />
       </div>
     );
   }
@@ -88,7 +91,7 @@ export function AdminLayout({ children }: { children: ReactNode }) {
       {/* Sidebar */}
       <aside className={`admin-sidebar ${sidebarOpen ? 'open' : ''}`}>
         <div className="admin-sidebar-brand">
-          <h1>Modern Press</h1>
+          <h1>PRINT_AUTOMATION</h1>
           <div className="data-mono" style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>CONTROL ROOM</div>
         </div>
         

@@ -16,51 +16,7 @@
         document.documentElement.setAttribute('data-theme', theme);
       })();
     </script>
-    <style>
-      /* Initial Paint Styles */
-      :root, html[data-theme="dark"] {
-        --boot-bg: #111111;
-        --boot-accent: #00E5FF;
-        --boot-text-m: rgba(255, 255, 255, 0.5);
-        --boot-text-p: #F9F9F6;
-      }
-      html[data-theme="light"] {
-        --boot-bg: #F9F9F6;
-        --boot-accent: #0056B3;
-        --boot-text-m: rgba(0, 0, 0, 0.5);
-        --boot-text-p: #111111;
-      }
-      .initial-loader-wrapper {
-        position: fixed;
-        inset: 0;
-        background-color: var(--boot-bg);
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        font-family: monospace;
-        z-index: 99999;
-      }
-      .boot-sequence { text-align: center; display: flex; flex-direction: column; align-items: center; gap: 1.5rem; }
-      .boot-brand { font-size: 2rem; font-weight: bold; color: var(--boot-text-p); letter-spacing: -0.02em; font-family: sans-serif; }
-      .boot-loader { width: 40px; height: 40px; position: relative; }
-      .boot-loader::before, .boot-loader::after { content: ''; position: absolute; inset: 0; border: 2px solid transparent; border-radius: 50%; }
-      .boot-loader::before { border-top-color: var(--boot-text-m); border-bottom-color: var(--boot-text-m); animation: spin 2s linear infinite; }
-      .boot-loader::after { border-left-color: var(--boot-accent); border-right-color: var(--boot-accent); animation: spin 1s ease-in-out infinite reverse; scale: 0.7; }
-      .boot-text { color: var(--boot-accent); font-size: 0.85rem; letter-spacing: 0.1em; text-transform: uppercase; animation: pulse 1.5s infinite; }
-      @keyframes spin { to { transform: rotate(360deg); } }
-      @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
-    </style>
-    <div id="root">
-      <div class="initial-loader-wrapper">
-        <div class="boot-sequence">
-          <div class="boot-loader"></div>
-          <div>
-            <div class="boot-brand">Modern Press</div>
-            <div class="boot-text">Awaiting Telemetry...</div>
-          </div>
-        </div>
-      </div>
-    </div>
+    <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>
