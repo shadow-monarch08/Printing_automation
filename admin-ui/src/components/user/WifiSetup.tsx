@@ -12,9 +12,10 @@ interface WifiConnectModalBodyProps {
   profileName?: string | null;
   closeModal: () => void;
   onConnectStart: () => void;
+  onNetworkSelected?: (ssid: string, password?: string) => void;
 }
 
-const WifiConnectModalBody = ({ ssid, isSaved, profileName, closeModal, onConnectStart }: WifiConnectModalBodyProps) => {
+const WifiConnectModalBody = ({ ssid, isSaved, profileName, closeModal, onConnectStart, onNetworkSelected }: WifiConnectModalBodyProps) => {
   const [password, setPassword] = useState('');
   const [isConnecting, setIsConnecting] = useState(false);
 
@@ -23,6 +24,10 @@ const WifiConnectModalBody = ({ ssid, isSaved, profileName, closeModal, onConnec
     setIsConnecting(true);
     onConnectStart();
     try {
+      if (onNetworkSelected) {
+        onNetworkSelected(ssid, password);
+        return; // Don't call API directly if handled by parent
+      }
       if (isSaved) {
         await api.connectToWifi({ ssid, profileName: profileName || ssid });
       } else {
@@ -73,7 +78,12 @@ const WifiConnectModalBody = ({ ssid, isSaved, profileName, closeModal, onConnec
   );
 };
 
-export function WifiSetup() {
+interface WifiSetupProps {
+  onNetworkSelected?: (ssid: string, password?: string) => void;
+  embedded?: boolean;
+}
+
+export function WifiSetup({ onNetworkSelected, embedded }: WifiSetupProps = {}) {
   const [networks, setNetworks] = useState<WifiNetwork[]>([]);
   const [isScanning, setIsScanning] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
@@ -113,9 +123,10 @@ export function WifiSetup() {
           profileName={net.profileName}
           closeModal={closeModal}
           onConnectStart={() => {
-            setStatus('connecting');
+            if (!onNetworkSelected) setStatus('connecting');
             closeModal();
           }}
+          onNetworkSelected={onNetworkSelected}
         />
       )
     });
@@ -146,20 +157,34 @@ export function WifiSetup() {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem', flex: 1 }}>
       {/* Title Area */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem' }}>
-        <div>
-          <h2 className="page-title" style={{ margin: 0 }}>Wi-Fi Connection Setup</h2>
-          <p className="page-desc" style={{ margin: '0.25rem 0 0 0' }}>Provision the Spooler by linking it to a local hotspot</p>
+      {!embedded && (
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem' }}>
+          <div>
+            <h2 className="page-title" style={{ margin: 0 }}>Wi-Fi Connection Setup</h2>
+            <p className="page-desc" style={{ margin: '0.25rem 0 0 0' }}>Provision the Spooler by linking it to a local hotspot</p>
+          </div>
+          <Button
+            variant="mechanical"
+            onClick={fetchNetworks}
+            disabled={isScanning}
+            rightIcon={<RefreshCw className={isScanning ? 'animate-spin' : ''} size={18} />}
+          >
+            Refresh List
+          </Button>
         </div>
-        <Button
-          variant="mechanical"
-          onClick={fetchNetworks}
-          disabled={isScanning}
-          rightIcon={<RefreshCw className={isScanning ? 'animate-spin' : ''} size={18} />}
-        >
-          Refresh List
-        </Button>
-      </div>
+      )}
+      {embedded && (
+        <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '-0.5rem' }}>
+          <Button
+            variant="ghost"
+            onClick={fetchNetworks}
+            disabled={isScanning}
+            rightIcon={<RefreshCw className={isScanning ? 'animate-spin' : ''} size={18} />}
+          >
+            Refresh
+          </Button>
+        </div>
+      )}
 
       {/* Status / Error */}
       {status === 'error' && (

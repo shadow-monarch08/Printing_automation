@@ -10,8 +10,13 @@ export async function scanWifiNetworks(req: Request, res: Response) {
   }
 }
 
+import { getSystemConfig } from "../services/config.db.service";
+
 export async function getWifiSetupMode(req: Request, res: Response) {
-  res.json({ isSetupMode: process.env.SETUP_MODE === "true" });
+  res.json({ 
+    isSetupMode: process.env.SETUP_MODE === "true",
+    isOnboarded: true
+  });
 }
 
 export async function connectWifiNetwork(req: Request, res: Response) {

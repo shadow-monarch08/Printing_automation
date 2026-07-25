@@ -13,38 +13,38 @@ export const Analytics: React.FC = () => {
   const [endDate, setEndDate] = useState(dayjs().format('YYYY-MM-DD'));
 
   return (
-    <div className="analytics-page" style={{ maxWidth: '1200px', margin: '0 auto', width: '100%' }}>
+    <div style={{ maxWidth: '1200px', margin: '0 auto', width: '100%' }}>
       <header style={{ marginBottom: '2rem', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '1rem' }}>
         <div>
           <h1 className="page-title">Analytics & Reporting</h1>
           <p className="page-desc">System performance and financial metrics</p>
         </div>
         <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
-          <DateRangePicker 
-            startDate={startDate} 
-            endDate={endDate} 
+          <DateRangePicker
+            startDate={startDate}
+            endDate={endDate}
             onChange={(start, end) => {
               setStartDate(start);
               setEndDate(end);
-            }} 
+            }}
           />
         </div>
       </header>
 
       <div className="analytics-tabs">
-        <button 
+        <button
           className={`analytics-tab ${activeTab === 'financial' ? 'active' : ''}`}
           onClick={() => setActiveTab('financial')}
         >
           Financial Ledger
         </button>
-        <button 
+        <button
           className={`analytics-tab ${activeTab === 'telemetry' ? 'active' : ''}`}
           onClick={() => setActiveTab('telemetry')}
         >
           Fleet Telemetry
         </button>
-        <button 
+        <button
           className={`analytics-tab ${activeTab === 'archive' ? 'active' : ''}`}
           onClick={() => setActiveTab('archive')}
         >

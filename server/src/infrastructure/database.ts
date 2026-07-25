@@ -24,7 +24,7 @@ CREATE TABLE IF NOT EXISTS kiosk_sessions (
 
 CREATE TABLE IF NOT EXISTS system_config (
   id INTEGER PRIMARY KEY CHECK (id = 1),
-  is_onboarded BOOLEAN NOT NULL DEFAULT 0,
+  is_onboarded BOOLEAN NOT NULL DEFAULT 1,
   cloudflare_url TEXT,
   shop_name TEXT DEFAULT 'Modern Press',
   admin_pin_hash TEXT,

@@ -71,9 +71,9 @@ function App() {
 
   if (isSetupMode) {
     return (
-      <UserLayout subtitle="// INITIAL SETUP PORTAL">
+      <div style={{ minHeight: '100vh', padding: '2rem', background: 'var(--bg-primary)', display: 'flex', flexDirection: 'column' }}>
         <WifiSetup />
-      </UserLayout>
+      </div>
     );
   }
 
@@ -81,7 +81,6 @@ function App() {
     <>
       <Routes>
         <Route path="/" element={<UserLayout><UserKioskPage /></UserLayout>} />
-        <Route path="/setup" element={<UserLayout subtitle="// INITIAL SETUP PORTAL"><WifiSetup /></UserLayout>} />
         <Route path="/admin" element={<AdminLayout><Dashboard /></AdminLayout>} />
         <Route path="/admin/fleet" element={<AdminLayout><Fleet /></AdminLayout>} />
         <Route path="/admin/queue" element={<AdminLayout><Queue /></AdminLayout>} />
