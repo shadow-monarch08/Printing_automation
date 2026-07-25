@@ -1,32 +1,19 @@
-import { useState, type ReactNode } from 'react';
-import { Moon, Sun, Volume2, VolumeX } from 'lucide-react';
-import { useTheme } from '../context/ThemeContext';
-import { Button } from '../components/shared/Button';
-import { soundFx } from '../utils/sound';
+import type { ReactNode } from 'react';
+import { FloatingControlsWidget } from '../components/user/FloatingControlsWidget';
 
 export function UserLayout({ children, subtitle }: { children: ReactNode; subtitle?: string }) {
-  const { theme, toggleTheme } = useTheme();
-  const [isMuted, setIsMuted] = useState(soundFx.getMuted());
-
-  const handleToggleMute = () => {
-    const nextMuted = soundFx.toggleMute();
-    setIsMuted(nextMuted);
-  };
-
   return (
     <div className="user-layout kiosk-mobile-root">
       <header className="user-header">
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <h1 className="user-header-title">PRINT_AUTOMATION</h1>
-            <span className="user-header-sub" style={{ fontFamily: 'var(--font-mono)', fontSize: '0.8rem', color: 'var(--accent-primary)', fontWeight: 700 }}>
-              // KIOSK_TERMINAL_01
-            </span>
-          </div>
-          {subtitle && <div className="data-mono user-header-sub">{subtitle}</div>}
+        <div className="user-header-brand" style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+          <h1 className="user-header-title" style={{ margin: 0 }}>PRINT_AUTOMATION</h1>
+          <span className="user-header-sub" style={{ fontFamily: 'var(--font-mono)', fontSize: '0.75rem', color: 'var(--accent-primary)', fontWeight: 700 }}>
+            // KIOSK_TERMINAL_01
+          </span>
+          {subtitle && <span className="data-mono user-header-sub" style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>• {subtitle}</span>}
         </div>
         
-        <div className="user-header-controls" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+        <div className="user-header-controls" style={{ display: 'flex', alignItems: 'center', gap: '6px', flexShrink: 0 }}>
           {/* Live Status Indicator */}
           <div 
             className="kiosk-status-badge"
@@ -40,7 +27,8 @@ export function UserLayout({ children, subtitle }: { children: ReactNode; subtit
               borderRadius: '2px',
               fontFamily: 'var(--font-mono)',
               fontSize: '0.7rem',
-              color: 'var(--text-secondary)'
+              color: 'var(--text-secondary)',
+              whiteSpace: 'nowrap'
             }}
           >
             <div 
@@ -50,37 +38,21 @@ export function UserLayout({ children, subtitle }: { children: ReactNode; subtit
                 borderRadius: '50%',
                 backgroundColor: 'var(--status-idle, #10B981)',
                 boxShadow: '0 0 6px var(--status-idle, #10B981)',
-                animation: 'pulseLed 1.5s infinite alternate'
+                animation: 'pulseLed 1.5s infinite alternate',
+                flexShrink: 0
               }}
             />
             <span>ONLINE</span>
           </div>
-
-          {/* Audio Mute Switch */}
-          <Button 
-            variant="ghost" 
-            onClick={handleToggleMute} 
-            aria-label="Toggle Mute"
-            style={{ padding: '0.4rem', minHeight: '36px', minWidth: '36px' }}
-          >
-            {isMuted ? <VolumeX size={18} color="var(--status-error)" /> : <Volume2 size={18} />}
-          </Button>
-
-          {/* Theme Switcher */}
-          <Button 
-            variant="ghost" 
-            onClick={toggleTheme} 
-            aria-label="Toggle theme"
-            style={{ padding: '0.4rem', minHeight: '36px', minWidth: '36px' }}
-          >
-            {theme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}
-          </Button>
         </div>
       </header>
       
       <main className="user-main kiosk-step-content-container">
         {children}
       </main>
+
+      {/* Floating Draggable Sound & Theme Controls */}
+      <FloatingControlsWidget />
       
       <footer className="user-footer">
         <div className="ticker-bar" style={{ fontFamily: 'var(--font-mono)', fontSize: '0.75rem', letterSpacing: '0.05em' }}>

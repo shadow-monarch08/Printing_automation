@@ -131,9 +131,9 @@ export function ConfigConsole() {
             position: 'relative'
           }}
         >
-          <div className="tear-line" style={{ position: 'absolute', top: 0, left: 0, right: 0 }} />
+          <div className="tear-line" style={{ marginTop: '0', marginBottom: '16px' }} />
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '1.5rem', borderBottom: '1px solid var(--border-default)', paddingBottom: '1rem', marginTop: '8px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '1.5rem', borderBottom: '1px solid var(--border-default)', paddingBottom: '1rem' }}>
             <FileText size={28} color="var(--accent-primary)" />
             <div>
               <div style={{ fontFamily: 'var(--font-mono)', fontSize: '0.7rem', color: 'var(--accent-primary)', fontWeight: 700 }}>[DOCUMENT_TARGET]</div>

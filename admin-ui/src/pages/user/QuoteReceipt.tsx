@@ -71,9 +71,9 @@ export function QuoteReceipt() {
           boxSizing: 'border-box'
         }}
       >
-        <div className="tear-line" style={{ position: 'absolute', top: 0, left: 0, right: 0 }} />
+        <div className="tear-line" style={{ marginTop: '0', marginBottom: '16px' }} />
 
-        <div style={{ textAlign: 'center', borderBottom: '1px solid var(--border-default)', paddingBottom: '16px', marginBottom: '20px', marginTop: '8px' }}>
+        <div style={{ textAlign: 'center', borderBottom: '1px solid var(--border-default)', paddingBottom: '16px', marginBottom: '20px' }}>
           <Receipt size={36} color="var(--accent-primary)" style={{ margin: '0 auto 8px auto' }} />
           <h3 style={{ margin: 0, fontFamily: 'var(--font-mono)', fontWeight: 800, fontSize: '1.1rem', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
             [OFFICIAL_QUOTE_SLIP]

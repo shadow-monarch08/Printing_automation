@@ -312,18 +312,23 @@ input[type="number"] {
 /* Printer Themed Elements */
 .tear-line {
   height: 0;
-  border-bottom: 2px dashed var(--border-default);
-  margin: var(--spacing-xl) 0;
+  border-bottom: 1px dashed var(--border-default);
+  margin: 12px 0 16px 0;
   position: relative;
+  width: 100%;
+  overflow: visible;
 }
 
 .tear-line::before {
   content: '✂';
   position: absolute;
-  left: -15px;
-  top: -12px;
-  font-size: 1.2rem;
-  color: var(--text-muted);
+  left: 8px;
+  top: -10px;
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+  background: var(--bg-paper);
+  padding: 0 4px;
+  z-index: 2;
 }
 
 .paper-sheet {
