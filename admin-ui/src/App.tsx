@@ -31,7 +31,11 @@ function UserKioskPage() {
   }, [fetchKioskStatus]);
 
   if (isAcceptingJobs === null) {
-    return <LoadingNet message="Checking system status..." />;
+    return (
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', flex: 1, minHeight: '360px', width: '100%' }}>
+        <LoadingNet message="Checking system status..." />
+      </div>
+    );
   }
 
   if (isAcceptingJobs === false) {

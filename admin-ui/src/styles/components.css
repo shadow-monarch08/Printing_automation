@@ -445,6 +445,14 @@ input[type="number"] {
   border-color: var(--border-active);
 }
 
+/* Skeleton Shimmer Containment Guard */
+.skeleton-box,
+.skeleton-shimmer,
+[class*="skeleton"] {
+  overflow: hidden !important;
+  contain: paint !important;
+}
+
 .custom-checkbox-tick {
   color: var(--bg-primary); /* Use background color for the tick color to contrast with the accent color background */
   opacity: 0;

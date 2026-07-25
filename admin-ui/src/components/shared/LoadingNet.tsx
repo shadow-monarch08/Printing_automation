@@ -11,8 +11,14 @@ export function LoadingNet({ message = 'Loading...' }: { message?: string }) {
         flexDirection: 'column',
         alignItems: 'center',
         justifyContent: 'center',
+        flex: 1,
+        width: '100%',
+        height: '100%',
+        minHeight: '300px',
         padding: '2rem',
-        gap: '16px'
+        gap: '16px',
+        margin: 'auto',
+        boxSizing: 'border-box'
       }}
     >
       {/* Retro Dot-Matrix Paper Box */}

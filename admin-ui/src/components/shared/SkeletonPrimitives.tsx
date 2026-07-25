@@ -17,14 +17,17 @@ export const SkeletonBox: React.FC<SkeletonBoxProps> = ({
 }) => {
   return (
     <div 
-      className={`skeleton-box relative overflow-hidden ${className}`}
+      className={`skeleton-box ${className}`}
       style={{
         width,
         height,
         borderRadius,
         backgroundColor: 'var(--bg-surface-alt)',
         position: 'relative',
-        ...style
+        WebkitMaskImage: '-webkit-radial-gradient(white, black)',
+        isolation: 'isolate',
+        ...style,
+        overflow: 'hidden'
       }}
     >
       <div 
@@ -34,7 +37,8 @@ export const SkeletonBox: React.FC<SkeletonBoxProps> = ({
           inset: 0,
           transform: 'translateX(-100%)',
           background: 'linear-gradient(90deg, transparent 0%, var(--accent-glow) 50%, transparent 100%)',
-          animation: 'shimmer 1.5s infinite'
+          animation: 'shimmer 1.5s infinite',
+          overflow: 'hidden'
         }}
       />
       <style>{`
@@ -105,7 +109,7 @@ export const SkeletonPaperTable: React.FC<{ rows?: number; cols?: number; classN
         }} 
       />
 
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', overflow: 'hidden' }}>
         {/* Table Header Wireframe */}
         <div style={{ display: 'flex', gap: '16px', paddingBottom: '8px', borderBottom: '2px solid var(--border-default)' }}>
           {Array.from({ length: cols }).map((_, i) => (
