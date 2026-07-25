@@ -489,9 +489,11 @@ export const DateRangePicker: React.FC<DateRangePickerProps> = ({ startDate, end
             padding: '16px',
             zIndex: 100,
             animation: 'slideDown 0.15s ease-out',
+            width: 'max-content',
+            minWidth: '470px'
           }}
         >
-          <div className="date-picker-calendars" style={{ display: 'flex', gap: '16px' }}>
+          <div className="date-picker-calendars" style={{ display: 'flex', flexDirection: 'row', flexWrap: 'nowrap', gap: '16px' }}>
             {renderCalendar(viewMonthLeft, (m) => { setViewMonthLeft(m); if (m.isSame(viewMonthRight, 'month') || m.isAfter(viewMonthRight, 'month')) setViewMonthRight(m.add(1, 'month')); })}
             {renderCalendar(viewMonthRight, (m) => { setViewMonthRight(m); if (m.isSame(viewMonthLeft, 'month') || m.isBefore(viewMonthLeft, 'month')) setViewMonthLeft(m.subtract(1, 'month')); })}
           </div>
