@@ -1,12 +1,13 @@
-// src/pages/admin/Dashboard.tsx
 import { useEffect, useState } from 'react';
 import { useAdminStore } from '../../stores/useAdminStore';
 import { Activity, Printer, Layers, DollarSign, AlertOctagon } from 'lucide-react';
-import type { ReactNode } from 'react';
 import { useModal } from '../../context/ModalContext';
 import { useToast } from '../../context/ToastContext';
 import { Button } from '../../components/shared/Button';
-import { LoadingScreen } from '../../components/shared/LoadingScreen';
+import { MetricCard } from '../../components/admin/MetricCard';
+import { HealthMeter } from '../../components/admin/HealthMeter';
+import { ChartTooltip } from '../../components/admin/charts/ChartTooltip';
+import { DashboardSkeleton } from '../../components/admin/skeletons/DashboardSkeleton';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 
 export function Dashboard() {
@@ -19,7 +20,6 @@ export function Dashboard() {
   useEffect(() => {
     loadMetrics();
     loadMetricsHistory();
-    // 25s Poll for metrics
     const metricsInterval = setInterval(() => {
       loadMetrics();
       loadMetricsHistory();
@@ -27,7 +27,6 @@ export function Dashboard() {
     return () => clearInterval(metricsInterval);
   }, [loadMetrics, loadMetricsHistory]);
 
-  // Handle Uptime Tick (Every 1s)
   useEffect(() => {
     if (metrics?.uptimeSeconds) {
       setLiveUptime(metrics.uptimeSeconds);
@@ -90,7 +89,7 @@ export function Dashboard() {
     });
   };
 
-  if (!metrics) return <LoadingScreen message="Linking to hardware layer..." />;
+  if (!metrics) return <DashboardSkeleton />;
 
   return (
     <div style={{ maxWidth: '1200px', width: '100%', margin: '0 auto' }}>
@@ -112,22 +111,22 @@ export function Dashboard() {
       </header>
 
       <div className="dashboard-metrics">
-        <MetricCard label="Active Printers" value={`${metrics.activePrinters ?? '?'} / ${metrics.totalPrinters ?? '?'}`} icon={<Printer />} />
-        <MetricCard label="Queued Jobs" value={metrics.waiting + metrics.active} icon={<Layers />} alert={metrics.waiting + metrics.active > 10} />
-        <MetricCard label="Jobs Today" value={metrics.totalJobsToday ?? (metrics.completed + metrics.failed)} icon={<Activity />} />
-        <MetricCard label="Gross Revenue" value={`₹${metrics.revenue ?? '0.00'}`} icon={<DollarSign />} />
+        <MetricCard label="Active Printers" value={`${metrics.activePrinters ?? '?'} / ${metrics.totalPrinters ?? '?'}`} icon={<Printer size={18} />} gaugeId="[GAUGE_DEV_LIST]" />
+        <MetricCard label="Queued Jobs" value={metrics.waiting + metrics.active} icon={<Layers size={18} />} alert={metrics.waiting + metrics.active > 10} gaugeId="[GAUGE_QUEUE_VOL]" />
+        <MetricCard label="Jobs Today" value={metrics.totalJobsToday ?? (metrics.completed + metrics.failed)} icon={<Activity size={18} />} gaugeId="[GAUGE_JOB_ACCUM]" />
+        <MetricCard label="Gross Revenue" value={`₹${metrics.revenue ?? '0.00'}`} icon={<DollarSign size={18} />} gaugeId="[GAUGE_REV_GROSS]" />
       </div>
 
       <div className="dashboard-detail-grid">
         <div className="card">
           <h3 style={{ marginBottom: '1.5rem' }}>System Health</h3>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
-            <HealthMeter label="CPU Load" value={metrics.cpuLoad ?? 0} />
-            <HealthMeter label="Memory Used" value={metrics.memoryUsed && metrics.memoryTotal ? Math.round((metrics.memoryUsed / metrics.memoryTotal) * 100) : 0} />
-            <HealthMeter label="Disk Usage" value={metrics.diskPercent ?? 0} />
+            <HealthMeter label="CPU Load" value={metrics.cpuLoad ?? 0} meterId="[PROC_CPU]" />
+            <HealthMeter label="Memory Used" value={metrics.memoryUsed && metrics.memoryTotal ? Math.round((metrics.memoryUsed / metrics.memoryTotal) * 100) : 0} meterId="[RAM_USAGE]" />
+            <HealthMeter label="Disk Usage" value={metrics.diskPercent ?? 0} meterId="[STORAGE_VOL]" />
             <div style={{ display: 'flex', justifyContent: 'space-between', paddingTop: '1rem', borderTop: '1px solid var(--border-default)' }}>
-              <span style={{ color: 'var(--text-secondary)' }}>Uptime</span>
-              <span className="data-mono">{formatUptime(liveUptime)}</span>
+              <span style={{ fontFamily: 'var(--font-mono)', fontSize: '12px', color: 'var(--text-secondary)' }}>UPTIME [SYS_UPTIME]</span>
+              <span className="data-mono" style={{ fontFamily: 'var(--font-mono)', fontWeight: 700 }}>{formatUptime(liveUptime)}</span>
             </div>
           </div>
         </div>
@@ -140,77 +139,47 @@ export function Dashboard() {
                 <AreaChart data={metricsHistory} margin={{ top: 0, right: 0, left: -20, bottom: 0 }}>
                   <defs>
                     <linearGradient id="colorCpu" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#00E5FF" stopOpacity={0.3} />
-                      <stop offset="95%" stopColor="#00E5FF" stopOpacity={0} />
+                      <stop offset="5%" stopColor="var(--accent-primary)" stopOpacity={0.3} />
+                      <stop offset="95%" stopColor="var(--accent-primary)" stopOpacity={0} />
                     </linearGradient>
                     <linearGradient id="colorMem" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#8A2BE2" stopOpacity={0.3} />
-                      <stop offset="95%" stopColor="#8A2BE2" stopOpacity={0} />
+                      <stop offset="5%" stopColor="var(--accent-secondary)" stopOpacity={0.3} />
+                      <stop offset="95%" stopColor="var(--accent-secondary)" stopOpacity={0} />
                     </linearGradient>
                     <linearGradient id="colorDisk" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#EA3943" stopOpacity={0.3} />
-                      <stop offset="95%" stopColor="#EA3943" stopOpacity={0} />
+                      <stop offset="5%" stopColor="var(--status-error)" stopOpacity={0.3} />
+                      <stop offset="95%" stopColor="var(--status-error)" stopOpacity={0} />
                     </linearGradient>
                   </defs>
-                  <CartesianGrid strokeDasharray="3 3" stroke="var(--border-default)" vertical={false} />
+                  <CartesianGrid strokeDasharray="2 2" stroke="var(--border-default)" vertical={false} />
                   <XAxis
                     dataKey="timestamp"
                     tickFormatter={formatTime}
-                    stroke="var(--text-muted)"
+                    stroke="var(--text-secondary)"
+                    fontFamily="var(--font-mono)"
                     fontSize={11}
                     tickMargin={10}
                   />
                   <YAxis
-                    stroke="var(--text-muted)"
+                    stroke="var(--text-secondary)"
+                    fontFamily="var(--font-mono)"
                     fontSize={11}
                     domain={[0, 100]}
                     tickFormatter={(val) => `${val}%`}
                   />
-                  <Tooltip
-                    contentStyle={{ backgroundColor: 'var(--bg-surface-alt)', border: '1px solid var(--border-default)', borderRadius: '4px' }}
-                    labelFormatter={formatTime}
-                  />
-                  <Area type="monotone" dataKey="cpu" stroke="#00E5FF" fillOpacity={1} fill="url(#colorCpu)" name="CPU %" />
-                  <Area type="monotone" dataKey="memory" stroke="#8A2BE2" fillOpacity={1} fill="url(#colorMem)" name="Memory %" />
-                  <Area type="monotone" dataKey="disk" stroke="#EA3943" fillOpacity={1} fill="url(#colorDisk)" name="Disk %" />
+                  <Tooltip content={<ChartTooltip labelFormatter={formatTime} />} />
+                  <Area type="monotone" dataKey="cpu" stroke="var(--accent-primary)" strokeWidth={2} fillOpacity={1} fill="url(#colorCpu)" name="CPU %" />
+                  <Area type="monotone" dataKey="memory" stroke="var(--accent-secondary)" strokeWidth={2} fillOpacity={1} fill="url(#colorMem)" name="Memory %" />
+                  <Area type="monotone" dataKey="disk" stroke="var(--status-error)" strokeWidth={2} fillOpacity={1} fill="url(#colorDisk)" name="Disk %" />
                 </AreaChart>
               </ResponsiveContainer>
             ) : (
-              <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-muted)' }}>
+              <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'var(--font-mono)', fontSize: '13px', color: 'var(--text-muted)' }}>
                 Awaiting telemetry...
               </div>
             )}
           </div>
         </div>
-      </div>
-    </div>
-  );
-}
-
-function MetricCard({ label, value, icon, alert }: { label: string, value: string | number, icon: ReactNode, alert?: boolean }) {
-  return (
-    <div className="card" style={{ borderLeft: alert ? '3px solid var(--status-error)' : '3px solid var(--accent-primary)' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--text-secondary)', marginBottom: '1rem' }}>
-        <span style={{ fontSize: '0.85rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{label}</span>
-        {icon}
-      </div>
-      <div className="data-mono metric-value" style={{ color: alert ? 'var(--status-error)' : 'var(--text-primary)' }}>
-        {value}
-      </div>
-    </div>
-  );
-}
-
-function HealthMeter({ label, value }: { label: string, value: number }) {
-  const isWarning = value > 80;
-  return (
-    <div>
-      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem', fontSize: '0.9rem' }}>
-        <span>{label}</span>
-        <span className="data-mono" style={{ color: isWarning ? 'var(--status-error)' : 'inherit' }}>{value}%</span>
-      </div>
-      <div style={{ height: '6px', background: 'var(--bg-surface-alt)', borderRadius: '3px', overflow: 'hidden' }}>
-        <div style={{ height: '100%', width: `${value}%`, background: isWarning ? 'var(--status-error)' : 'var(--status-idle)' }} />
       </div>
     </div>
   );

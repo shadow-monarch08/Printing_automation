@@ -9,6 +9,7 @@ import type { PricingConfig } from '../../types';
 import { LoadingNet } from '../../components/shared/LoadingNet';
 import { Button } from '../../components/shared/Button';
 import { ValidatedInput } from '../../components/shared/ValidatedInput';
+import { EmptyState } from '../../components/shared/EmptyState';
 
 export function Settings() {
   const { pricingConfig, isLoadingPricing, loadPricingConfig, updatePricingConfig } = useAdminStore();
@@ -34,7 +35,22 @@ export function Settings() {
     );
   }
 
-  if (!localConfig) return null;
+
+
+  if (!localConfig) {
+    return (
+      <div style={{ maxWidth: '1200px', width: '100%', margin: '0 auto' }}>
+        <EmptyState
+          iconType="gear-jam"
+          title="[DATABASE_LINK_FAILED]"
+          description="Unable to pull pricing rules or operational flags from local SQLite config store."
+          style={{ border: '2px solid var(--status-error)' }}
+        >
+          <Button variant="danger" onClick={loadPricingConfig}>RECONNECT DATABASE</Button>
+        </EmptyState>
+      </div>
+    );
+  }
 
   const handleChange = (key: keyof PricingConfig, value: string | number) => {
       setLocalConfig(prev => prev ? { ...prev, [key]: value } : null);

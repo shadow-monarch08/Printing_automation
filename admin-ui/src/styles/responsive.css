@@ -506,6 +506,48 @@ img, video, svg {
    MOBILE ONLY: < 640px
    ==================================== */
 @media (max-width: 639px) {
+  /* Global Kiosk Viewport Guard & Bottom Bar */
+  .user-layout, .kiosk-mobile-root {
+    max-width: 100vw !important;
+    overflow-x: hidden !important;
+    padding: 12px !important;
+  }
+
+  .kiosk-step-content-container {
+    padding-bottom: 80px !important;
+  }
+
+  .mobile-bottom-bar {
+    position: fixed !important;
+    bottom: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    padding: 12px 16px !important;
+    background: rgba(36, 40, 45, 0.92) !important;
+    backdrop-filter: blur(12px) !important;
+    -webkit-backdrop-filter: blur(12px) !important;
+    border-top: 1px solid var(--border-default) !important;
+    z-index: 500 !important;
+    display: flex !important;
+    gap: 12px !important;
+  }
+
+  .mobile-bottom-bar button, .mobile-bottom-bar .btn {
+    width: 100% !important;
+    min-height: 48px !important;
+  }
+
+  /* Strict 48px Touch Targets */
+  button, 
+  .btn, 
+  .btn-mechanical, 
+  input:not([type="checkbox"]):not([type="radio"]), 
+  select, 
+  .custom-select-trigger,
+  .progress-step {
+    min-height: 48px !important;
+  }
+
   /* Config Console stacks vertically */
   .config-split {
     flex-direction: column;

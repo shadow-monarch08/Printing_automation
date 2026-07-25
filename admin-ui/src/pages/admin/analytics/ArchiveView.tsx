@@ -5,6 +5,8 @@ import { Download } from 'lucide-react';
 import { CustomSelect } from '../../../components/shared/CustomSelect';
 import { Button } from '../../../components/shared/Button';
 import { LoadingNet } from '../../../components/shared/LoadingNet';
+import { PaperTable } from '../../../components/shared/PaperTable';
+import { EmptyState } from '../../../components/shared/EmptyState';
 
 interface ArchiveViewProps {
   startDate: string;
@@ -94,11 +96,11 @@ export const ArchiveView: React.FC<ArchiveViewProps> = ({ startDate, endDate }) 
         </Button>
       </div>
 
-      <div style={{ marginBottom: 'var(--spacing-md)', fontSize: '0.9rem', color: 'var(--text-secondary)' }}>
+      <div style={{ marginBottom: 'var(--spacing-md)', fontFamily: 'var(--font-mono)', fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
         Showing {(page - 1) * limit + (total > 0 ? 1 : 0)}–{Math.min(page * limit, total)} of {total} records
       </div>
 
-      <div className="card table-wrapper" style={{ padding: 0 }}>
+      <PaperTable style={{ padding: 0 }}>
         <table className="table">
           <thead>
             <tr>
@@ -116,11 +118,15 @@ export const ArchiveView: React.FC<ArchiveViewProps> = ({ startDate, endDate }) 
             {loading ? (
               <tr className="loading-row"><td colSpan={8} style={{ padding: '3rem 0' }}><LoadingNet message="Loading archive..." /></td></tr>
             ) : jobs.length === 0 ? (
-              <tr><td colSpan={8} style={{ padding: '3rem 0', textAlign: 'center', color: 'var(--text-secondary)' }}>No jobs found for the selected criteria.</td></tr>
+              <tr>
+                <td colSpan={8} style={{ padding: '1rem' }}>
+                  <EmptyState title="No Records Found" description="No jobs matched the selected filter criteria." />
+                </td>
+              </tr>
             ) : (
               jobs.map(job => (
                 <tr key={job.id}>
-                  <td title={job.id}>{job.id.substring(0, 8)}...</td>
+                  <td className="data-mono" title={job.id}>{job.id.substring(0, 8)}...</td>
                   <td title={job.filename} style={{ maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{job.filename}</td>
                   <td>{job.pages}p × {job.copies} ({job.color_mode}, {job.duplex})</td>
                   <td className="data-mono">₹{job.cost}</td>
@@ -130,19 +136,19 @@ export const ArchiveView: React.FC<ArchiveViewProps> = ({ startDate, endDate }) 
                     </span>
                   </td>
                   <td className="target-printer-cell">{job.executed_by_printer || '-'}</td>
-                  <td>{dayjs(job.submitted_at).format('MMM D, HH:mm')}</td>
-                  <td>{job.completed_at ? dayjs(job.completed_at).format('MMM D, HH:mm') : '-'}</td>
+                  <td className="data-mono">{dayjs(job.submitted_at).format('MMM D, HH:mm')}</td>
+                  <td className="data-mono">{job.completed_at ? dayjs(job.completed_at).format('MMM D, HH:mm') : '-'}</td>
                 </tr>
               ))
             )}
           </tbody>
         </table>
-      </div>
+      </PaperTable>
 
       {totalPages > 1 && (
-        <div className="analytics-pagination" style={{ padding: '1rem', borderTop: '1px solid var(--border-default)' }}>
+        <div className="analytics-pagination" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '1rem 0' }}>
           <Button variant="ghost" disabled={page <= 1} onClick={() => setPage(p => p - 1)}>← Previous</Button>
-          <span style={{ color: 'var(--text-secondary)', fontSize: '0.9rem' }}>Page {page} of {totalPages}</span>
+          <span style={{ fontFamily: 'var(--font-mono)', color: 'var(--text-secondary)', fontSize: '0.85rem' }}>Page {page} of {totalPages}</span>
           <Button variant="ghost" disabled={page >= totalPages} onClick={() => setPage(p => p + 1)}>Next →</Button>
         </div>
       )}

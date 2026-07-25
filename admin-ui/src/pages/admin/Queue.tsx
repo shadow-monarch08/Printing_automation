@@ -1,4 +1,3 @@
-// src/pages/admin/Queue.tsx
 import { useEffect, useState } from 'react';
 import { useAdminStore } from '../../stores/useAdminStore';
 import { useModal } from '../../context/ModalContext';
@@ -6,6 +5,8 @@ import { useToast } from '../../context/ToastContext';
 import { X, Pause, Play, ArrowUpFromLine, AlertOctagon } from 'lucide-react';
 import { LoadingNet } from '../../components/shared/LoadingNet';
 import { Button } from '../../components/shared/Button';
+import { PaperTable } from '../../components/shared/PaperTable';
+import { EmptyState } from '../../components/shared/EmptyState';
 
 export function Queue() {
   const { 
@@ -175,11 +176,11 @@ export function Queue() {
         </div>
       </header>
 
-      <div className="card table-wrapper queue-table-wrap" style={{ padding: 0 }}>
+      <PaperTable className="queue-table-wrap" style={{ padding: 0 }}>
         {isQueuePaused && (
-          <div style={{ padding: '1rem', backgroundColor: 'rgba(234, 179, 8, 0.1)', color: 'var(--status-warning)', borderBottom: '1px solid var(--border)', textAlign: 'center', fontWeight: 500 }}>
+          <div style={{ padding: '1rem', backgroundColor: 'rgba(234, 179, 8, 0.1)', color: 'var(--status-warning)', borderBottom: '1px solid var(--border-default)', textAlign: 'center', fontWeight: 500, fontFamily: 'var(--font-mono)', fontSize: '0.85rem' }}>
             <Pause size={16} style={{ display: 'inline', verticalAlign: 'middle', marginRight: '0.5rem' }} />
-            Master queue is currently paused. New jobs are held in the queue.
+            MASTER QUEUE PAUSED - NEW JOBS ARE ON HOLD
           </div>
         )}
         <table className="table">
@@ -265,14 +266,14 @@ export function Queue() {
             ))}
             {!isLoadingQueue && queue.length === 0 && (
               <tr className="empty-row">
-                <td colSpan={6} style={{ textAlign: 'center', padding: '3rem', color: 'var(--text-muted)' }}>
-                  Queue is completely empty.
+                <td colSpan={6} style={{ padding: '1rem' }}>
+                  <EmptyState title="Queue Empty" description="There are no active or pending print jobs in the master queue." />
                 </td>
               </tr>
             )}
           </tbody>
         </table>
-      </div>
+      </PaperTable>
     </div>
   );
 }

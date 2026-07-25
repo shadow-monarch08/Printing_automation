@@ -1,17 +1,16 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useAdminStore } from '../../stores/useAdminStore';
 import { useToast } from '../../context/ToastContext';
-import { Printer, Search, PlusCircle, Trash2 } from 'lucide-react';
+import { Search, PlusCircle, Trash2 } from 'lucide-react';
 import { api } from '../../services/api';
-import { LoadingNet } from '../../components/shared/LoadingNet';
 import { useModal } from '../../context/ModalContext';
 import { Button } from '../../components/shared/Button';
-import { useState } from 'react';
 import { ValidatedInput } from '../../components/shared/ValidatedInput';
 import { validateRequired } from '../../utils/validationRules';
 import { EmptyState } from '../../components/shared/EmptyState';
 import { PrinterCard } from '../../components/admin/PrinterCard';
 import { Checkbox } from '../../components/shared/Checkbox';
+import { FleetSkeleton } from '../../components/admin/skeletons/FleetSkeleton';
 
 const AliasModalBody = ({ printerName, currentAlias, closeModal }: { printerName: string, currentAlias?: string, closeModal: () => void }) => {
   const { updatePrinterAlias } = useAdminStore();
@@ -290,10 +289,39 @@ const ConfigureDeviceButton = ({ device }: { device: { uri: string, rawModel: st
 };
 
 
+const ManualIpModalBody = ({ closeModal }: { closeModal: () => void }) => {
+  const { addToast } = useToast();
+  const [ipAddress, setIpAddress] = useState('');
+  const isFormValid = validateRequired(ipAddress, 'IP Address') === null;
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+      <p style={{ margin: 0, color: 'var(--text-secondary)', fontSize: '0.9rem' }}>
+        Specify a static IPv4 network address or hostname for hardware targets not responding to mDNS auto-probing.
+      </p>
+      <ValidatedInput
+        label="IP Address / Hostname"
+        value={ipAddress}
+        onChange={setIpAddress}
+        placeholder="e.g. 192.168.1.150"
+        validateFn={(val) => validateRequired(val, 'IP Address')}
+      />
+      <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '1rem', marginTop: '1rem' }}>
+        <Button variant="ghost" onClick={closeModal}>Cancel</Button>
+        <Button variant="mechanical" disabled={!isFormValid} onClick={() => {
+          addToast({ type: 'info', title: 'Target Probed', description: `Attempting CUPS socket handshake with ${ipAddress}...` });
+          closeModal();
+        }}>Probe Target</Button>
+      </div>
+    </div>
+  );
+};
+
 export function Fleet() {
   const { printers, isLoadingPrinters, loadPrinters, setDefaultPrinter, detectLegacyPrinter, isDetecting } = useAdminStore();
   const { addToast } = useToast();
   const { openModal, closeModal } = useModal();
+  const [hasSearched, setHasSearched] = useState(false);
 
   useEffect(() => {
     loadPrinters();
@@ -319,7 +347,15 @@ export function Fleet() {
     });
   };
 
+  const handleOpenManualIpModal = () => {
+    openModal({
+      title: 'Manual IP Entry',
+      content: <ManualIpModalBody closeModal={closeModal} />
+    });
+  };
+
   const handleDetect = async () => {
+    setHasSearched(true);
     addToast({ type: 'info', title: 'Hardware Scan', description: 'Polling local USB and network ports for undocumented devices...', duration: 3000 });
     await detectLegacyPrinter();
     const count = useAdminStore.getState().detectedDevices.length;
@@ -344,6 +380,7 @@ export function Fleet() {
     });
   };
 
+  const detectedDevices = useAdminStore.getState().detectedDevices;
 
   return (
     <div style={{ maxWidth: '1200px', width: '100%', margin: '0 auto' }}>
@@ -365,11 +402,11 @@ export function Fleet() {
       </div>
 
       {isLoadingPrinters ? (
-        <LoadingNet message="Scanning hardware topology..." />
+        <FleetSkeleton />
       ) : printers.length === 0 ? (
         <EmptyState
-          icon={<Printer size={48} />}
-          title="Your fleet is empty"
+          iconType="printer-hatch"
+          title="[SYS_NOTICE] YOUR FLEET IS EMPTY"
           description="Get started by detecting hardware or manually adding your first printer to track consumable levels and monitor activity."
         />
       ) : (
@@ -386,20 +423,30 @@ export function Fleet() {
         </div>
       )}
 
-      {useAdminStore.getState().detectedDevices.length > 0 && (
+      {(hasSearched || detectedDevices.length > 0) && (
         <div style={{ marginTop: '3rem' }}>
           <h2 className="page-title" style={{ fontSize: '1.25rem', marginBottom: '1rem' }}>Discovered Devices</h2>
-          <div className="fleet-grid">
-            {useAdminStore.getState().detectedDevices.map(device => (
-              <div key={device.uri} className="card" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '1rem' }}>
-                <div style={{ minWidth: 0 }}>
-                  <h3 style={{ margin: '0 0 0.25rem 0', fontSize: '1rem' }}>{device.rawModel}</h3>
-                  <div className="data-mono" style={{ color: 'var(--text-secondary)', fontSize: '0.75rem', overflow: 'hidden', textOverflow: 'ellipsis' }}>{device.uri}</div>
+          {detectedDevices.length > 0 ? (
+            <div className="fleet-grid">
+              {detectedDevices.map(device => (
+                <div key={device.uri} className="card" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '1rem' }}>
+                  <div style={{ minWidth: 0 }}>
+                    <h3 style={{ margin: '0 0 0.25rem 0', fontSize: '1rem' }}>{device.rawModel}</h3>
+                    <div className="data-mono" style={{ color: 'var(--text-secondary)', fontSize: '0.75rem', overflow: 'hidden', textOverflow: 'ellipsis' }}>{device.uri}</div>
+                  </div>
+                  <ConfigureDeviceButton device={device} />
                 </div>
-                <ConfigureDeviceButton device={device} />
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          ) : (
+            <EmptyState
+              iconType="unlinked-cable"
+              title="[NO_UNCONFIGURED_HARDWARE_FOUND]"
+              description="Network discovery sweep complete. No unconfigured CUPS print hardware detected on local subnet."
+            >
+              <Button variant="ghost" onClick={handleOpenManualIpModal}>+ MANUAL IP ENTRY</Button>
+            </EmptyState>
+          )}
         </div>
       )}
     </div>

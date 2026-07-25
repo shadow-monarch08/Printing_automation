@@ -2,6 +2,8 @@ import React, { useEffect, useState } from 'react';
 import { api } from '../../../services/api';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar, Legend } from 'recharts';
 import { LoadingNet } from '../../../components/shared/LoadingNet';
+import { MetricCard } from '../../../components/admin/MetricCard';
+import { ChartTooltip } from '../../../components/admin/charts/ChartTooltip';
 import { IndianRupee, Layers, CheckCircle2, Calculator } from 'lucide-react';
 
 interface FinancialViewProps {
@@ -37,8 +39,23 @@ export const FinancialView: React.FC<FinancialViewProps> = ({ startDate, endDate
   }, [startDate, endDate]);
 
   if (loading) return (
-    <div style={{ padding: '4rem 0' }}>
-      <LoadingNet message="Loading financial data..." />
+    <div className="financial-view" style={{ minHeight: '500px' }}>
+      <div className="analytics-summary-cards dashboard-metrics" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '16px', marginBottom: 'var(--spacing-lg)' }}>
+        {[0, 1, 2, 3].map((i) => (
+          <div key={i} className="card" style={{ padding: '16px 20px', borderLeft: '3px solid var(--border-default)' }}>
+            <div className="skeleton-box relative overflow-hidden" style={{ width: '100px', height: '14px', marginBottom: '12px', backgroundColor: 'var(--bg-surface-alt)' }} />
+            <div className="skeleton-box relative overflow-hidden" style={{ width: '120px', height: '32px', backgroundColor: 'var(--bg-surface-alt)' }} />
+          </div>
+        ))}
+      </div>
+      <div className="analytics-charts" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px' }}>
+        <div className="card" style={{ height: '360px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <LoadingNet message="Loading financial trend..." />
+        </div>
+        <div className="card" style={{ height: '360px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <LoadingNet message="Loading color split..." />
+        </div>
+      </div>
     </div>
   );
 
@@ -49,62 +66,30 @@ export const FinancialView: React.FC<FinancialViewProps> = ({ startDate, endDate
 
   return (
     <div className="financial-view">
-      <div className="analytics-summary-cards dashboard-metrics" style={{ marginBottom: 'var(--spacing-lg)' }}>
-        <div className="card" style={{ borderLeft: '3px solid var(--accent-primary)' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--text-secondary)', marginBottom: '1rem' }}>
-            <span style={{ fontSize: '0.85rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Total Revenue</span>
-            <IndianRupee size={18} />
-          </div>
-          <div className="data-mono metric-value" style={{ color: 'var(--text-primary)' }}>
-            ₹{summary?.totalRevenue || 0}
-          </div>
-        </div>
-        <div className="card" style={{ borderLeft: '3px solid var(--accent-primary)' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--text-secondary)', marginBottom: '1rem' }}>
-            <span style={{ fontSize: '0.85rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Total Jobs</span>
-            <Layers size={18} />
-          </div>
-          <div className="data-mono metric-value" style={{ color: 'var(--text-primary)' }}>
-            {summary?.totalJobs || 0}
-          </div>
-        </div>
-        <div className="card" style={{ borderLeft: '3px solid var(--accent-primary)' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--text-secondary)', marginBottom: '1rem' }}>
-            <span style={{ fontSize: '0.85rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Completed Jobs</span>
-            <CheckCircle2 size={18} />
-          </div>
-          <div className="data-mono metric-value" style={{ color: 'var(--text-primary)' }}>
-            {summary?.completedJobs || 0}
-          </div>
-        </div>
-        <div className="card" style={{ borderLeft: '3px solid var(--accent-primary)' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--text-secondary)', marginBottom: '1rem' }}>
-            <span style={{ fontSize: '0.85rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Avg Cost / Job</span>
-            <Calculator size={18} />
-          </div>
-          <div className="data-mono metric-value" style={{ color: 'var(--text-primary)' }}>
-            ₹{summary?.avgCostPerJob ? summary.avgCostPerJob.toFixed(2) : '0.00'}
-          </div>
-        </div>
+      <div className="analytics-summary-cards dashboard-metrics" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '16px', marginBottom: 'var(--spacing-lg)' }}>
+        <MetricCard label="Total Revenue" value={`₹${summary?.totalRevenue || 0}`} icon={<IndianRupee size={18} />} gaugeId="[REV_TOTAL]" />
+        <MetricCard label="Total Jobs" value={summary?.totalJobs || 0} icon={<Layers size={18} />} gaugeId="[JOB_TOTAL]" />
+        <MetricCard label="Completed Jobs" value={summary?.completedJobs || 0} icon={<CheckCircle2 size={18} />} gaugeId="[JOB_COMPLETED]" />
+        <MetricCard label="Avg Cost / Job" value={`₹${summary?.avgCostPerJob ? summary.avgCostPerJob.toFixed(2) : '0.00'}`} icon={<Calculator size={18} />} gaugeId="[COST_AVG]" />
       </div>
 
-      <div className="analytics-charts">
+      <div className="analytics-charts" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px' }}>
         <div className="card">
           <h3 style={{ marginBottom: '1.5rem' }}>Revenue Trend</h3>
           <div style={{ height: 300, marginLeft: '-15px' }}>
             <ResponsiveContainer width="100%" height="100%">
               <AreaChart data={trend} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
                 <defs>
-                  <linearGradient id="colorRevenue" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#007bff" stopOpacity={0.8}/>
-                    <stop offset="95%" stopColor="#007bff" stopOpacity={0}/>
+                  <linearGradient id="colorRev" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="var(--accent-primary)" stopOpacity={0.3}/>
+                    <stop offset="95%" stopColor="var(--accent-primary)" stopOpacity={0}/>
                   </linearGradient>
                 </defs>
-                <XAxis dataKey="date" />
-                <YAxis />
-                <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                <Tooltip />
-                <Area type="monotone" dataKey="revenue" stroke="#007bff" fillOpacity={1} fill="url(#colorRevenue)" />
+                <XAxis dataKey="date" stroke="var(--text-secondary)" fontFamily="var(--font-mono)" fontSize={11} />
+                <YAxis stroke="var(--text-secondary)" fontFamily="var(--font-mono)" fontSize={11} />
+                <CartesianGrid strokeDasharray="2 2" stroke="var(--border-default)" vertical={false} />
+                <Tooltip content={<ChartTooltip />} />
+                <Area type="monotone" dataKey="revenue" stroke="var(--accent-primary)" strokeWidth={2} fillOpacity={1} fill="url(#colorRev)" name="Revenue (₹)" />
               </AreaChart>
             </ResponsiveContainer>
           </div>
@@ -115,16 +100,17 @@ export const FinancialView: React.FC<FinancialViewProps> = ({ startDate, endDate
           <div style={{ height: 300, marginLeft: '-15px' }}>
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={colorData}>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                <XAxis dataKey="name" />
-                <Tooltip />
+                <CartesianGrid strokeDasharray="2 2" stroke="var(--border-default)" vertical={false} />
+                <XAxis dataKey="name" stroke="var(--text-secondary)" fontFamily="var(--font-mono)" fontSize={11} />
+                <YAxis stroke="var(--text-secondary)" fontFamily="var(--font-mono)" fontSize={11} />
+                <Tooltip content={<ChartTooltip />} />
                 <Legend />
-                <Bar dataKey="revenue" fill="#8884d8" name="Revenue (₹)" />
-                <Bar dataKey="jobs" fill="#82ca9d" name="Jobs" />
+                <Bar dataKey="revenue" fill="var(--accent-primary)" name="Revenue (₹)" radius={[2, 2, 0, 0]} />
+                <Bar dataKey="jobs" fill="var(--accent-secondary)" name="Jobs" radius={[2, 2, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
           </div>
-          <div style={{ marginTop: '1rem', fontSize: '0.9rem', color: 'var(--text-secondary)' }}>
+          <div style={{ marginTop: '1rem', fontFamily: 'var(--font-mono)', fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
             Color: ₹{colorSplit?.colorRevenue || 0} ({colorSplit?.colorJobs || 0} jobs) · B&W: ₹{colorSplit?.bwRevenue || 0} ({colorSplit?.bwJobs || 0} jobs)
           </div>
         </div>

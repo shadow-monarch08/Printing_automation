@@ -2,7 +2,6 @@ import { Routes, Route } from 'react-router-dom';
 import { useEffect, useState } from 'react';
 import { Modal } from './components/shared/Modal';
 import { ToastStack } from './components/shared/ToastStack';
-import { AlertTriangle } from 'lucide-react';
 import { LoadingNet } from './components/shared/LoadingNet';
 
 import { UserLayout } from './layouts/UserLayout';
@@ -12,6 +11,7 @@ import { ConfigConsole } from './pages/user/ConfigConsole';
 import { QuoteReceipt } from './pages/user/QuoteReceipt';
 import { JobTracker } from './pages/user/JobTracker';
 import { ActiveJobIndicator } from './components/user/ActiveJobIndicator';
+import { SystemOfflineOverlay } from './components/user/SystemOfflineOverlay';
 import { useUserPrintStore } from './stores/useUserPrintStore';
 
 import { AdminLayout } from './layouts/AdminLayout';
@@ -35,13 +35,7 @@ function UserKioskPage() {
   }
 
   if (isAcceptingJobs === false) {
-    return (
-      <div className="offline-container" style={{ display: 'flex', flex: 1, flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', opacity: 0.8 }}>
-        <AlertTriangle size={64} style={{ color: 'var(--danger)', marginBottom: '1rem' }} />
-        <h2 className="offline-title">System Offline</h2>
-        <p className="offline-desc" style={{ color: 'var(--danger)', textAlign: "center" }}>No printers are currently available. Please check back later.</p>
-      </div>
-    );
+    return <SystemOfflineOverlay />;
   }
 
   return (

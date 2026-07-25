@@ -3,9 +3,22 @@
 /* Cards */
 .card {
   background: var(--bg-surface);
-  border: 2px solid var(--border-default);
+  border: 1px solid var(--border-default);
   border-radius: var(--radius-sm);
   padding: var(--spacing-lg);
+  box-shadow: var(--shadow-paper);
+}
+.card h3 {
+  font-family: var(--font-mono);
+  font-size: 1.05rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-primary);
+  border-bottom: 1px dashed var(--border-default);
+  padding-bottom: 8px;
+  margin-top: 0;
+  margin-bottom: 16px;
 }
 .card:hover {
   border-color: var(--border-active);
@@ -140,6 +153,16 @@
   outline: none;
   border-color: var(--input-focus-border);
   box-shadow: 0 0 0 3px var(--input-focus-glow);
+}
+/* Remove native browser number input spinners (up/down toggle arrows) */
+input[type="number"]::-webkit-outer-spin-button,
+input[type="number"]::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+input[type="number"] {
+  -moz-appearance: textfield;
+  appearance: textfield;
 }
 
 /* Data & Tables */
