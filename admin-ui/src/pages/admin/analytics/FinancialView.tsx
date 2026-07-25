@@ -40,7 +40,7 @@ export const FinancialView: React.FC<FinancialViewProps> = ({ startDate, endDate
 
   if (loading) return (
     <div className="financial-view" style={{ minHeight: '500px' }}>
-      <div className="analytics-summary-cards dashboard-metrics" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '16px', marginBottom: 'var(--spacing-lg)' }}>
+      <div className="analytics-summary-cards dashboard-metrics">
         {[0, 1, 2, 3].map((i) => (
           <div key={i} className="card" style={{ padding: '16px 20px', borderLeft: '3px solid var(--border-default)' }}>
             <div className="skeleton-box relative overflow-hidden" style={{ width: '100px', height: '14px', marginBottom: '12px', backgroundColor: 'var(--bg-surface-alt)' }} />
@@ -48,7 +48,7 @@ export const FinancialView: React.FC<FinancialViewProps> = ({ startDate, endDate
           </div>
         ))}
       </div>
-      <div className="analytics-charts" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px' }}>
+      <div className="analytics-charts">
         <div className="card" style={{ height: '360px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
           <LoadingNet message="Loading financial trend..." />
         </div>
@@ -66,14 +66,14 @@ export const FinancialView: React.FC<FinancialViewProps> = ({ startDate, endDate
 
   return (
     <div className="financial-view">
-      <div className="analytics-summary-cards dashboard-metrics" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '16px', marginBottom: 'var(--spacing-lg)' }}>
+      <div className="analytics-summary-cards dashboard-metrics">
         <MetricCard label="Total Revenue" value={`₹${summary?.totalRevenue || 0}`} icon={<IndianRupee size={18} />} gaugeId="[REV_TOTAL]" />
         <MetricCard label="Total Jobs" value={summary?.totalJobs || 0} icon={<Layers size={18} />} gaugeId="[JOB_TOTAL]" />
         <MetricCard label="Completed Jobs" value={summary?.completedJobs || 0} icon={<CheckCircle2 size={18} />} gaugeId="[JOB_COMPLETED]" />
         <MetricCard label="Avg Cost / Job" value={`₹${summary?.avgCostPerJob ? summary.avgCostPerJob.toFixed(2) : '0.00'}`} icon={<Calculator size={18} />} gaugeId="[COST_AVG]" />
       </div>
 
-      <div className="analytics-charts" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px' }}>
+      <div className="analytics-charts">
         <div className="card">
           <h3 style={{ marginBottom: '1.5rem' }}>Revenue Trend</h3>
           <div style={{ height: 300, marginLeft: '-15px' }}>

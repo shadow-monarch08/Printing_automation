@@ -2,7 +2,7 @@ import React, { type ReactNode } from 'react';
 
 export type EmptyStateIconType = 'printer-hatch' | 'unlinked-cable' | 'empty-paper' | 'gear-jam';
 
-export interface EmptyStateProps {
+export interface EmptyStateProps extends React.HTMLAttributes<HTMLDivElement> {
   iconType?: EmptyStateIconType;
   icon?: ReactNode;
   title: string;
@@ -106,12 +106,14 @@ export const EmptyState: React.FC<EmptyStateProps> = ({
   actionButton,
   children,
   className = '',
-  style
+  style,
+  ...restProps
 }) => {
   const formattedTitle = title.startsWith('[') ? title : `[SYS_NOTICE] ${title.toUpperCase()}`;
 
   return (
     <div 
+      {...restProps}
       className={`empty-state-card empty-tray-container ${className}`}
       style={{
         display: 'flex',

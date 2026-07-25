@@ -59,6 +59,19 @@
   box-sizing: border-box;
   margin: 0;
   padding: 0;
+  -webkit-tap-highlight-color: transparent !important;
+  -webkit-touch-callout: none;
+}
+
+/* Custom Theme Text Selection Styling */
+::selection {
+  background-color: var(--accent-primary);
+  color: #FFFFFF;
+}
+
+::-moz-selection {
+  background-color: var(--accent-primary);
+  color: #FFFFFF;
 }
 
 button, input, select, textarea {

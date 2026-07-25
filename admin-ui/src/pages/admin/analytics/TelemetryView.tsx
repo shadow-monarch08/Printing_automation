@@ -30,7 +30,7 @@ export const TelemetryView: React.FC<TelemetryViewProps> = ({ startDate, endDate
 
   if (loading) return (
     <div className="telemetry-view" style={{ minHeight: '500px' }}>
-      <div className="analytics-charts" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px', marginBottom: 'var(--spacing-lg)' }}>
+      <div className="analytics-charts" style={{ marginBottom: 'var(--spacing-lg)' }}>
         <div className="card" style={{ height: '360px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
           <LoadingNet message="Loading volume leaderboard..." />
         </div>
@@ -45,7 +45,7 @@ export const TelemetryView: React.FC<TelemetryViewProps> = ({ startDate, endDate
 
   return (
     <div className="telemetry-view">
-      <div className="analytics-charts" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px', marginBottom: 'var(--spacing-lg)' }}>
+      <div className="analytics-charts" style={{ marginBottom: 'var(--spacing-lg)' }}>
         <div className="card">
           <h3 style={{ marginBottom: '1.5rem' }}>Volume Leaderboard (Pages)</h3>
           <div style={{ height: 300, marginLeft: '-15px' }}>

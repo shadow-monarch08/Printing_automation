@@ -166,14 +166,7 @@ export function DropZone() {
   }
 
   return (
-    <div 
-      className="dropzone-container"
-      onDragOver={handleDragOver}
-      onDragLeave={handleDragLeave}
-      onDrop={handleDrop}
-      onClick={() => fileInputRef.current?.click()}
-      style={{ cursor: 'pointer', width: '100%' }}
-    >
+    <div className="dropzone-container" style={{ width: '100%' }}>
       <input 
         type="file" 
         ref={fileInputRef} 
@@ -186,7 +179,12 @@ export function DropZone() {
         iconType="printer-hatch"
         title="[INITIALIZE_JOB_PAYLOAD]"
         description="Drag & drop document or tap to browse local storage"
+        onDragOver={handleDragOver}
+        onDragLeave={handleDragLeave}
+        onDrop={handleDrop}
+        onClick={() => fileInputRef.current?.click()}
         style={{
+          cursor: 'pointer',
           border: isDragOver ? '3px solid var(--accent-primary)' : '3px dashed var(--border-default)',
           boxShadow: isDragOver ? 'inset 0 0 32px var(--accent-glow)' : 'inset 0 0 12px rgba(0, 0, 0, 0.2)',
           minHeight: '240px',

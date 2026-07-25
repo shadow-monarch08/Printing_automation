@@ -590,13 +590,15 @@ img, video, svg {
     flex-direction: column;
   }
 
-  /* Dashboard metrics → 2-col */
+  /* Dashboard metrics → 1-col on mobile */
   .dashboard-metrics {
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns: 1fr !important;
+    gap: 12px !important;
   }
 
   .dashboard-detail-grid {
-    grid-template-columns: 1fr;
+    grid-template-columns: 1fr !important;
+    gap: 16px !important;
   }
 
   .metric-value {

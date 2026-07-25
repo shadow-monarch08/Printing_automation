@@ -101,48 +101,50 @@ export const ArchiveView: React.FC<ArchiveViewProps> = ({ startDate, endDate }) 
       </div>
 
       <PaperTable style={{ padding: 0 }}>
-        <table className="table">
-          <thead>
-            <tr>
-              <th>Job ID</th>
-              <th>File</th>
-              <th>Settings</th>
-              <th>Cost</th>
-              <th>Status</th>
-              <th>Printer</th>
-              <th>Submitted</th>
-              <th>Completed</th>
-            </tr>
-          </thead>
-          <tbody>
-            {loading ? (
-              <tr className="loading-row"><td colSpan={8} style={{ padding: '3rem 0' }}><LoadingNet message="Loading archive..." /></td></tr>
-            ) : jobs.length === 0 ? (
+        <div style={{ overflowX: 'auto', width: '100%', WebkitOverflowScrolling: 'touch' }}>
+          <table className="table" style={{ minWidth: '650px' }}>
+            <thead>
               <tr>
-                <td colSpan={8} style={{ padding: '1rem' }}>
-                  <EmptyState title="No Records Found" description="No jobs matched the selected filter criteria." />
-                </td>
+                <th>Job ID</th>
+                <th>File</th>
+                <th>Settings</th>
+                <th>Cost</th>
+                <th>Status</th>
+                <th>Printer</th>
+                <th>Submitted</th>
+                <th>Completed</th>
               </tr>
-            ) : (
-              jobs.map(job => (
-                <tr key={job.id}>
-                  <td className="data-mono" title={job.id}>{job.id.substring(0, 8)}...</td>
-                  <td title={job.filename} style={{ maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{job.filename}</td>
-                  <td>{job.pages}p × {job.copies} ({job.color_mode}, {job.duplex})</td>
-                  <td className="data-mono">₹{job.cost}</td>
-                  <td>
-                    <span className={`badge badge-${job.status}`}>
-                      {job.status}
-                    </span>
+            </thead>
+            <tbody>
+              {loading ? (
+                <tr className="loading-row"><td colSpan={8} style={{ padding: '3rem 0' }}><LoadingNet message="Loading archive..." /></td></tr>
+              ) : jobs.length === 0 ? (
+                <tr>
+                  <td colSpan={8} style={{ padding: '1rem' }}>
+                    <EmptyState title="No Records Found" description="No jobs matched the selected filter criteria." />
                   </td>
-                  <td className="target-printer-cell">{job.executed_by_printer || '-'}</td>
-                  <td className="data-mono">{dayjs(job.submitted_at).format('MMM D, HH:mm')}</td>
-                  <td className="data-mono">{job.completed_at ? dayjs(job.completed_at).format('MMM D, HH:mm') : '-'}</td>
                 </tr>
-              ))
-            )}
-          </tbody>
-        </table>
+              ) : (
+                jobs.map(job => (
+                  <tr key={job.id}>
+                    <td className="data-mono" title={job.id}>{job.id.substring(0, 8)}...</td>
+                    <td title={job.filename} style={{ maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{job.filename}</td>
+                    <td>{job.pages}p × {job.copies} ({job.color_mode}, {job.duplex})</td>
+                    <td className="data-mono">₹{job.cost}</td>
+                    <td>
+                      <span className={`badge badge-${job.status}`}>
+                        {job.status}
+                      </span>
+                    </td>
+                    <td className="target-printer-cell">{job.executed_by_printer || '-'}</td>
+                    <td className="data-mono">{dayjs(job.submitted_at).format('MMM D, HH:mm')}</td>
+                    <td className="data-mono">{job.completed_at ? dayjs(job.completed_at).format('MMM D, HH:mm') : '-'}</td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
       </PaperTable>
 
       {totalPages > 1 && (
