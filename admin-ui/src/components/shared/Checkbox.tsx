@@ -1,6 +1,6 @@
-// src/components/shared/Checkbox.tsx
 import React, { useId } from 'react';
 import { Check } from 'lucide-react';
+import { soundFx } from '../../utils/sound';
 
 export interface CheckboxProps {
   checked: boolean;
@@ -25,6 +25,7 @@ export function Checkbox({
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (disabled) return;
+    soundFx.playClick();
     onChange(e.target.checked);
   };
 

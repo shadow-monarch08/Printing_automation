@@ -1,12 +1,39 @@
-/* src/styles/theme.css */
+# Phase 1: Industrial Automation Theme & Typography Reset
 
+You are tasked with executing **Phase 1 of the UI Remodel**: Overhauling the global theme tokens, color palettes, and typography to establish the "Industrial Printshop" aesthetic.
+
+Do NOT modify component logic or page structures during this phase. Focus strictly on global CSS variables, font imports, and base CSS resets.
+
+---
+
+## Task 1: Typography Imports (`index.html` or main HTML header)
+
+Update the font imports to load Google Fonts for `IBM Plex Mono` and `Space Grotesk`.
+
+Add the following Google Fonts link to the top of the main HTML document (e.g., `admin-ui/index.html` or equivalent):
+
+```html
+<link rel="preconnect" href="[https://fonts.googleapis.com](https://fonts.googleapis.com)">
+<link rel="preconnect" href="[https://fonts.gstatic.com](https://fonts.gstatic.com)" crossorigin>
+<link href="[https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&family=Space+Grotesk:wght@400;500;600;700&display=swap](https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&family=Space+Grotesk:wght@400;500;600;700&display=swap)" rel="stylesheet">
+
+```
+**Above links are just representation of what font and font weight to use, we are not gonna user CDN links instead install all the fonts and save it in the fonts folder, import them using `@font-face` in css and use them**
+
+---
+
+## Task 2: Replace Theme Tokens (`theme.css` / CSS Custom Properties)
+
+Locate the primary CSS theme declaration file (e.g., `admin-ui/src/styles/theme.css` or global styles) and replace the existing palette definitions with the **Industrial Automation Theme System**:
+
+```css
 /* ==========================================================================
    Industrial Automation Theme System
    ========================================================================== */
 
 :root {
   /* Typography Variables */
-  --font-mono: 'IBM Plex Mono', monospace;
+  --font-mono: 'IBM Plex Mono', 'Courier Prime', monospace;
   --font-body: 'Space Grotesk', 'Inter', sans-serif;
 
   /* Global Layout Tokens */
@@ -22,7 +49,7 @@
 }
 
 /* --- Dark Mode ("Cast Iron & Carbon") --- */
-:root[data-theme="dark"], [data-theme="dark"] {
+:root[data-theme="dark"] {
   /* Base Surfaces */
   --bg-primary: #1A1D20;        /* Cast Iron Base */
   --bg-surface: #24282D;        /* Machined Panel */
@@ -38,7 +65,6 @@
   --text-primary: #E6E8EA;      /* Bright Zinc */
   --text-secondary: #9098A2;    /* Stamped Steel */
   --text-mono: #FF5500;         /* Safety Orange Data */
-  --text-muted: #626A72;
 
   /* Brand Accents */
   --accent-primary: #FF5500;    /* Safety Orange */
@@ -46,53 +72,10 @@
   --accent-secondary: #00A396;  /* Press Cyan */
   --accent-glow: rgba(255, 85, 0, 0.15);
 
-  /* Button Tokens */
-  --btn-bg: #FF5500;
-  --btn-text: #1A1D20;
-  --btn-shadow: 0 4px 0 #000000;
-  --btn-active-shadow: 0 1px 0 #000000;
-
-  --btn-danger-bg: #FF4444;
-  --btn-danger-text: #FFFFFF;
-  --btn-danger-shadow: 0 4px 0 #AA2222;
-
-  --btn-ghost-bg: transparent;
-  --btn-ghost-text: var(--text-primary);
-  --btn-ghost-border: var(--border-default);
-
   /* Status Tokens */
   --status-idle: #00FF88;       /* Online Green */
   --status-error: #FF4444;      /* Industrial Red */
   --status-busy: #FFAA00;       /* Warning Orange */
-
-  /* Modal tokens */
-  --modal-backdrop: rgba(0, 0, 0, 0.75);
-  --modal-bg: #24282D;
-  --modal-border: #3A4047;
-  --modal-header-bg: #1A1D20;
-  --modal-shadow: 0 24px 80px rgba(0, 0, 0, 0.6);
-
-  /* Toast tokens */
-  --toast-success-bg: rgba(0, 255, 136, 0.1);
-  --toast-success-border: rgba(0, 255, 136, 0.3);
-  --toast-success-text: #00FF88;
-  --toast-error-bg: rgba(255, 68, 68, 0.1);
-  --toast-error-border: rgba(255, 68, 68, 0.3);
-  --toast-error-text: #FF6666;
-  --toast-info-bg: rgba(255, 85, 0, 0.08);
-  --toast-info-border: rgba(255, 85, 0, 0.25);
-  --toast-info-text: #FF5500;
-  --toast-warning-bg: rgba(255, 170, 0, 0.1);
-  --toast-warning-border: rgba(255, 170, 0, 0.3);
-  --toast-warning-text: #FFAA00;
-  --toast-surface: #24282D;
-  --toast-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
-
-  /* Input tokens */
-  --input-bg: #1A1D20;
-  --input-border: #3A4047;
-  --input-focus-border: #FF5500;
-  --input-focus-glow: rgba(255, 85, 0, 0.15);
 
   /* Shadows & Paper Effects */
   --shadow-paper: 0 12px 24px -6px rgba(0, 0, 0, 0.5), 0 0 0 1px #3A4047;
@@ -100,7 +83,7 @@
 }
 
 /* --- Light Mode ("Raw Newsprint & Ink") --- */
-:root[data-theme="light"], [data-theme="light"] {
+:root[data-theme="light"] {
   /* Base Surfaces */
   --bg-primary: #F4F1EA;        /* Aged Cotton Paper Base */
   --bg-surface: #EBE6DC;        /* Pressed Cardstock */
@@ -116,7 +99,6 @@
   --text-primary: #1C2024;      /* Carbon Ink */
   --text-secondary: #626A72;    /* Faded Stamp */
   --text-mono: #D03B00;         /* Press Red Data */
-  --text-muted: #999999;
 
   /* Brand Accents */
   --accent-primary: #D03B00;    /* Deep Industrial Red-Orange */
@@ -124,56 +106,52 @@
   --accent-secondary: #00665E;  /* Roller Cyan */
   --accent-glow: rgba(208, 59, 0, 0.12);
 
-  /* Button Tokens */
-  --btn-bg: #D03B00;
-  --btn-text: #FFFFFF;
-  --btn-shadow: 0 4px 0 #8B2500;
-  --btn-active-shadow: 0 1px 0 #8B2500;
-
-  --btn-danger-bg: #DC2626;
-  --btn-danger-text: #FFFFFF;
-  --btn-danger-shadow: 0 4px 0 #8B1A1A;
-
-  --btn-ghost-bg: transparent;
-  --btn-ghost-text: var(--text-primary);
-  --btn-ghost-border: var(--border-default);
-
   /* Status Tokens */
   --status-idle: #16A34A;
   --status-error: #DC2626;
   --status-busy: #D97706;
-
-  /* Modal tokens */
-  --modal-backdrop: rgba(0, 0, 0, 0.45);
-  --modal-bg: #EBE6DC;
-  --modal-border: #D2CBBE;
-  --modal-header-bg: #F4F1EA;
-  --modal-shadow: 0 24px 80px rgba(0, 0, 0, 0.2);
-
-  /* Toast tokens */
-  --toast-success-bg: rgba(22, 163, 74, 0.08);
-  --toast-success-border: rgba(22, 163, 74, 0.3);
-  --toast-success-text: #16A34A;
-  --toast-error-bg: rgba(220, 38, 38, 0.08);
-  --toast-error-border: rgba(220, 38, 38, 0.3);
-  --toast-error-text: #DC2626;
-  --toast-info-bg: rgba(208, 59, 0, 0.06);
-  --toast-info-border: rgba(208, 59, 0, 0.2);
-  --toast-info-text: #D03B00;
-  --toast-warning-bg: rgba(217, 119, 6, 0.08);
-  --toast-warning-border: rgba(217, 119, 6, 0.3);
-  --toast-warning-text: #D97706;
-  --toast-surface: #FFFFFF;
-  --toast-shadow: 0 8px 32px rgba(0, 0, 0, 0.12);
-
-  /* Input tokens */
-  --input-bg: #FDFBF7;
-  --input-border: #D2CBBE;
-  --input-focus-border: #D03B00;
-  --input-focus-glow: rgba(208, 59, 0, 0.1);
 
   /* Shadows & Paper Effects */
   --shadow-paper: 0 10px 20px -5px rgba(0, 0, 0, 0.08), 0 0 0 1px #D2CBBE;
   --shadow-3d-btn: 0 4px 0 #9E9689;
 }
 
+```
+
+---
+
+## Task 3: Base CSS Reset & Typography Rules
+
+Update `global.css` or `index.css` to enforce the font hierarchy across all elements:
+
+```css
+body {
+  font-family: var(--font-body);
+  background-color: var(--bg-primary);
+  color: var(--text-primary);
+  transition: background-color 0.2s ease, color 0.2s ease;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Force Monospace on Headings, Data Metrics, Badges, and Code */
+h1, h2, h3, h4, h5, h6,
+.data-mono,
+.badge,
+.metric-value,
+table th,
+code,
+pre {
+  font-family: var(--font-mono);
+  letter-spacing: -0.02em;
+}
+
+```
+
+---
+
+## Phase 1 Verification Criteria
+
+1. Run `npm run dev` and toggle between light and dark mode.
+2. Confirm dark mode uses the **Gunmetal Gray (`#1A1D20`)** base rather than pure black.
+3. Confirm light mode uses the **Aged Paper (`#F4F1EA`)** base rather than stark white.
+4. Verify headings and data tables switch to **IBM Plex Mono**, while body text uses **Space Grotesk**.

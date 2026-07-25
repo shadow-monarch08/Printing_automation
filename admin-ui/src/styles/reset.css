@@ -1,37 +1,57 @@
-/* src/styles/reset.css */
-
+/* Local Font Definitions */
 @font-face {
-  font-family: 'IBM Plex Sans';
-  src: url('../fonts/IBMPlexSans-Regular.woff2') format('woff2');
+  font-family: 'IBM Plex Mono';
+  src: url('../fonts/ibm-plex-mono-400.woff2') format('woff2');
   font-weight: 400;
   font-style: normal;
 }
 
 @font-face {
-  font-family: 'IBM Plex Sans';
-  src: url('../fonts/IBMPlexSans-SemiBold.woff2') format('woff2');
+  font-family: 'IBM Plex Mono';
+  src: url('../fonts/ibm-plex-mono-500.woff2') format('woff2');
+  font-weight: 500;
+  font-style: normal;
+}
+
+@font-face {
+  font-family: 'IBM Plex Mono';
+  src: url('../fonts/ibm-plex-mono-600.woff2') format('woff2');
   font-weight: 600;
   font-style: normal;
 }
 
 @font-face {
-  font-family: 'IBM Plex Sans';
-  src: url('../fonts/IBMPlexSans-Bold.woff2') format('woff2');
+  font-family: 'IBM Plex Mono';
+  src: url('../fonts/ibm-plex-mono-700.woff2') format('woff2');
   font-weight: 700;
   font-style: normal;
 }
 
 @font-face {
-  font-family: 'Courier Prime';
-  src: url('../fonts/CourierPrime-Regular.woff2') format('woff2');
+  font-family: 'Space Grotesk';
+  src: url('../fonts/space-grotesk-400.woff2') format('woff2');
   font-weight: 400;
   font-style: normal;
 }
 
 @font-face {
-  font-family: 'JetBrains Mono';
-  src: url('../fonts/JetBrainsMono-Regular.woff2') format('woff2');
-  font-weight: 400;
+  font-family: 'Space Grotesk';
+  src: url('../fonts/space-grotesk-500.woff2') format('woff2');
+  font-weight: 500;
+  font-style: normal;
+}
+
+@font-face {
+  font-family: 'Space Grotesk';
+  src: url('../fonts/space-grotesk-600.woff2') format('woff2');
+  font-weight: 600;
+  font-style: normal;
+}
+
+@font-face {
+  font-family: 'Space Grotesk';
+  src: url('../fonts/space-grotesk-700.woff2') format('woff2');
+  font-weight: 700;
   font-style: normal;
 }
 
@@ -47,10 +67,24 @@ button, input, select, textarea {
 }
 
 body {
-  font-family: 'IBM Plex Sans', system-ui, -apple-system, sans-serif;
+  font-family: var(--font-body);
   background-color: var(--bg-primary);
   color: var(--text-primary);
   min-height: 100vh;
+  -webkit-font-smoothing: antialiased;
+  transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+/* Force Monospace on Headings, Data Metrics, Badges, and Code */
+h1, h2, h3, h4, h5, h6,
+.data-mono,
+.badge,
+.metric-value,
+table th,
+code,
+pre {
+  font-family: var(--font-mono);
+  letter-spacing: -0.02em;
 }
 
 body * {

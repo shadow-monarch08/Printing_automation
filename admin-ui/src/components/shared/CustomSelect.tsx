@@ -1,6 +1,7 @@
 // src/components/shared/CustomSelect.tsx
 import { useState, useRef, useEffect } from 'react';
 import { ChevronDown, Check } from 'lucide-react';
+import { soundFx } from '../../utils/sound';
 
 interface Option {
   value: string;
@@ -31,12 +32,24 @@ export function CustomSelect({ options, value, onChange, label }: CustomSelectPr
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
+  const handleToggle = () => {
+    soundFx.playClick();
+    setIsOpen(!isOpen);
+  };
+
+  const handleSelectOption = (option: Option) => {
+    if (option.disabled) return;
+    soundFx.playClick();
+    onChange(option.value);
+    setIsOpen(false);
+  };
+
   return (
     <div className="custom-select-container" ref={containerRef}>
       {label && <label className="custom-select-label">{label}</label>}
       <div 
         className={`custom-select-trigger ${isOpen ? 'open' : ''}`}
-        onClick={() => setIsOpen(!isOpen)}
+        onClick={handleToggle}
         tabIndex={0}
       >
         <span className="custom-select-value">{selectedOption.label}</span>
@@ -49,11 +62,7 @@ export function CustomSelect({ options, value, onChange, label }: CustomSelectPr
             <div 
               key={option.value}
               className={`custom-select-option ${option.value === value ? 'selected' : ''} ${option.disabled ? 'disabled' : ''}`}
-              onClick={() => {
-                if (option.disabled) return;
-                onChange(option.value);
-                setIsOpen(false);
-              }}
+              onClick={() => handleSelectOption(option)}
               style={option.disabled ? { opacity: 0.5, cursor: 'not-allowed' } : {}}
             >
               <span>{option.label}</span>

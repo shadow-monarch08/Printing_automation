@@ -1,35 +1,97 @@
 export function LoadingNet({ message = 'Loading...' }: { message?: string }) {
+  const formattedMessage = message.toUpperCase().startsWith('▪') 
+    ? message.toUpperCase() 
+    : `▪ ${message.toUpperCase()}`;
+
   return (
-    <div style={{
-      display: 'flex',
-      flexDirection: 'column',
-      alignItems: 'center',
-      justifyContent: 'center',
-      padding: '2rem',
-      color: 'var(--text-secondary)'
-    }}>
-      <div className="loading-net" style={{ marginBottom: '1rem' }}>
-        <svg width="40" height="40" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg">
-          <defs>
-            <linearGradient id="netGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-              <stop offset="0%" stopColor="var(--accent-primary)" stopOpacity="0.8" />
-              <stop offset="100%" stopColor="var(--accent-secondary)" stopOpacity="0.2" />
-            </linearGradient>
-          </defs>
-          <g fill="none" stroke="url(#netGrad)" strokeWidth="1" opacity="0.8">
-            <path d="M0 10 H40 M0 20 H40 M0 30 H40 M10 0 V40 M20 0 V40 M30 0 V40">
-              <animate attributeName="stroke-dasharray" values="0, 40; 40, 0; 0, 40" dur="2s" repeatCount="indefinite" />
-              <animate attributeName="opacity" values="0.3; 1; 0.3" dur="1.5s" repeatCount="indefinite" />
-            </path>
-            <rect x="0" y="0" width="40" height="40" strokeWidth="2" stroke="var(--accent-primary)">
-               <animate attributeName="opacity" values="0.2; 0.8; 0.2" dur="2s" repeatCount="indefinite" />
-            </rect>
-          </g>
-        </svg>
+    <div 
+      className="loading-net-container" 
+      style={{
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: '2rem',
+        gap: '16px'
+      }}
+    >
+      {/* Retro Dot-Matrix Paper Box */}
+      <div 
+        style={{
+          position: 'relative',
+          width: '120px',
+          height: '80px',
+          backgroundColor: 'var(--bg-paper)',
+          border: '1px solid var(--border-default)',
+          borderRadius: '2px',
+          overflow: 'hidden',
+          boxShadow: 'var(--shadow-paper)',
+          display: 'flex',
+          flexDirection: 'column',
+          justifyContent: 'space-between',
+          padding: '6px 4px'
+        }}
+      >
+        {/* Left Tractor-Feed Holes */}
+        <div style={{ position: 'absolute', left: '4px', top: '8px', bottom: '8px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', zIndex: 2, pointerEvents: 'none' }}>
+          {[0, 1, 2, 3].map((i) => (
+            <div key={`l-${i}`} style={{ width: '4px', height: '4px', borderRadius: '50%', backgroundColor: 'var(--border-default)' }} />
+          ))}
+        </div>
+
+        {/* Right Tractor-Feed Holes */}
+        <div style={{ position: 'absolute', right: '4px', top: '8px', bottom: '8px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', zIndex: 2, pointerEvents: 'none' }}>
+          {[0, 1, 2, 3].map((i) => (
+            <div key={`r-${i}`} style={{ width: '4px', height: '4px', borderRadius: '50%', backgroundColor: 'var(--border-default)' }} />
+          ))}
+        </div>
+
+        {/* Inner Print Lines Representation */}
+        <div style={{ width: '100%', height: '100%', padding: '0 14px', display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: '6px', opacity: 0.25 }}>
+          <div style={{ height: '2px', backgroundColor: 'var(--text-primary)', width: '80%' }} />
+          <div style={{ height: '2px', backgroundColor: 'var(--text-primary)', width: '100%' }} />
+          <div style={{ height: '2px', backgroundColor: 'var(--text-primary)', width: '60%' }} />
+          <div style={{ height: '2px', backgroundColor: 'var(--text-primary)', width: '90%' }} />
+        </div>
+
+        {/* Moving Horizontal Printhead Bar */}
+        <div 
+          className="printhead-bar"
+          style={{
+            position: 'absolute',
+            left: 0,
+            right: 0,
+            height: '2px',
+            backgroundColor: 'var(--accent-primary)',
+            boxShadow: '0 0 8px var(--accent-primary)',
+            animation: 'printScan 1.8s infinite ease-in-out',
+            zIndex: 3
+          }}
+        />
       </div>
-      <div className="data-mono" style={{ fontSize: '0.85rem', letterSpacing: '0.05em' }}>
-        {message}
+
+      {/* Monospace Status Readout */}
+      <div 
+        className="data-mono" 
+        style={{
+          fontFamily: 'var(--font-mono)',
+          fontSize: '13px',
+          fontWeight: 600,
+          letterSpacing: '0.08em',
+          color: 'var(--accent-primary)',
+          textAlign: 'center'
+        }}
+      >
+        {formattedMessage}
       </div>
+
+      <style>{`
+        @keyframes printScan {
+          0% { top: 4px; }
+          50% { top: 74px; }
+          100% { top: 4px; }
+        }
+      `}</style>
     </div>
   );
 }

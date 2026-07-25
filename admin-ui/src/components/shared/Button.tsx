@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Loader2 } from 'lucide-react';
+import { soundFx } from '../../utils/sound';
 
 interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
   variant?: 'mechanical' | 'danger' | 'ghost' | 'primary';
@@ -39,6 +40,9 @@ export const Button: React.FC<ButtonProps> = ({
       e.preventDefault();
       return;
     }
+
+    // Play mechanical sound click effect
+    soundFx.playClick();
 
     // Ignore clicks if within cooldown period
     if (isCooldownRef.current && debounceMs > 0) {
