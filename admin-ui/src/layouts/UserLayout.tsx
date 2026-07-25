@@ -49,16 +49,16 @@ export function UserLayout({ children, subtitle }: { children: ReactNode; subtit
       
       <main className="user-main kiosk-step-content-container">
         {children}
+
+        <footer className="user-footer" style={{ marginTop: '2rem', paddingTop: '1rem', borderTop: '1px dashed var(--border-default)', textAlign: 'center' }}>
+          <div className="ticker-bar" style={{ fontFamily: 'var(--font-mono)', fontSize: '0.75rem', letterSpacing: '0.05em', color: 'var(--text-secondary)' }}>
+            SYSTEM: ONLINE | PAPER: READY | CMYK: ACTIVE
+          </div>
+        </footer>
       </main>
 
       {/* Floating Draggable Sound & Theme Controls */}
       <FloatingControlsWidget />
-      
-      <footer className="user-footer">
-        <div className="ticker-bar" style={{ fontFamily: 'var(--font-mono)', fontSize: '0.75rem', letterSpacing: '0.05em' }}>
-          SYSTEM: ONLINE | PAPER: READY | CMYK: ACTIVE
-        </div>
-      </footer>
     </div>
   );
 }

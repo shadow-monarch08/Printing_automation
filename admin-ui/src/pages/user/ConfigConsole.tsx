@@ -301,7 +301,7 @@ export function ConfigConsole() {
           rightIcon={<ChevronRight size={24} />}
           style={{ width: '100%', minHeight: '48px', fontFamily: 'var(--font-mono)', fontWeight: 800 }}
         >
-          GENERATE COST QUOTE &rarr;
+          GENERATE COST QUOTE
         </Button>
       </div>
 
