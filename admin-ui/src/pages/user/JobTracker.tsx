@@ -1,47 +1,11 @@
 import { useEffect, useState } from 'react';
 import { useUserPrintStore } from '../../stores/useUserPrintStore';
 import { useSessionJobs } from '../../hooks/useSessionJobs';
-import { PlusCircle, Printer, AlertTriangle, Cpu, Layers, CheckCircle2 } from 'lucide-react';
+import { PlusCircle, AlertTriangle, FileText, CheckCircle2 } from 'lucide-react';
 import { Button } from '../../components/shared/Button';
 import { EmptyState } from '../../components/shared/EmptyState';
 import { soundFx } from '../../utils/sound';
 import type { BackendJob } from '../../types';
-
-const PipelineStatusIndicator = ({ state }: { state: 'done' | 'active' | 'pending' | 'failed' }) => {
-  if (state === 'done') {
-    return (
-      <svg width="20" height="20" viewBox="0 0 20 20" fill="none" style={{ shapeRendering: 'crispEdges', flexShrink: 0 }}>
-        <rect x="2" y="2" width="16" height="16" fill="var(--bg-surface-hover)" stroke="var(--status-idle, #10B981)" strokeWidth="2" rx="2" />
-        <path d="M6 10L9 13L14 7" stroke="var(--status-idle, #10B981)" strokeWidth="2.5" strokeLinecap="square" strokeLinejoin="miter" />
-      </svg>
-    );
-  }
-  if (state === 'active') {
-    return (
-      <svg width="20" height="20" viewBox="0 0 20 20" fill="none" style={{ shapeRendering: 'crispEdges', flexShrink: 0 }}>
-        <rect x="2" y="2" width="16" height="16" fill="var(--bg-primary)" stroke="var(--accent-primary)" strokeWidth="2" rx="2" />
-        <circle cx="10" cy="10" r="4" fill="var(--accent-primary)">
-          <animate attributeName="opacity" values="1;0.3;1" dur="1.2s" repeatCount="indefinite" />
-        </circle>
-      </svg>
-    );
-  }
-  if (state === 'failed') {
-    return (
-      <svg width="20" height="20" viewBox="0 0 20 20" fill="none" style={{ shapeRendering: 'crispEdges', flexShrink: 0 }}>
-        <rect x="2" y="2" width="16" height="16" fill="rgba(239, 68, 68, 0.15)" stroke="var(--status-error)" strokeWidth="2" rx="2" />
-        <path d="M6 6L14 14M14 6L6 14" stroke="var(--status-error)" strokeWidth="2" strokeLinecap="square" />
-      </svg>
-    );
-  }
-  // Pending
-  return (
-    <svg width="20" height="20" viewBox="0 0 20 20" fill="none" style={{ shapeRendering: 'crispEdges', flexShrink: 0 }}>
-      <rect x="2" y="2" width="16" height="16" fill="var(--bg-primary)" stroke="var(--border-default)" strokeWidth="1.5" rx="2" strokeDasharray="3 2" />
-      <circle cx="10" cy="10" r="2" fill="var(--text-secondary)" opacity="0.4" />
-    </svg>
-  );
-};
 
 export function JobTracker() {
   const { jobId, jobStatus, jobsAhead, filePreview, copies, reset } = useUserPrintStore();
@@ -75,7 +39,6 @@ export function JobTracker() {
     );
   }
 
-  // Find selected job from sessionJobs or construct fallback
   const selectedJob = sessionJobs?.find((j: BackendJob) => j.id === selectedJobId) || (sessionJobs && sessionJobs.length > 0 ? sessionJobs[0] : null);
 
   const currentJobId = selectedJob?.id || jobId || 'LOCAL-PAYLOAD';
@@ -86,13 +49,13 @@ export function JobTracker() {
   const pos = jobsAhead ?? 1;
 
   const steps = [
-    { key: 'spooling', label: '1. SPOOLING COMPLETED', icon: <Cpu size={16} /> },
-    { key: 'rasterizing', label: '2. RASTERIZING PAGES', icon: <Layers size={16} /> },
-    { key: 'printing', label: '3. PRINTING IN PROGRESS', icon: <Printer size={16} /> },
-    { key: 'completed', label: '4. DISPATCHED TO TRAY', icon: <CheckCircle2 size={16} /> }
+    { key: 'spooling', label: 'Spooling' },
+    { key: 'rasterizing', label: 'Rasterizing' },
+    { key: 'printing', label: 'Printing' },
+    { key: 'completed', label: 'Dispatched' }
   ];
 
-  const getStepStatus = (stepKey: string): 'done' | 'active' | 'pending' | 'failed' => {
+  const getStepState = (stepKey: string): 'done' | 'active' | 'pending' | 'failed' => {
     if (currentStatus === 'done') return 'done';
     if (currentStatus === 'failed') return 'failed';
     if (currentStatus === 'printing') {
@@ -108,32 +71,32 @@ export function JobTracker() {
   };
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem', flex: 1, width: '100%' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', flex: 1, width: '100%', maxWidth: '680px', margin: '0 auto' }}>
 
-      {/* Header */}
-      <div className="tracker-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
-        <div>
-          <h2 style={{ fontFamily: 'var(--font-mono)', fontSize: '1.15rem', fontWeight: 800, margin: '0 0 4px 0', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-            [LIVE_TELEMETRY_TRACKER]
+      {/* Header & New Submission Button */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <h2 style={{ fontFamily: 'var(--font-mono)', fontSize: '1rem', fontWeight: 800, margin: 0, letterSpacing: '0.05em' }}>
+            [JOB_TRACKER]
           </h2>
-          <p style={{ fontFamily: 'var(--font-body)', color: 'var(--text-secondary)', fontSize: '0.85rem', margin: 0 }}>
-            Real-time CUPS spooling and hardware queue monitor
-          </p>
+          <span style={{ fontFamily: 'var(--font-mono)', fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
+            // {sessionJobs?.length || 1} TOTAL
+          </span>
         </div>
-        <Button variant="ghost" onClick={reset} leftIcon={<PlusCircle size={16} />} style={{ minHeight: '36px' }}>
-          New Submission
+        <Button variant="ghost" onClick={reset} leftIcon={<PlusCircle size={14} />} style={{ minHeight: '34px', padding: '4px 10px', fontSize: '0.8rem' }}>
+          + Add Job
         </Button>
       </div>
 
-      {/* Multi-Job Selector Tabs */}
+      {/* Compact Multi-Job Selector Tabs */}
       {sessionJobs && sessionJobs.length > 1 && (
         <div 
           className="job-switcher-tabs" 
           style={{ 
             display: 'flex', 
-            gap: '8px', 
+            gap: '6px', 
             overflowX: 'auto', 
-            paddingBottom: '4px', 
+            paddingBottom: '2px', 
             maxWidth: '100%',
             WebkitOverflowScrolling: 'touch'
           }}
@@ -141,9 +104,9 @@ export function JobTracker() {
           {sessionJobs.map((j: BackendJob, index: number) => {
             const isSelected = j.id === currentJobId;
             const jStatus = j.status || 'queued';
-            let badgeBg = 'var(--accent-primary)';
-            if (jStatus === 'failed') badgeBg = 'var(--status-error)';
-            if (jStatus === 'done') badgeBg = 'var(--status-idle, #10B981)';
+            let dotColor = 'var(--accent-primary)';
+            if (jStatus === 'failed') dotColor = 'var(--status-error)';
+            if (jStatus === 'done') dotColor = 'var(--status-idle, #10B981)';
 
             return (
               <button
@@ -155,114 +118,162 @@ export function JobTracker() {
                 }}
                 style={{
                   fontFamily: 'var(--font-mono)',
-                  fontSize: '0.8rem',
-                  fontWeight: isSelected ? 800 : 600,
-                  padding: '8px 14px',
-                  borderRadius: 'var(--radius-sm, 4px)',
-                  border: isSelected ? '2px solid var(--accent-primary)' : '1px solid var(--border-default)',
-                  backgroundColor: isSelected ? 'var(--bg-surface)' : 'var(--bg-primary)',
+                  fontSize: '0.75rem',
+                  fontWeight: isSelected ? 800 : 500,
+                  padding: '6px 12px',
+                  borderRadius: '2px',
+                  border: isSelected ? '1.5px solid var(--accent-primary)' : '1px solid var(--border-default)',
+                  backgroundColor: isSelected ? 'var(--bg-surface)' : 'var(--bg-surface-alt)',
                   color: isSelected ? 'var(--text-primary)' : 'var(--text-secondary)',
                   cursor: 'pointer',
                   display: 'flex',
                   alignItems: 'center',
-                  gap: '8px',
+                  gap: '6px',
                   whiteSpace: 'nowrap',
-                  boxShadow: isSelected ? '0 0 12px var(--accent-glow)' : 'none',
                   transition: 'all 0.15s ease'
                 }}
               >
-                <div style={{ width: '6px', height: '6px', borderRadius: '50%', backgroundColor: badgeBg }} />
-                <span>JOB #{index + 1}: {j.filename || 'Doc'}</span>
-                <span style={{ fontSize: '0.7rem', opacity: 0.8 }}>[{jStatus.toUpperCase()}]</span>
+                <div style={{ width: '6px', height: '6px', borderRadius: '50%', backgroundColor: dotColor }} />
+                <span>#0{index + 1} {j.filename || 'Doc'}</span>
               </button>
             );
           })}
         </div>
       )}
 
-      {/* Main Status Container */}
+      {/* Sleek Compact Job Card */}
       <div 
         className="card tracker-card"
         style={{
           backgroundColor: 'var(--bg-surface)',
-          border: '2px solid var(--border-default)',
-          borderRadius: 'var(--radius-md, 4px)',
+          border: '1.5px solid var(--border-default)',
+          borderTop: '3px solid var(--accent-primary)',
+          borderRadius: 'var(--radius-sm, 4px)',
           boxShadow: 'var(--shadow-paper)',
-          padding: '20px 16px',
+          padding: '16px',
           display: 'flex',
           flexDirection: 'column',
-          gap: '20px',
+          gap: '16px',
           width: '100%',
           boxSizing: 'border-box'
         }}
       >
-        {/* Status Badge Header */}
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid var(--border-default)', paddingBottom: '12px', flexWrap: 'wrap', gap: '8px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <Printer size={22} color="var(--accent-primary)" />
-            <span style={{ fontFamily: 'var(--font-mono)', fontWeight: 800, fontSize: '0.9rem', textTransform: 'uppercase' }}>
-              STATUS: <span style={{ color: currentStatus === 'failed' ? 'var(--status-error)' : currentStatus === 'done' ? 'var(--status-idle, #10B981)' : 'var(--accent-primary)' }}>{currentStatus}</span>
-            </span>
+        {/* Top Header: File Info & Live Status Badge */}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0 }}>
+            <FileText size={18} color="var(--accent-primary)" style={{ flexShrink: 0 }} />
+            <div style={{ minWidth: 0 }}>
+              <h3 
+                style={{ 
+                  fontFamily: 'var(--font-mono)', 
+                  fontSize: '0.85rem', 
+                  fontWeight: 700, 
+                  margin: 0, 
+                  color: 'var(--text-primary)',
+                  whiteSpace: 'nowrap',
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                  maxWidth: '240px'
+                }}
+                title={fileName}
+              >
+                {fileName}
+              </h3>
+              <span style={{ fontFamily: 'var(--font-mono)', fontSize: '0.7rem', color: 'var(--text-secondary)' }}>
+                {totalPages} pgs • {totalCopies} {totalCopies === 1 ? 'copy' : 'copies'}
+              </span>
+            </div>
           </div>
 
-          <div style={{ fontFamily: 'var(--font-mono)', fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
-            QUEUE_POSITION: <span className="data-mono" style={{ fontWeight: 800, color: 'var(--text-primary)' }}>#{pos}</span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <div 
+              style={{
+                fontFamily: 'var(--font-mono)',
+                fontSize: '0.7rem',
+                fontWeight: 800,
+                padding: '4px 8px',
+                borderRadius: '2px',
+                border: currentStatus === 'failed' ? '1px solid var(--status-error)' : currentStatus === 'done' ? '1px solid var(--status-idle, #10B981)' : '1px solid var(--accent-primary)',
+                backgroundColor: currentStatus === 'failed' ? 'rgba(239, 68, 68, 0.1)' : currentStatus === 'done' ? 'rgba(16, 185, 129, 0.1)' : 'var(--accent-glow)',
+                color: currentStatus === 'failed' ? 'var(--status-error)' : currentStatus === 'done' ? 'var(--status-idle, #10B981)' : 'var(--accent-primary)',
+                textTransform: 'uppercase',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px'
+              }}
+            >
+              <div 
+                style={{
+                  width: '6px',
+                  height: '6px',
+                  borderRadius: '50%',
+                  backgroundColor: currentStatus === 'failed' ? 'var(--status-error)' : currentStatus === 'done' ? 'var(--status-idle, #10B981)' : 'var(--accent-primary)',
+                  boxShadow: `0 0 6px ${currentStatus === 'failed' ? 'var(--status-error)' : 'var(--accent-primary)'}`
+                }}
+              />
+              <span>{currentStatus}</span>
+            </div>
           </div>
         </div>
 
-        {/* Vertical Factory Assembly Line Pipeline */}
+        {/* Horizontal Compact Timeline Steps */}
         <div 
-          className="vertical-pipeline-container"
           style={{
-            display: 'flex',
-            flexDirection: 'column',
-            gap: '12px',
-            padding: '16px',
+            display: 'grid',
+            gridTemplateColumns: 'repeat(4, 1fr)',
+            gap: '6px',
             backgroundColor: 'var(--bg-primary)',
             border: '1px solid var(--border-default)',
-            borderRadius: '4px'
+            padding: '10px 8px',
+            borderRadius: '2px'
           }}
         >
-          {steps.map((step) => {
-            const stepState = getStepStatus(step.key);
-            let textColor = 'var(--text-secondary)';
-            let fontWeight = 400;
+          {steps.map((step, idx) => {
+            const st = getStepState(step.key);
+            let iconColor = 'var(--text-secondary)';
+            let labelColor = 'var(--text-secondary)';
+            let borderColor = 'transparent';
 
-            if (stepState === 'done') {
-              textColor = 'var(--text-primary)';
-              fontWeight = 700;
-            } else if (stepState === 'active') {
-              textColor = 'var(--accent-primary)';
-              fontWeight = 800;
-            } else if (stepState === 'failed') {
-              textColor = 'var(--status-error)';
-              fontWeight = 700;
+            if (st === 'done') {
+              iconColor = 'var(--status-idle, #10B981)';
+              labelColor = 'var(--text-primary)';
+            } else if (st === 'active') {
+              iconColor = 'var(--accent-primary)';
+              labelColor = 'var(--accent-primary)';
+              borderColor = 'var(--accent-primary)';
+            } else if (st === 'failed') {
+              iconColor = 'var(--status-error)';
+              labelColor = 'var(--status-error)';
             }
 
             return (
               <div 
                 key={step.key} 
-                className="pipeline-step"
                 style={{
                   display: 'flex',
+                  flexDirection: 'column',
                   alignItems: 'center',
-                  gap: '12px',
-                  fontFamily: 'var(--font-mono)',
-                  fontSize: '0.8rem',
-                  color: textColor,
-                  fontWeight
+                  gap: '4px',
+                  textAlign: 'center',
+                  padding: '4px 2px',
+                  borderBottom: `2px solid ${borderColor}`,
+                  transition: 'all 0.2s ease'
                 }}
               >
-                <PipelineStatusIndicator state={stepState} />
-                <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                  {step.icon}
-                  {step.label}
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  {st === 'done' ? (
+                    <CheckCircle2 size={15} color={iconColor} />
+                  ) : st === 'active' ? (
+                    <div style={{ width: '12px', height: '12px', borderRadius: '50%', border: '2px solid var(--accent-primary)', borderTopColor: 'transparent', animation: 'spin 1s linear infinite' }} />
+                  ) : st === 'failed' ? (
+                    <AlertTriangle size={15} color={iconColor} />
+                  ) : (
+                    <div style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: 'var(--border-default)' }} />
+                  )}
+                </div>
+                <span style={{ fontFamily: 'var(--font-mono)', fontSize: '0.65rem', fontWeight: st === 'active' ? 800 : st === 'done' ? 700 : 400, color: labelColor }}>
+                  0{idx + 1}. {step.label}
                 </span>
-                {stepState === 'active' && (
-                  <span style={{ fontSize: '0.7rem', color: 'var(--accent-primary)', marginLeft: 'auto', animation: 'pulseLed 1.2s infinite' }}>
-                    [PROCESSING]
-                  </span>
-                )}
               </div>
             );
           })}
@@ -274,81 +285,54 @@ export function JobTracker() {
             style={{
               backgroundColor: 'rgba(239, 68, 68, 0.1)',
               border: '1px solid var(--status-error)',
-              padding: '12px 16px',
-              borderRadius: '4px',
+              padding: '10px 12px',
+              borderRadius: '2px',
               color: 'var(--status-error)',
               fontFamily: 'var(--font-mono)',
-              fontSize: '0.8rem',
+              fontSize: '0.75rem',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'space-between',
-              gap: '12px'
+              gap: '8px'
             }}
           >
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <AlertTriangle size={18} />
-              <span>Hardware jam or CUPS spooling timeout.</span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <AlertTriangle size={15} />
+              <span>Hardware stall / CUPS timeout.</span>
             </div>
-            <Button variant="danger" onClick={reset} style={{ minHeight: '36px', padding: '0.4rem 0.8rem', fontSize: '0.75rem' }}>
-              EJECT & RETRY
+            <Button variant="danger" onClick={reset} style={{ minHeight: '30px', padding: '0.2rem 0.6rem', fontSize: '0.7rem' }}>
+              Retry
             </Button>
           </div>
         )}
 
-        {/* Monospace Metadata Card */}
+        {/* Monospace Compact Metadata Strip */}
         <div 
           style={{
             backgroundColor: 'var(--bg-surface-alt)',
             border: '1px solid var(--border-default)',
-            padding: '12px 16px',
-            borderRadius: '4px',
+            padding: '8px 12px',
+            borderRadius: '2px',
             display: 'flex',
-            flexDirection: 'column',
-            gap: '8px'
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            flexWrap: 'wrap',
+            gap: '8px',
+            fontFamily: 'var(--font-mono)',
+            fontSize: '0.7rem'
           }}
         >
-          <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px dashed var(--border-default)', paddingBottom: '6px' }}>
-            <span style={{ fontFamily: 'var(--font-mono)', fontSize: '0.75rem', color: 'var(--text-secondary)' }}>PAYLOAD UUID</span>
-            <span 
-              className="data-mono" 
-              style={{ 
-                fontFamily: 'var(--font-mono)', 
-                fontSize: '0.75rem', 
-                fontWeight: 700, 
-                color: 'var(--text-primary)', 
-                maxWidth: '180px', 
-                overflow: 'hidden', 
-                textOverflow: 'ellipsis', 
-                whiteSpace: 'nowrap' 
-              }}
-            >
-              {currentJobId}
+          <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+            <span style={{ color: 'var(--text-secondary)' }}>ID:</span>
+            <span className="data-mono" style={{ fontWeight: 700, color: 'var(--text-primary)' }}>
+              {currentJobId.substring(0, 12)}...
             </span>
           </div>
 
-          <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px dashed var(--border-default)', paddingBottom: '6px' }}>
-            <span style={{ fontFamily: 'var(--font-mono)', fontSize: '0.75rem', color: 'var(--text-secondary)' }}>FILE</span>
-            <span 
-              className="data-mono" 
-              style={{ 
-                fontFamily: 'var(--font-mono)', 
-                fontSize: '0.75rem', 
-                fontWeight: 700, 
-                color: 'var(--text-primary)', 
-                maxWidth: '180px', 
-                overflow: 'hidden', 
-                textOverflow: 'ellipsis', 
-                whiteSpace: 'nowrap' 
-              }}
-            >
-              {fileName}
-            </span>
-          </div>
-
-          <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-            <span style={{ fontFamily: 'var(--font-mono)', fontSize: '0.75rem', color: 'var(--text-secondary)' }}>SPECS</span>
-            <span className="data-mono" style={{ fontFamily: 'var(--font-mono)', fontSize: '0.75rem', fontWeight: 700, color: 'var(--accent-primary)' }}>
-              {totalPages} PAGES • {totalCopies} COPIES
+          <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+            <span style={{ color: 'var(--text-secondary)' }}>POS:</span>
+            <span className="data-mono" style={{ fontWeight: 800, color: 'var(--accent-primary)' }}>
+              #{pos}
             </span>
           </div>
         </div>
