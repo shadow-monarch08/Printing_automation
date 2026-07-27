@@ -4,6 +4,8 @@ import { useSessionJobs } from '../../hooks/useSessionJobs';
 import { PlusCircle, Printer, AlertTriangle, Cpu, Layers, CheckCircle2 } from 'lucide-react';
 import { Button } from '../../components/shared/Button';
 import { EmptyState } from '../../components/shared/EmptyState';
+import { soundFx } from '../../utils/sound';
+import type { BackendJob } from '../../types';
 
 const PipelineStatusIndicator = ({ state }: { state: 'done' | 'active' | 'pending' | 'failed' }) => {
   if (state === 'done') {
@@ -44,24 +46,20 @@ const PipelineStatusIndicator = ({ state }: { state: 'done' | 'active' | 'pendin
 export function JobTracker() {
   const { jobId, jobStatus, jobsAhead, filePreview, copies, reset } = useUserPrintStore();
   const sessionJobs = useSessionJobs(3000);
-  const [activeJob, setActiveJob] = useState<any>(null);
+  const [selectedJobId, setSelectedJobId] = useState<string | null>(null);
 
   useEffect(() => {
     if (sessionJobs && sessionJobs.length > 0) {
-      setActiveJob(sessionJobs[0]);
+      if (!selectedJobId || !sessionJobs.some((j: BackendJob) => j.id === selectedJobId)) {
+        const active = sessionJobs.find((j: BackendJob) => ['printing', 'spooling', 'queued'].includes(j.status)) || sessionJobs[0];
+        setSelectedJobId(active.id);
+      }
     } else if (jobId) {
-      setActiveJob({
-        jobId,
-        status: jobStatus || 'spooling',
-        fileName: filePreview?.name || 'document.pdf',
-        pages: filePreview?.pages || 1,
-        copies: copies || 1,
-        queuePosition: jobsAhead || 1
-      });
+      setSelectedJobId(jobId);
     }
-  }, [sessionJobs, jobId, jobStatus, filePreview, copies, jobsAhead]);
+  }, [sessionJobs, jobId]);
 
-  if (!activeJob && !jobId) {
+  if ((!sessionJobs || sessionJobs.length === 0) && !jobId) {
     return (
       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1.5rem', flex: 1, width: '100%' }}>
         <EmptyState
@@ -77,12 +75,15 @@ export function JobTracker() {
     );
   }
 
-  const currentJobId = activeJob?.jobId || jobId || 'LOCAL-PAYLOAD';
-  const currentStatus = activeJob?.status || jobStatus || 'spooling';
-  const fileName = activeJob?.fileName || activeJob?.filename || filePreview?.name || 'document.pdf';
-  const totalPages = activeJob?.pages || filePreview?.pages || 1;
-  const totalCopies = activeJob?.copies || copies || 1;
-  const pos = activeJob?.queuePosition ?? jobsAhead ?? 1;
+  // Find selected job from sessionJobs or construct fallback
+  const selectedJob = sessionJobs?.find((j: BackendJob) => j.id === selectedJobId) || (sessionJobs && sessionJobs.length > 0 ? sessionJobs[0] : null);
+
+  const currentJobId = selectedJob?.id || jobId || 'LOCAL-PAYLOAD';
+  const currentStatus = selectedJob?.status || jobStatus || 'spooling';
+  const fileName = selectedJob?.filename || filePreview?.name || 'document.pdf';
+  const totalPages = selectedJob?.pages || filePreview?.pages || 1;
+  const totalCopies = selectedJob?.copies || copies || 1;
+  const pos = jobsAhead ?? 1;
 
   const steps = [
     { key: 'spooling', label: '1. SPOOLING COMPLETED', icon: <Cpu size={16} /> },
@@ -92,16 +93,11 @@ export function JobTracker() {
   ];
 
   const getStepStatus = (stepKey: string): 'done' | 'active' | 'pending' | 'failed' => {
-    if (currentStatus === 'completed' || currentStatus === 'done') return 'done';
+    if (currentStatus === 'done') return 'done';
     if (currentStatus === 'failed') return 'failed';
     if (currentStatus === 'printing') {
       if (stepKey === 'spooling' || stepKey === 'rasterizing') return 'done';
       if (stepKey === 'printing') return 'active';
-      return 'pending';
-    }
-    if (currentStatus === 'rasterizing') {
-      if (stepKey === 'spooling') return 'done';
-      if (stepKey === 'rasterizing') return 'active';
       return 'pending';
     }
     if (currentStatus === 'spooling' || currentStatus === 'queued') {
@@ -129,6 +125,61 @@ export function JobTracker() {
         </Button>
       </div>
 
+      {/* Multi-Job Selector Tabs */}
+      {sessionJobs && sessionJobs.length > 1 && (
+        <div 
+          className="job-switcher-tabs" 
+          style={{ 
+            display: 'flex', 
+            gap: '8px', 
+            overflowX: 'auto', 
+            paddingBottom: '4px', 
+            maxWidth: '100%',
+            WebkitOverflowScrolling: 'touch'
+          }}
+        >
+          {sessionJobs.map((j: BackendJob, index: number) => {
+            const isSelected = j.id === currentJobId;
+            const jStatus = j.status || 'queued';
+            let badgeBg = 'var(--accent-primary)';
+            if (jStatus === 'failed') badgeBg = 'var(--status-error)';
+            if (jStatus === 'done') badgeBg = 'var(--status-idle, #10B981)';
+
+            return (
+              <button
+                key={j.id || index}
+                type="button"
+                onClick={() => {
+                  soundFx.playClick();
+                  setSelectedJobId(j.id);
+                }}
+                style={{
+                  fontFamily: 'var(--font-mono)',
+                  fontSize: '0.8rem',
+                  fontWeight: isSelected ? 800 : 600,
+                  padding: '8px 14px',
+                  borderRadius: 'var(--radius-sm, 4px)',
+                  border: isSelected ? '2px solid var(--accent-primary)' : '1px solid var(--border-default)',
+                  backgroundColor: isSelected ? 'var(--bg-surface)' : 'var(--bg-primary)',
+                  color: isSelected ? 'var(--text-primary)' : 'var(--text-secondary)',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                  whiteSpace: 'nowrap',
+                  boxShadow: isSelected ? '0 0 12px var(--accent-glow)' : 'none',
+                  transition: 'all 0.15s ease'
+                }}
+              >
+                <div style={{ width: '6px', height: '6px', borderRadius: '50%', backgroundColor: badgeBg }} />
+                <span>JOB #{index + 1}: {j.filename || 'Doc'}</span>
+                <span style={{ fontSize: '0.7rem', opacity: 0.8 }}>[{jStatus.toUpperCase()}]</span>
+              </button>
+            );
+          })}
+        </div>
+      )}
+
       {/* Main Status Container */}
       <div 
         className="card tracker-card"
@@ -150,7 +201,7 @@ export function JobTracker() {
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             <Printer size={22} color="var(--accent-primary)" />
             <span style={{ fontFamily: 'var(--font-mono)', fontWeight: 800, fontSize: '0.9rem', textTransform: 'uppercase' }}>
-              STATUS: <span style={{ color: currentStatus === 'failed' ? 'var(--status-error)' : currentStatus === 'completed' || currentStatus === 'done' ? 'var(--status-idle, #10B981)' : 'var(--accent-primary)' }}>{currentStatus}</span>
+              STATUS: <span style={{ color: currentStatus === 'failed' ? 'var(--status-error)' : currentStatus === 'done' ? 'var(--status-idle, #10B981)' : 'var(--accent-primary)' }}>{currentStatus}</span>
             </span>
           </div>
 
