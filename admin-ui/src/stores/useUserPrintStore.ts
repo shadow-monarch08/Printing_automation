@@ -1,6 +1,6 @@
-// src/stores/useUserPrintStore.ts
 import { create } from 'zustand';
 import { api } from '../services/api';
+import { useAdminStore } from './useAdminStore';
 import type { WebSocketEvent, BackendJob } from '../types';
 
 function generateUUID(): string {
@@ -171,14 +171,41 @@ export const useUserPrintStore = create<UserPrintState>()(
             sessionId: state.sessionId
           });
 
+          const jobId = result.jobId || `JOB_${Date.now()}`;
+          const newJobPayload = {
+            id: jobId,
+            filename: state.filePreview?.name || 'Document.pdf',
+            owner: 'Guest User',
+            targetPrinter: 'Thermal POS Printer',
+            printer: 'Thermal POS Printer',
+            pages: state.filePreview?.pages || 1,
+            copies: state.copies,
+            colorMode: state.colorMode,
+            duplex: state.duplex,
+            status: 'queued',
+            cost: state.quote?.totalCost || 0,
+            createdAt: new Date().toISOString(),
+            progress: 0,
+            sessionId: state.sessionId || undefined
+          };
+
           set({
-            jobId: result.jobId,
+            jobId: jobId,
             jobStatus: 'queued',
-            jobsAhead: 0, // In full integration, the backend could send this in the queue payload
+            jobsAhead: 0,
             currentStep: 4
           });
+
+          // Sync to admin store immediately in all environments
+          const adminState = useAdminStore.getState();
+          if (adminState.handleWebSocketEvent) {
+            adminState.handleWebSocketEvent({
+              type: 'job_queued',
+              ...newJobPayload
+            } as any);
+          }
+
           get().fetchJobs();
-          // WebSocket will handle further status transitions automatically
         } catch (e) {
           console.error(e);
         }

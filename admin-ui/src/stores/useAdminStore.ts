@@ -360,27 +360,106 @@ export const useAdminStore = create<AdminState>((set, get) => ({
       case 'job_queued':
         set((state) => {
           const { type, ...jobData } = event as any;
-          return { queue: [jobData, ...state.queue] };
+          const formattedJob: BackendJob = {
+            id: jobData.id || `JOB_${Date.now()}`,
+            cupsJobId: jobData.cupsJobId || null,
+            filename: jobData.filename || 'Document.pdf',
+            owner: jobData.owner || 'Guest User',
+            pages: jobData.pages || 1,
+            copies: jobData.copies || 1,
+            colorMode: jobData.colorMode === 'color' ? 'color' : 'grayscale',
+            duplex: jobData.duplex === 'double' ? 'double' : 'single',
+            orientation: jobData.orientation === 'landscape' ? 'landscape' : 'portrait',
+            targetPrinter: jobData.targetPrinter || jobData.printer || 'Thermal POS Printer',
+            status: (jobData.status as any) || 'queued',
+            cost: jobData.cost || 0,
+            submittedAt: jobData.submittedAt || jobData.createdAt || new Date().toISOString(),
+            completedAt: jobData.completedAt || null,
+            error: jobData.error || null
+          };
+          const exists = state.queue.some(q => q.id === formattedJob.id);
+          const updatedQueue: BackendJob[] = exists 
+            ? state.queue.map(q => q.id === formattedJob.id ? { ...q, ...formattedJob } : q)
+            : [formattedJob, ...state.queue];
+
+          const currentMetrics = state.metrics || {
+            waiting: 0,
+            active: 0,
+            delayed: 0,
+            completed: 0,
+            failed: 0,
+            cpuLoad: 12,
+            memoryUsed: 2048,
+            memoryTotal: 8192,
+            diskPercent: 25,
+            uptime: '1h 0m 0s',
+            uptimeSeconds: 3600,
+            totalJobsToday: 0,
+            revenue: 0,
+            activePrinters: 1,
+            totalPrinters: 1
+          };
+
+          const waitingVal = currentMetrics.waiting ?? 0;
+          const totalTodayVal = currentMetrics.totalJobsToday ?? 0;
+          const revenueVal = currentMetrics.revenue ?? 0;
+
+          const newMetrics = {
+            ...currentMetrics,
+            waiting: exists ? waitingVal : waitingVal + 1,
+            totalJobsToday: exists ? totalTodayVal : totalTodayVal + 1,
+            revenue: exists ? revenueVal : revenueVal + (formattedJob.cost || 0)
+          };
+
+          return { queue: updatedQueue, metrics: newMetrics };
         });
         break;
       case 'job_active':
       case 'job_completed':
-        set((state) => ({
-          queue: state.queue.map(job => 
+        set((state) => {
+          const updatedQueue: BackendJob[] = state.queue.map(job => 
             job.id === event.id 
-              ? { ...job, ...((event as any).data || {}), status: event.type === 'job_active' ? 'printing' : 'done' } 
+              ? { 
+                  ...job, 
+                  ...((event as any).data || {}), 
+                  status: (event.type === 'job_active' ? 'printing' : 'done') as BackendJob['status'] 
+                } 
               : job
-          )
-        }));
+          );
+          let newMetrics = state.metrics;
+          if (state.metrics) {
+            const activeCount = updatedQueue.filter(j => j.status === 'printing').length;
+            const waitingCount = updatedQueue.filter(j => j.status === 'queued' || j.status === 'spooling').length;
+            const completedCount = updatedQueue.filter(j => j.status === 'done').length;
+            newMetrics = {
+              ...state.metrics,
+              active: activeCount,
+              waiting: waitingCount,
+              completed: completedCount
+            };
+          }
+          return { queue: updatedQueue, metrics: newMetrics };
+        });
         break;
       case 'job_failed':
-        set((state) => ({
-          queue: state.queue.map(job => 
+        set((state) => {
+          const updatedQueue: BackendJob[] = state.queue.map(job => 
             job.id === event.id 
-              ? { ...job, status: 'failed', error: (event as any).reason || null } 
+              ? { ...job, status: 'failed' as BackendJob['status'], error: (event as any).reason || null } 
               : job
-          )
-        }));
+          );
+          let newMetrics = state.metrics;
+          if (state.metrics) {
+            const failedCount = updatedQueue.filter(j => j.status === 'failed').length;
+            const waitingCount = updatedQueue.filter(j => j.status === 'queued' || j.status === 'spooling').length;
+            newMetrics = {
+              ...state.metrics,
+              failed: failedCount,
+              waiting: waitingCount
+            };
+          }
+          return { queue: updatedQueue, metrics: newMetrics };
+        });
         break;
       case 'printer_state_changed':
         set((state) => ({
