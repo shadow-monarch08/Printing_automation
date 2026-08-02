@@ -11,7 +11,7 @@ router.post("/queue/pause", requireAuth, jobsController.pauseGlobalQueue);
 router.post("/queue/resume", requireAuth, jobsController.resumeGlobalQueue);
 router.post("/queue/emergency-stop", requireAuth, jobsController.emergencyStop);
 
-router.get("/", requireValidSession, jobsController.getJobs);
+router.get("/", jobsController.getJobs);
 router.delete("/:jobId", requireAuth, jobsController.cancelJob);
 router.post("/:jobId/pause", requireAuth, jobsController.pauseJob);
 router.post("/:jobId/resume", requireAuth, jobsController.resumeJob);

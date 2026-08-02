@@ -6,11 +6,14 @@ import { listPrinters } from "../services/printer.service";
 import os from "os";
 import { getDiskUsagePercent } from "../services/metrics.service";
 
+import db from "../../infrastructure/database";
+
 export function initWebSocketServer(server: any) {
   const wss = new WebSocketServer({ noServer: true });
 
   server.on("upgrade", (request: any, socket: any, head: any) => {
-    if (request.url === "/events") {
+    const pathname = request.url ? request.url.split("?")[0] : "";
+    if (pathname === "/events" || pathname === "/api/events") {
       wss.handleUpgrade(request, socket, head, (ws) => {
         wss.emit("connection", ws, request);
       });
@@ -69,25 +72,17 @@ export async function getMetrics(req: Request, res: Response) {
     const activePrinters = printers.filter(p => p.status !== 'error').length;
     const totalPrinters = printers.length;
 
-    // Get today's start timestamp
-    const todayStart = new Date();
-    todayStart.setHours(0, 0, 0, 0);
-    const todayStartTime = todayStart.getTime();
+    // Fetch today's persistent KPI metrics directly from SQLite database
+    const dbMetrics = db.prepare(`
+      SELECT 
+        COUNT(*) as totalJobsToday,
+        COALESCE(SUM(cost), 0) as totalRevenueToday
+      FROM print_jobs
+      WHERE date(submitted_at) = date('now')
+    `).get() as any;
 
-    // Fetch all completed jobs (we need to get the actual jobs, not just count, to sum revenue)
-    // In a real app with many jobs, we'd query a database, but for BullMQ we can just fetch all completed jobs
-    // and filter by timestamp.
-    const completedJobs = await printMasterQueue.getCompleted();
-    
-    let revenue = 0;
-    let completedToday = 0;
-    
-    for (const job of completedJobs) {
-       if (job.finishedOn && job.finishedOn >= todayStartTime) {
-          completedToday++;
-          revenue += (job.data.cost || 0);
-       }
-    }
+    const totalJobsToday = dbMetrics?.totalJobsToday || 0;
+    const revenue = dbMetrics?.totalRevenueToday || 0;
 
     // formatting uptime
     const ut = process.uptime();
@@ -115,7 +110,7 @@ export async function getMetrics(req: Request, res: Response) {
          diskPercent: diskPercent,
          uptime: uptimeStr,
          uptimeSeconds: ut,
-         totalJobsToday: completedToday + failed,
+         totalJobsToday,
          revenue,
          activePrinters,
          totalPrinters

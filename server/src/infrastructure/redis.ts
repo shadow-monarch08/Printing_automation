@@ -8,6 +8,8 @@ const redisConfig = {
 };
 
 export const redisConnection = new Redis(redisConfig);
+export const redisPublisher = new Redis(redisConfig);
+export const redisSubscriber = new Redis(redisConfig);
 
 redisConnection.on("error", (err) => {
   console.error("[Redis Error]", err);

@@ -24,20 +24,23 @@ export async function updateCapabilitiesConfig(newConfig: any): Promise<void> {
   await fs.writeFile(capabilitiesPath, JSON.stringify(newConfig, null, 2), "utf-8");
 }
 
-export function upsertPrinterToDB(id: string, alias?: string, capabilities?: string[]): void {
+export function upsertPrinterToDB(id: string, alias?: string, capabilities?: string[], ippUri?: string): void {
   const stmt = db.prepare(`
-    INSERT INTO printers (id, alias, capabilities, added_at)
-    VALUES (?, ?, ?, datetime('now'))
+    INSERT INTO printers (id, alias, capabilities, ipp_uri, added_at)
+    VALUES (?, ?, ?, ?, datetime('now'))
     ON CONFLICT(id) DO UPDATE SET
       alias = COALESCE(?, alias),
-      capabilities = COALESCE(?, capabilities)
+      capabilities = COALESCE(?, capabilities),
+      ipp_uri = COALESCE(?, ipp_uri)
   `);
   stmt.run(
     id,
     alias || null,
     capabilities ? JSON.stringify(capabilities) : null,
+    ippUri || null,
     alias || null,
-    capabilities ? JSON.stringify(capabilities) : null
+    capabilities ? JSON.stringify(capabilities) : null,
+    ippUri || null
   );
 }
 

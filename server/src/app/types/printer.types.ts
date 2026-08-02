@@ -5,6 +5,8 @@ export interface PrinterInfo {
   alias?: string;
   capabilities?: string[];
   type?: string;
+  ippUri?: string;
+  hostIp?: string;
   paper?: string;
   supplyBlack?: number | null;
   supplyColor?: number | null;

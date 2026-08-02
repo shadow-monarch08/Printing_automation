@@ -35,6 +35,7 @@ CREATE TABLE IF NOT EXISTS printers (
   id TEXT PRIMARY KEY,
   alias TEXT,
   capabilities TEXT DEFAULT '[]',
+  ipp_uri TEXT,
   added_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
@@ -87,6 +88,12 @@ CREATE INDEX IF NOT EXISTS idx_print_jobs_printer ON print_jobs(executed_by_prin
 CREATE INDEX IF NOT EXISTS idx_print_jobs_color ON print_jobs(color_mode);
 CREATE INDEX IF NOT EXISTS idx_sessions_expires ON kiosk_sessions(expires_at);
 `);
+
+try {
+  db.exec(`ALTER TABLE printers ADD COLUMN ipp_uri TEXT`);
+} catch (e) {
+  // Column already exists
+}
 
 console.log("🗄️ SQLite Cold Tier initialized (WAL mode)");
 

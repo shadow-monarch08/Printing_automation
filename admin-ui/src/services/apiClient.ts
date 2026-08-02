@@ -10,12 +10,12 @@ function getAuthHeaders(): HeadersInit {
   };
   if (token) {
     headers['Authorization'] = `Bearer ${token}`;
-  }
-
-  // Inject session id
-  const userState = useUserPrintStore.getState();
-  if (userState.sessionId) {
-    (headers as any)['X-Session-ID'] = userState.sessionId;
+  } else {
+    // Inject kiosk session id only when not authenticated as admin
+    const userState = useUserPrintStore.getState();
+    if (userState.sessionId) {
+      (headers as any)['X-Session-ID'] = userState.sessionId;
+    }
   }
 
   return headers;

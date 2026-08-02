@@ -1,7 +1,8 @@
-import { IPrinterAdapter } from "./IPrinterAdapter";
+import { IPrinterAdapter, PrintDispatchResult, JobPollStatus } from "./IPrinterAdapter";
 import { PrinterSupplyStatus } from "../app/types";
 import { systemCommands } from "../commands/system.commands";
 import { cupsCommands } from "../commands/cups.commands";
+import * as printerService from "../app/services/printer.service";
 
 export class EpsonLegacyAdapter implements IPrinterAdapter {
   constructor(private printerName: string, private uri: string) {}
@@ -58,5 +59,39 @@ export class EpsonLegacyAdapter implements IPrinterAdapter {
 
   async configure(name: string): Promise<void> {
     await cupsCommands.addUsbPrinter(name, this.uri);
+  }
+
+  async printFile(printerName: string, filePath: string, options?: Record<string, any>): Promise<any> {
+    const cupsJobId = await printerService.printFile(
+      filePath,
+      printerName,
+      options?.copies || 1,
+      options?.duplex || 'single'
+    );
+    return { cupsJobId, dispatchedAt: Date.now() };
+  }
+
+  async getJobStatus(printerName: string, jobId: string, metadata?: Record<string, any>): Promise<any> {
+    try {
+      const { stdout } = await cupsCommands.getJobStatus(printerName);
+      const lines = stdout.split("\n");
+      const jobLine = lines.find((line: string) => line.includes(jobId));
+
+      if (!jobLine) return "completed";
+      const lower = jobLine.toLowerCase();
+      if (lower.includes("held") || lower.includes("stopped")) return "held_or_stopped";
+      return "printing";
+    } catch (err) {
+      return "unreachable";
+    }
+  }
+
+  async cancelJob(printerName: string, jobId: string): Promise<boolean> {
+    try {
+      await printerService.cancelJob(jobId);
+      return true;
+    } catch (e) {
+      return false;
+    }
   }
 }

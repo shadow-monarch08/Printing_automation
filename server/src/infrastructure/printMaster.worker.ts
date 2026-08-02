@@ -5,6 +5,7 @@ import { PrintJobData, printMasterQueue } from "./printMaster.queue";
 import * as printerService from "../app/services/printer.service";
 import * as matchmakerService from "../app/services/matchmaker.service";
 import { eventBus } from "../app/utils/eventBus";
+import { PrinterFactory } from "../factories/printer.factory";
 
 export const printMasterWorker = new Worker<PrintJobData>(
   "print-master",
@@ -16,6 +17,7 @@ export const printMasterWorker = new Worker<PrintJobData>(
 
     if (!matchedPrinter) {
       console.log(`[Worker] No idle/capable printer found for job ${job.id}. Delaying 15s...`);
+      eventBus.emit("job_active", { id: job.id, data: { ...job.data, status: "spooling" } });
       await job.moveToDelayed(Date.now() + 15000, job.token!);
       throw new DelayedError();
     }
@@ -25,12 +27,14 @@ export const printMasterWorker = new Worker<PrintJobData>(
       await redisConnection.set(REDIS_KEYS.printerState(matchedPrinter), "busy");
       eventBus.emit("printer_state_changed", { printer: matchedPrinter, state: "busy" });
 
-      const cupsJobId = await printerService.printFile(
-        job.data.filePath, 
-        matchedPrinter,
-        job.data.copies,
-        job.data.duplex
-      );
+      // Resolve Strategy Adapter dynamically
+      const adapter = await PrinterFactory.getAdapter(matchedPrinter);
+      const dispatchRes = await adapter.printFile(matchedPrinter, job.data.filePath, {
+        copies: job.data.copies,
+        duplex: job.data.duplex
+      });
+      const cupsJobId = dispatchRes.cupsJobId;
+
       console.log(`[Worker] Successfully dispatched job ${job.id} -> CUPS ID: ${cupsJobId} on ${matchedPrinter}`);
       
       await job.updateData({ ...job.data, cupsJobId, executedByPrinter: matchedPrinter });
@@ -40,17 +44,17 @@ export const printMasterWorker = new Worker<PrintJobData>(
         await new Promise(resolve => setTimeout(resolve, 3000));
         staleCounter += 3;
 
-        const status = await printerService.getJobStatus(matchedPrinter, cupsJobId);
+        const status = await adapter.getJobStatus(matchedPrinter, cupsJobId);
         
-        if (status === "completed_or_missing") {
+        if (status === "completed") {
           return { cupsJobId, status: "completed", printer: matchedPrinter };
         }
 
-        if (status === "held" || status === "stopped" || staleCounter >= 30) {
+        if (status === "held_or_stopped" || status === "unreachable" || staleCounter >= 30) {
           console.warn(`[Worker] Job ${job.id} failed on ${matchedPrinter} (status: ${status}, time: ${staleCounter}s). Triggering failover.`);
           
           try {
-            await printerService.cancelJob(cupsJobId);
+            await adapter.cancelJob(matchedPrinter, cupsJobId);
           } catch (e) {
             console.error(`[Worker] Failed to cancel jammed CUPS job ${cupsJobId}`, e);
           }

@@ -1,6 +1,8 @@
-import { IPrinterAdapter } from "./IPrinterAdapter";
+import { IPrinterAdapter, PrintDispatchResult, JobPollStatus } from "./IPrinterAdapter";
 import { PrinterSupplyStatus } from "../app/types";
 import { systemCommands } from "../commands/system.commands";
+import { cupsCommands } from "../commands/cups.commands";
+import * as printerService from "../app/services/printer.service";
 
 export class SnmpAdapter implements IPrinterAdapter {
   constructor(private printerName: string, private uri: string) {}
@@ -14,8 +16,7 @@ export class SnmpAdapter implements IPrinterAdapter {
     try {
       const ip = this.extractIp(this.uri);
       if (!ip) return false;
-      // We can do a basic snmpwalk to check health
-      await systemCommands.snmpWalk(ip, "1.3.6.1.2.1.1.1.0"); // sysDescr
+      await systemCommands.snmpWalk(ip, "1.3.6.1.2.1.1.1.0");
       return true;
     } catch (error) {
       console.error(`[SnmpAdapter] Health check failed for ${this.uri}:`, error);
@@ -40,8 +41,8 @@ export class SnmpAdapter implements IPrinterAdapter {
 
       const percentages = levels.map((level, index) => {
         const max = maxes[index] || 100;
-        if (level === -3) return 100; // -3 means 'Some remaining/OK'
-        if (level < 0 || max <= 0) return null; // Unknown or invalid
+        if (level === -3) return 100;
+        if (level < 0 || max <= 0) return null;
         return Math.min(100, Math.round((level / max) * 100));
       });
 
@@ -64,5 +65,39 @@ export class SnmpAdapter implements IPrinterAdapter {
 
   async configure(name: string): Promise<void> {
     throw new Error("Configuration not implemented for generic SNMP yet.");
+  }
+
+  async printFile(printerName: string, filePath: string, options?: Record<string, any>): Promise<PrintDispatchResult> {
+    const cupsJobId = await printerService.printFile(
+      filePath,
+      printerName,
+      options?.copies || 1,
+      options?.duplex || 'single'
+    );
+    return { cupsJobId, dispatchedAt: Date.now() };
+  }
+
+  async getJobStatus(printerName: string, jobId: string, metadata?: Record<string, any>): Promise<JobPollStatus> {
+    try {
+      const { stdout } = await cupsCommands.getJobStatus(printerName);
+      const lines = stdout.split("\n");
+      const jobLine = lines.find((line: string) => line.includes(jobId));
+
+      if (!jobLine) return "completed";
+      const lower = jobLine.toLowerCase();
+      if (lower.includes("held") || lower.includes("stopped")) return "held_or_stopped";
+      return "printing";
+    } catch (err) {
+      return "unreachable";
+    }
+  }
+
+  async cancelJob(printerName: string, jobId: string): Promise<boolean> {
+    try {
+      await printerService.cancelJob(jobId);
+      return true;
+    } catch (e) {
+      return false;
+    }
   }
 }

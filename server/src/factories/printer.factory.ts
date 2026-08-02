@@ -42,14 +42,18 @@ export class PrinterFactory {
       return new GenericUsbAdapter(printerName, uri);
     }
 
-    return null;
+    return new GenericUsbAdapter(printerName, uri);
   }
+
   /**
    * Helper to resolve a printer by name to its adapter.
    */
-  static async getAdapter(printerName: string): Promise<IPrinterAdapter | null> {
+  static async getAdapter(printerName: string): Promise<IPrinterAdapter> {
     const uri = await this.getDeviceUri(printerName);
-    if (!uri) return null;
-    return this.getAdapterByUri(printerName, uri);
+    if (!uri) {
+      return new GenericUsbAdapter(printerName, `usb://${printerName}`);
+    }
+    const adapter = this.getAdapterByUri(printerName, uri);
+    return adapter || new GenericUsbAdapter(printerName, uri);
   }
 }

@@ -17,7 +17,7 @@ class WebSocketService {
       baseUrl = `${window.location.protocol}//${window.location.host}`;
     }
     const wsProtocol = baseUrl.startsWith('https') ? 'wss:' : 'ws:';
-    const wsHost = baseUrl.replace(/^https?:\/\//, '');
+    const wsHost = baseUrl.replace(/^https?:\/\//, '').replace(/\/api\/?$/, '');
     const url = `${wsProtocol}//${wsHost}/events`;
     
     this.ws = new WebSocket(url);
@@ -48,8 +48,11 @@ class WebSocketService {
              toast.success('Job Completed', `Job "${filename}" completed successfully`);
            }
         } else if (normalizedPayload.type === 'job_failed') {
-           if (userState.jobId === normalizedPayload.id) {
-             toast.error('Job Failed', `Job ${normalizedPayload.id} failed: ${normalizedPayload.reason || 'Unknown error'}`);
+           const isCustomerJob = userState.jobId === normalizedPayload.id || 
+             (userState.jobs && userState.jobs.some((j: any) => j.id === normalizedPayload.id));
+           if (isCustomerJob) {
+             const failureReason = normalizedPayload.reason || (normalizedPayload as any).error || 'Unknown error';
+             toast.error('Print Job Failed', `Your document failed to print: ${failureReason}`);
            }
         } else if (normalizedPayload.type === 'printer_quarantined') {
            toast.error('Printer Quarantined', normalizedPayload.message);

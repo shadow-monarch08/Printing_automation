@@ -1,11 +1,49 @@
 import { Request, Response } from "express";
 import * as jobService from "../services/job.service";
+import { verifyToken } from "../services/auth.service";
+import { redisConnection } from "../../infrastructure/redis";
+import { REDIS_KEYS, REDIS_TTLS } from "../../infrastructure/redisKeys";
+import db from "../../infrastructure/database";
 
 export async function getJobs(req: Request, res: Response) {
   try {
-    const sessionId = (req as any).session?.id || req.query.sessionId as string | undefined;
+    // 1. Check for Admin JWT Authorization Header
+    const authHeader = req.headers.authorization;
+    if (authHeader && authHeader.startsWith("Bearer ")) {
+      const token = authHeader.split(" ")[1];
+      const isValid = await verifyToken(token);
+      if (isValid) {
+        // Authenticated Admin: return ALL global jobs (unfiltered)
+        const jobs = await jobService.getAllJobs();
+        return res.json({ success: true, jobs });
+      }
+    }
+
+    // 2. Customer Kiosk Session Validation
+    const sessionId = (req as any).session?.id || (req.headers["x-session-id"] as string) || (req.query.sessionId as string | undefined);
+    if (!sessionId) {
+      return res.status(401).json({ success: false, code: "SESSION_MISSING", message: "Unauthorized: Missing session ID or Admin token" });
+    }
+
+    // Validate Kiosk Session against Redis / SQLite
+    const key = REDIS_KEYS.session(sessionId);
+    const cachedSession = await redisConnection.get(key);
+    let isSessionValid = !!cachedSession;
+
+    if (!isSessionValid) {
+      const session = db.prepare("SELECT session_id FROM kiosk_sessions WHERE session_id = ?").get(sessionId);
+      if (session) {
+        isSessionValid = true;
+        await redisConnection.setex(key, REDIS_TTLS.SESSION, JSON.stringify({ active: true }));
+      }
+    }
+
+    if (!isSessionValid) {
+      return res.status(401).json({ success: false, code: "SESSION_INVALID", message: "Unauthorized: Invalid or expired session ID" });
+    }
+
     const jobs = await jobService.getAllJobs(sessionId);
-    res.json({ success: true, jobs });
+    return res.json({ success: true, jobs });
   } catch (err: any) {
     res.status(500).json({ success: false, message: "Failed to get jobs", error: String(err) });
   }
