@@ -76,6 +76,15 @@ export function Step2WifiSetup({ shopName, adminPin, onComplete }: Step2WifiSetu
     console.log('[Dummy Onboarding Preview] Wi-Fi selected:', { ssid, password, shopName, adminPin });
   };
 
+  const handleSkipWifi = async () => {
+    try {
+      await api.skipWifiSetup({ adminPin, shopName });
+    } catch (err) {
+      console.warn('Skip Wi-Fi setup call:', err);
+    }
+    onComplete();
+  };
+
   // Dummy Preview Mode: Simulated 3-second progress timer to demonstrate hazard overlay and advance to Step 3
   useEffect(() => {
     if (!isConnecting) return;
@@ -284,6 +293,25 @@ export function Step2WifiSetup({ shopName, adminPin, onComplete }: Step2WifiSetu
             ))
           )}
         </PaperTable>
+
+        {/* Skip Wi-Fi Setup Option */}
+        <Button
+          variant="ghost"
+          onClick={handleSkipWifi}
+          style={{
+            width: '100%',
+            height: '44px',
+            fontFamily: 'var(--font-mono)',
+            fontSize: '11px',
+            fontWeight: 700,
+            letterSpacing: '0.05em',
+            marginTop: '16px',
+            border: '1px dashed var(--border-default)',
+            color: 'var(--text-secondary)',
+          }}
+        >
+          [ PROCEED WITH CURRENT ACTIVE NETWORK (SKIP WI-FI SETUP) ➔ ]
+        </Button>
       </div>
 
       {/* Fullscreen Connecting Hazard Overlay */}

@@ -21,8 +21,16 @@ export async function getWifiSetupMode(req: Request, res: Response) {
 }
 
 export async function connectWifiNetwork(req: Request, res: Response) {
-  const { ssid, profileName, password } = req.body;
+  const { ssid, profileName, password, skipWifi, adminPin, shopName } = req.body;
   
+  if (skipWifi) {
+    await wifiService.connectToWifi({ skipWifi: true, adminPin, shopName });
+    return res.json({ 
+      message: "Wi-Fi setup skipped. Onboarding completed with active network connection.",
+      skipped: true 
+    });
+  }
+
   if (!ssid) {
     return res.status(400).json({ error: "SSID is required" });
   }
@@ -36,11 +44,20 @@ export async function connectWifiNetwork(req: Request, res: Response) {
   // Execute connection after a short delay to allow the response to be sent
   setTimeout(async () => {
     try {
-      await wifiService.connectToWifi({ ssid, profileName, password });
+      await wifiService.connectToWifi({ ssid, profileName, password, adminPin, shopName });
     } catch (err) {
       console.error("[WiFi Controller] Connection background task failed:", err);
     }
   }, 1000);
+}
+
+export async function skipWifiSetup(req: Request, res: Response) {
+  const { adminPin, shopName } = req.body;
+  await wifiService.connectToWifi({ skipWifi: true, adminPin, shopName });
+  return res.json({
+    message: "Wi-Fi setup skipped. Onboarding completed with active network connection.",
+    skipped: true,
+  });
 }
 
 export async function getWifiConnectionStatus(req: Request, res: Response) {

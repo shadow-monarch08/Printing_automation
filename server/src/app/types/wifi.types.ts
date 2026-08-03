@@ -1,7 +1,8 @@
 export interface ConnectPayload {
-  ssid: string;
+  ssid?: string;
   profileName?: string;
   password?: string;
+  skipWifi?: boolean;
 }
 
 export interface WiFiNetwork {

@@ -64,8 +64,8 @@ export function PinInput({ label, value, onChange, error, autoFocus = false }: P
         </label>
       )}
 
-      <div style={{ display: 'flex', alignItems: 'center', gap: '10px', width: '100%' }}>
-        <div className="pin-digit-grid" style={{ display: 'flex', gap: '10px', flex: 1, justifyContent: 'space-between' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+        <div className="pin-digit-grid" style={{ display: 'flex', gap: '12px', justifyContent: 'flex-start' }}>
           {[0, 1, 2, 3].map((idx) => {
             const isFocused = focusedIndex === idx;
             const hasValue = !!value[idx];
@@ -76,8 +76,7 @@ export function PinInput({ label, value, onChange, error, autoFocus = false }: P
                 className={`pin-digit-slot ${hasValue ? 'active' : ''} ${isFocused ? 'focused' : ''}`}
                 style={{
                   position: 'relative',
-                  flex: 1,
-                  maxWidth: '52px',
+                  width: '52px',
                   height: '52px',
                   display: 'flex',
                   alignItems: 'center',

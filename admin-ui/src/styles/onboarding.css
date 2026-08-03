@@ -286,7 +286,16 @@
     width: 95%;
   }
 
+  .pin-digit-grid {
+    width: 100%;
+    justify-content: space-between !important;
+    gap: 8px !important;
+  }
+
   .pin-digit-slot {
-    height: 44px !important;
+    flex: 1 !important;
+    width: auto !important;
+    max-width: 52px !important;
+    height: 46px !important;
   }
 }

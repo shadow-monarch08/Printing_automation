@@ -119,6 +119,18 @@ export async function connectToWifi(payload: ConnectPayload & { adminPin?: strin
     }
   };
 
+  if (payload.skipWifi) {
+    console.log('[WiFi Service] User opted to skip Wi-Fi re-configuration. Proceeding with active network...');
+    await persistSuccessState();
+    await redisConnection.set(
+      REDIS_KEYS.wifiConnectionStatus,
+      JSON.stringify({ status: "success", skipped: true, timestamp: Date.now() }),
+      "EX",
+      REDIS_TTLS.WIFI_STATUS
+    );
+    return true;
+  }
+
   try {
     // FLOW A: Saved Network
     if (profileName) {
@@ -135,7 +147,7 @@ export async function connectToWifi(payload: ConnectPayload & { adminPin?: strin
     }
 
     // FLOW B: New Network
-    if (!password) throw new Error("Password is required for new networks");
+    if (!ssid || !password) throw new Error("SSID and Password are required for new networks");
 
     console.log(`[WiFi Service] Connecting to new network "${ssid}"...`);
     try {
