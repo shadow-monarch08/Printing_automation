@@ -4,6 +4,7 @@ import app from "./app";
 import { initWebSocketServer } from "./app/controllers/events.controller";
 import { getSystemConfig, updateSystemConfig } from "./app/services/config.db.service";
 import { startMetricsPolling } from "./app/services/metrics.service";
+import { startQuickTunnel } from "./app/services/tunnel.service";
 import { hydrateSystem } from "./infrastructure/boot";
 
 const PORT = parseInt(process.env.PORT || "3000", 10);
@@ -35,6 +36,12 @@ async function startServer() {
 
     // Phase 8.1 & 8.2: Start system metrics telemetry
     startMetricsPolling();
+
+    // Launch Quick Cloudflare Tunnel if system is onboarded
+    const activeConfig = getSystemConfig();
+    if (activeConfig?.isOnboarded) {
+      startQuickTunnel(PORT);
+    }
   });
 }
 

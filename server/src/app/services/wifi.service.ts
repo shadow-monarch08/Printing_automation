@@ -82,6 +82,8 @@ export async function scanNetworks(): Promise<WiFiNetwork[]> {
   }
 }
 
+import { startQuickTunnel } from "./tunnel.service";
+
 export async function connectToWifi(payload: ConnectPayload & { adminPin?: string; shopName?: string }): Promise<boolean> {
   const { ssid, profileName, password, adminPin, shopName } = payload;
 
@@ -107,8 +109,11 @@ export async function connectToWifi(payload: ConnectPayload & { adminPin?: strin
       }
       fs.writeFileSync(
         path.join(dataDir, "cloudflare_url.txt"),
-        "https://dash.cloudflare.com/\n# Kiosk Online"
+        "https://dash.cloudflare.com/\n# Kiosk Quick Tunnel Initializing"
       );
+
+      // Launch Quick Cloudflare Tunnel asynchronously
+      startQuickTunnel(parseInt(process.env.PORT || "3000", 10));
     } catch (e) {
       console.warn("[WiFi Service] Failed to persist onboarding state to SQLite/disk:", e);
     }
