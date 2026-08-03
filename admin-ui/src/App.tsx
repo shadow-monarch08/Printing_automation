@@ -54,7 +54,7 @@ function UserKioskPage() {
   );
 }
 
-import { WifiSetup } from './components/user/WifiSetup';
+import { OnboardingLayout } from './layouts/OnboardingLayout';
 import { useAdminStore } from './stores/useAdminStore';
 
 function App() {
@@ -68,17 +68,14 @@ function App() {
   if (loading) return null;
 
   if (isSetupMode) {
-    return (
-      <div style={{ minHeight: '100vh', padding: '2rem', background: 'var(--bg-primary)', display: 'flex', flexDirection: 'column' }}>
-        <WifiSetup />
-      </div>
-    );
+    return <OnboardingLayout />;
   }
 
   return (
     <>
       <Routes>
         <Route path="/" element={<UserLayout><UserKioskPage /></UserLayout>} />
+        <Route path="/onboarding" element={<OnboardingLayout />} />
         <Route path="/admin" element={<AdminLayout><Dashboard /></AdminLayout>} />
         <Route path="/admin/fleet" element={<AdminLayout><Fleet /></AdminLayout>} />
         <Route path="/admin/queue" element={<AdminLayout><Queue /></AdminLayout>} />

@@ -4,11 +4,12 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 1.1rem var(--spacing-md);
+  padding: 12px 16px;
   border-bottom: 1px dashed var(--border-default);
   cursor: pointer;
   transition: all 0.15s ease;
   border-radius: var(--radius-sm);
+  background: var(--bg-surface);
 }
 
 .wifi-network-item-row:last-child {
@@ -17,7 +18,7 @@
 
 .wifi-network-item-row:hover {
   background-color: var(--bg-surface-hover);
-  padding-left: var(--spacing-lg);
+  padding-left: 20px;
 }
 
 .wifi-network-item-row:hover .wifi-arrow-icon {
@@ -28,4 +29,209 @@
 .wifi-arrow-icon {
   color: var(--text-muted);
   transition: transform 0.15s ease, color 0.15s ease;
+}
+
+/* ==========================================================================
+   Onboarding Tactile Console System
+   ========================================================================== */
+
+.onboarding-canvas {
+  min-height: 100vh;
+  width: 100%;
+  background: var(--bg-primary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--spacing-lg) var(--spacing-md);
+  box-sizing: border-box;
+}
+
+.onboarding-console-card {
+  max-width: 680px;
+  width: 100%;
+  background: var(--bg-surface);
+  border: 2px solid var(--border-default);
+  border-radius: var(--radius-md);
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.6);
+  position: relative;
+  overflow: visible;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Corner Rivets */
+.onboarding-console-card::before,
+.onboarding-console-card::after {
+  content: '▪';
+  position: absolute;
+  font-family: var(--font-mono);
+  font-size: 14px;
+  color: var(--border-default);
+  line-height: 1;
+  pointer-events: none;
+  z-index: 10;
+}
+.onboarding-console-card::before {
+  top: -6px;
+  left: -6px;
+}
+.onboarding-console-card::after {
+  top: -6px;
+  right: -6px;
+}
+
+.onboarding-header-strip {
+  background: rgba(0, 0, 0, 0.25);
+  padding: 16px 24px;
+  border-bottom: 1px solid var(--border-default);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.onboarding-header-title {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: var(--text-primary);
+  text-transform: uppercase;
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.onboarding-stepper-bar {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  padding: 12px 24px;
+  background: var(--bg-primary);
+  border-bottom: 1px solid var(--border-default);
+}
+
+.onboarding-step-tab {
+  padding: 10px 14px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  border: 1px dashed var(--border-default);
+  border-radius: var(--radius-sm);
+  color: var(--text-secondary);
+  background: transparent;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  transition: all 0.2s ease;
+}
+
+.onboarding-step-tab.active {
+  border: 2px solid var(--accent-primary);
+  background: var(--accent-glow);
+  color: var(--accent-primary);
+}
+
+.onboarding-step-tab.completed {
+  border: 1px solid var(--status-idle);
+  color: var(--status-idle);
+}
+
+/* 4-Digit Tactile PIN Slots */
+.pin-digit-grid {
+  display: flex;
+  gap: 12px;
+  margin-top: 8px;
+}
+
+.pin-digit-slot {
+  width: 52px;
+  height: 52px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg-primary);
+  border: 2px solid var(--border-default);
+  border-radius: var(--radius-md);
+  box-shadow: 0 4px 0 var(--border-default);
+  font-family: var(--font-mono);
+  font-size: 24px;
+  color: var(--accent-primary);
+  transition: all 0.15s ease;
+}
+
+.pin-digit-slot.active {
+  border-color: var(--accent-primary);
+  box-shadow: 0 4px 0 var(--accent-primary);
+}
+
+/* LED Diode Animation */
+.led-diode {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  display: inline-block;
+  flex-shrink: 0;
+}
+.led-diode.green {
+  background: var(--status-idle);
+  box-shadow: 0 0 8px var(--status-idle);
+  animation: pulseLed 2s infinite;
+}
+.led-diode.amber {
+  background: var(--accent-primary);
+  box-shadow: 0 0 8px var(--accent-primary);
+  animation: pulseLed 1.2s infinite;
+}
+
+@keyframes pulseLed {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.45; transform: scale(0.85); }
+}
+
+/* Fullscreen Hazard Overlay */
+.hazard-overlay-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  background: var(--bg-primary);
+  background-image: radial-gradient(var(--border-default) 1px, transparent 1px);
+  background-size: 20px 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+
+.hazard-overlay-card {
+  max-width: 460px;
+  width: 100%;
+  background: var(--bg-surface);
+  border: 2px solid var(--border-default);
+  border-radius: var(--radius-md);
+  padding: 36px 24px;
+  text-align: center;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.8);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+}
+
+.hazard-progress-bar {
+  width: 100%;
+  height: 12px;
+  background: var(--bg-primary);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  margin-top: 8px;
+}
+
+.hazard-progress-fill {
+  height: 100%;
+  background: var(--accent-primary);
+  transition: width 0.3s ease;
 }

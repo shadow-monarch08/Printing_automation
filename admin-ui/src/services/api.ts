@@ -164,6 +164,14 @@ export const api = {
     return apiClient.post<{ success: boolean; message: string }>('/wifi/connect', payload);
   },
 
+  getWifiConnectionStatus: async () => {
+    return apiClient.get<{ status: 'idle' | 'connecting' | 'success' | 'failed'; error?: string; timestamp: number }>('/wifi/connection-status');
+  },
+
+  provisionSetup: async (payload: { adminPin: string; shopName: string; wifiSsid?: string; wifiPassword?: string }) => {
+    return apiClient.post<{ success: boolean; cloudflareUrl?: string }>('/setup/provision', payload);
+  },
+
   // Analytics API
   fetchFinancialSummary: async (startDate: string, endDate: string) => {
     const res = await apiClient.get<{ success: boolean; totalRevenue: number; totalJobs: number; completedJobs: number; failedJobs: number; avgCostPerJob: number }>(`/analytics/financial/summary?startDate=${startDate}&endDate=${endDate}`);

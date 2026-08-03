@@ -35,7 +35,29 @@
   display: flex;
   flex-direction: column;
   pointer-events: auto;
-  overflow: hidden;
+  overflow: visible;
+  position: relative;
+}
+
+/* Bolted Steel Corner Rivets */
+.industrial-modal-panel::before,
+.industrial-modal-panel::after {
+  content: '▪';
+  position: absolute;
+  font-family: var(--font-mono);
+  font-size: 14px;
+  color: var(--border-default);
+  line-height: 1;
+  pointer-events: none;
+  z-index: 10;
+}
+.industrial-modal-panel::before {
+  top: -6px;
+  left: -6px;
+}
+.industrial-modal-panel::after {
+  top: -6px;
+  right: -6px;
 }
 
 .modal-container.sm { max-width: 400px; }

@@ -1,6 +1,12 @@
+import fs from "fs";
+import path from "path";
+import bcrypt from "bcrypt";
 import { systemCommands } from "../../commands/system.commands";
 import { runSecureCommand } from "../utils/exec";
 import { ConnectPayload, WiFiNetwork } from "../types";
+import { redisConnection } from "../../infrastructure/redis";
+import { REDIS_KEYS, REDIS_TTLS } from "../../infrastructure/redisKeys";
+import { updateSystemConfig } from "./config.db.service";
 
 export async function scanNetworks(): Promise<WiFiNetwork[]> {
   try {
@@ -32,13 +38,12 @@ export async function scanNetworks(): Promise<WiFiNetwork[]> {
       if (!line.trim()) continue;
       
       const parts = line.split(':');
-      if (parts.length < 3) continue; // Need at least IN-USE, SSID, SIGNAL
+      if (parts.length < 3) continue;
       
       const inUse = parts[0];
       const signal = parseInt(parts[parts.length - 1], 10);
-      const ssid = parts.slice(1, parts.length - 1).join(':'); // Handle SSIDs containing colons
+      const ssid = parts.slice(1, parts.length - 1).join(':');
       
-      // Remove hidden/empty SSIDs
       if (!ssid || ssid === '--') continue;
 
       const isActive = inUse === '*';
@@ -49,7 +54,6 @@ export async function scanNetworks(): Promise<WiFiNetwork[]> {
       const isSaved = !!matchedProfile;
       const profileName = matchedProfile || undefined;
 
-      // Deduplicate: keep the one with stronger signal, but preserve isActive if one of them is active
       const existing = networksMap.get(ssid);
       if (!existing) {
         networksMap.set(ssid, { ssid, signal, isActive, isSaved, profileName });
@@ -65,7 +69,6 @@ export async function scanNetworks(): Promise<WiFiNetwork[]> {
 
     const result = Array.from(networksMap.values());
 
-    // Sort by: Active first, then saved, then by signal strength descending
     return result.sort((a, b) => {
       if (a.isActive && !b.isActive) return -1;
       if (!a.isActive && b.isActive) return 1;
@@ -79,14 +82,50 @@ export async function scanNetworks(): Promise<WiFiNetwork[]> {
   }
 }
 
-export async function connectToWifi(payload: ConnectPayload): Promise<boolean> {
-  const { ssid, profileName, password } = payload;
-  
+export async function connectToWifi(payload: ConnectPayload & { adminPin?: string; shopName?: string }): Promise<boolean> {
+  const { ssid, profileName, password, adminPin, shopName } = payload;
+
+  await redisConnection.set(
+    REDIS_KEYS.wifiConnectionStatus,
+    JSON.stringify({ status: "connecting", timestamp: Date.now() }),
+    "EX",
+    REDIS_TTLS.WIFI_STATUS
+  );
+
+  const persistSuccessState = async () => {
+    try {
+      const pinHash = adminPin ? bcrypt.hashSync(adminPin, 10) : undefined;
+      updateSystemConfig({
+        isOnboarded: true,
+        shopName: shopName || "Modern Press",
+        adminPinHash: pinHash,
+      });
+
+      const dataDir = path.join(process.cwd(), "data");
+      if (!fs.existsSync(dataDir)) {
+        fs.mkdirSync(dataDir, { recursive: true });
+      }
+      fs.writeFileSync(
+        path.join(dataDir, "cloudflare_url.txt"),
+        "https://dash.cloudflare.com/\n# Kiosk Online"
+      );
+    } catch (e) {
+      console.warn("[WiFi Service] Failed to persist onboarding state to SQLite/disk:", e);
+    }
+  };
+
   try {
     // FLOW A: Saved Network
     if (profileName) {
       console.log(`[WiFi Service] Connecting to saved profile "${profileName}"...`);
       await runSecureCommand('sudo', ['nmcli', 'connection', 'up', profileName]);
+      await persistSuccessState();
+      await redisConnection.set(
+        REDIS_KEYS.wifiConnectionStatus,
+        JSON.stringify({ status: "success", timestamp: Date.now() }),
+        "EX",
+        REDIS_TTLS.WIFI_STATUS
+      );
       return true;
     }
 
@@ -95,7 +134,6 @@ export async function connectToWifi(payload: ConnectPayload): Promise<boolean> {
 
     console.log(`[WiFi Service] Connecting to new network "${ssid}"...`);
     try {
-      // Attempt cleanup of ghost profiles, ignore if it fails
       await runSecureCommand('sudo', ['nmcli', 'connection', 'delete', ssid]);
     } catch (e) { /* ignored */ }
 
@@ -110,10 +148,33 @@ export async function connectToWifi(payload: ConnectPayload): Promise<boolean> {
     ]);
 
     await runSecureCommand('sudo', ['nmcli', 'connection', 'up', ssid]);
+
+    await persistSuccessState();
+
+    await redisConnection.set(
+      REDIS_KEYS.wifiConnectionStatus,
+      JSON.stringify({ status: "success", timestamp: Date.now() }),
+      "EX",
+      REDIS_TTLS.WIFI_STATUS
+    );
     return true;
   } catch (error: any) {
     console.error(`[WiFi Service] Connection to "${ssid}" failed:`, error.message || error);
+
+    try {
+      await runSecureCommand('sudo', ['nmcli', 'connection', 'up', 'Kiosk-Hotspot']);
+    } catch (e) { /* ignored */ }
+
+    await redisConnection.set(
+      REDIS_KEYS.wifiConnectionStatus,
+      JSON.stringify({
+        status: "failed",
+        error: error.message || "Invalid Wi-Fi Passphrase",
+        timestamp: Date.now()
+      }),
+      "EX",
+      REDIS_TTLS.WIFI_STATUS
+    );
     return false;
   }
 }
-

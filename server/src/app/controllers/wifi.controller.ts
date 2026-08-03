@@ -1,5 +1,8 @@
 import { Request, Response } from "express";
 import * as wifiService from "../services/wifi.service";
+import { getSystemConfig } from "../services/config.db.service";
+import { redisConnection } from "../../infrastructure/redis";
+import { REDIS_KEYS } from "../../infrastructure/redisKeys";
 
 export async function scanWifiNetworks(req: Request, res: Response) {
   try {
@@ -9,8 +12,6 @@ export async function scanWifiNetworks(req: Request, res: Response) {
     res.status(500).json({ error: "Failed to scan networks" });
   }
 }
-
-import { getSystemConfig } from "../services/config.db.service";
 
 export async function getWifiSetupMode(req: Request, res: Response) {
   res.json({ 
@@ -40,4 +41,16 @@ export async function connectWifiNetwork(req: Request, res: Response) {
       console.error("[WiFi Controller] Connection background task failed:", err);
     }
   }, 1000);
+}
+
+export async function getWifiConnectionStatus(req: Request, res: Response) {
+  try {
+    const raw = await redisConnection.get(REDIS_KEYS.wifiConnectionStatus);
+    if (!raw) {
+      return res.json({ status: "idle", timestamp: Date.now() });
+    }
+    res.json(JSON.parse(raw));
+  } catch (error) {
+    res.json({ status: "idle", timestamp: Date.now() });
+  }
 }
