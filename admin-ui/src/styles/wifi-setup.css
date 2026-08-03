@@ -59,25 +59,25 @@
   flex-direction: column;
 }
 
-/* Corner Rivets */
 .onboarding-console-card::before,
 .onboarding-console-card::after {
   content: '▪';
   position: absolute;
   font-family: var(--font-mono);
-  font-size: 14px;
-  color: var(--border-default);
+  font-size: 12px;
+  color: var(--text-secondary);
+  opacity: 0.7;
   line-height: 1;
   pointer-events: none;
   z-index: 10;
 }
 .onboarding-console-card::before {
-  top: -6px;
-  left: -6px;
+  top: 4px;
+  left: 8px;
 }
 .onboarding-console-card::after {
-  top: -6px;
-  right: -6px;
+  top: 4px;
+  right: 8px;
 }
 
 .onboarding-header-strip {

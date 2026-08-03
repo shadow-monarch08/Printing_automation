@@ -136,6 +136,12 @@ export function Step2WifiSetup({ shopName, adminPin, onComplete }: Step2WifiSetu
     return `[ ${filled}${empty}] ${signal}%`;
   };
 
+  const renderProgressBlocks = (progress: number) => {
+    const filled = Math.min(10, Math.max(0, Math.round((progress / 100) * 10)));
+    const empty = 10 - filled;
+    return `[ ${'█ '.repeat(filled)}${'░ '.repeat(empty)}]`;
+  };
+
   const activeNetworks = networks.filter(n => n.isActive);
   const availableNetworks = networks.filter(n => !n.isActive);
 
@@ -291,11 +297,8 @@ export function Step2WifiSetup({ shopName, adminPin, onComplete }: Step2WifiSetu
             <p style={{ fontFamily: 'var(--font-body)', fontSize: '13px', color: 'var(--text-secondary)', margin: 0, lineHeight: 1.5 }}>
               The kiosk terminal is cycling its Wi-Fi radio to join <strong>{selectedSsid}</strong>. Please wait while authentication completes.
             </p>
-            <div className="hazard-progress-bar">
-              <div className="hazard-progress-fill" style={{ width: `${connectProgress}%` }} />
-            </div>
-            <div style={{ fontFamily: 'var(--font-mono)', fontSize: '11px', color: 'var(--accent-primary)', marginTop: '4px' }}>
-              [ █ █ █ █ █ █ ░ ░ ░ ░ ] {connectProgress}% (36s TIMEOUT)
+            <div style={{ fontFamily: 'var(--font-mono)', fontSize: '12px', fontWeight: 700, color: 'var(--accent-primary)', marginTop: '8px', letterSpacing: '0.05em' }}>
+              {renderProgressBlocks(connectProgress)} {connectProgress}% (36s TIMEOUT)
             </div>
           </div>
         </div>

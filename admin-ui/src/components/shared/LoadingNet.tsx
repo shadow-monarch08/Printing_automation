@@ -1,4 +1,64 @@
-export function LoadingNet({ message = 'Loading...' }: { message?: string }) {
+export function LoadingNet({ message = 'Loading...', compact = false }: { message?: string; compact?: boolean }) {
+  if (compact) {
+    return (
+      <div
+        style={{
+          display: 'inline-flex',
+          alignItems: 'center',
+          gap: '8px',
+          height: '100%',
+        }}
+      >
+        <div
+          style={{
+            position: 'relative',
+            width: '28px',
+            height: '18px',
+            backgroundColor: 'var(--bg-paper)',
+            border: '1px solid var(--border-default)',
+            borderRadius: '2px',
+            overflow: 'hidden',
+            flexShrink: 0,
+          }}
+        >
+          {/* Moving Horizontal Printhead Bar */}
+          <div
+            style={{
+              position: 'absolute',
+              left: 0,
+              right: 0,
+              height: '2px',
+              backgroundColor: 'var(--accent-primary)',
+              boxShadow: '0 0 6px var(--accent-primary)',
+              animation: 'printScanCompact 1.2s infinite ease-in-out',
+              zIndex: 3,
+            }}
+          />
+        </div>
+        {message && (
+          <span
+            style={{
+              fontFamily: 'var(--font-mono)',
+              fontSize: '11px',
+              fontWeight: 700,
+              letterSpacing: '0.05em',
+              color: 'var(--accent-primary)',
+            }}
+          >
+            {message.toUpperCase()}
+          </span>
+        )}
+        <style>{`
+          @keyframes printScanCompact {
+            0% { top: 2px; }
+            50% { top: 14px; }
+            100% { top: 2px; }
+          }
+        `}</style>
+      </div>
+    );
+  }
+
   const formattedMessage = message.toUpperCase().startsWith('▪') 
     ? message.toUpperCase() 
     : `▪ ${message.toUpperCase()}`;

@@ -1,6 +1,7 @@
-import React, { useState, useRef } from 'react';
+import React, { useState } from 'react';
 import { Button } from '../shared/Button';
 import { ValidatedInput } from '../shared/ValidatedInput';
+import { PinInput } from '../shared/PinInput';
 import { soundFx } from '../../utils/sound';
 
 interface Step1NameAndPinProps {
@@ -13,46 +14,6 @@ export function Step1NameAndPin({ initialShopName, onComplete }: Step1NameAndPin
   const [pin, setPin] = useState(['', '', '', '']);
   const [confirmPin, setConfirmPin] = useState(['', '', '', '']);
   const [error, setError] = useState('');
-
-  const pinRefs = [
-    useRef<HTMLInputElement>(null),
-    useRef<HTMLInputElement>(null),
-    useRef<HTMLInputElement>(null),
-    useRef<HTMLInputElement>(null),
-  ];
-
-  const confirmPinRefs = [
-    useRef<HTMLInputElement>(null),
-    useRef<HTMLInputElement>(null),
-    useRef<HTMLInputElement>(null),
-    useRef<HTMLInputElement>(null),
-  ];
-
-  const handlePinChange = (index: number, val: string, isConfirm: boolean = false) => {
-    soundFx.playClick();
-    const cleanVal = val.replace(/\D/g, '').slice(-1);
-    const state = isConfirm ? [...confirmPin] : [...pin];
-    const setState = isConfirm ? setConfirmPin : setPin;
-    const refs = isConfirm ? confirmPinRefs : pinRefs;
-
-    state[index] = cleanVal;
-    setState(state);
-    setError('');
-
-    if (cleanVal && index < 3) {
-      refs[index + 1].current?.focus();
-    }
-  };
-
-  const handleKeyDown = (index: number, e: React.KeyboardEvent, isConfirm: boolean = false) => {
-    const state = isConfirm ? confirmPin : pin;
-    const refs = isConfirm ? confirmPinRefs : pinRefs;
-
-    if (e.key === 'Backspace' && !state[index] && index > 0) {
-      soundFx.playClick();
-      refs[index - 1].current?.focus();
-    }
-  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -107,90 +68,24 @@ export function Step1NameAndPin({ initialShopName, onComplete }: Step1NameAndPin
       </div>
 
       {/* Master PIN Field */}
-      <div>
-        <label
-          style={{
-            fontFamily: 'var(--font-mono)',
-            fontSize: '11px',
-            fontWeight: 700,
-            color: 'var(--text-secondary)',
-            textTransform: 'uppercase',
-            letterSpacing: '0.05em',
-            display: 'block',
-          }}
-        >
-          [MASTER_SECURITY_PIN // 4_DIGITS]
-        </label>
-        <div className="pin-digit-grid">
-          {pin.map((digit, idx) => (
-            <div
-              key={`pin-${idx}`}
-              className={`pin-digit-slot ${digit ? 'active' : ''}`}
-              onClick={() => pinRefs[idx].current?.focus()}
-            >
-              <input
-                ref={pinRefs[idx]}
-                type="password"
-                maxLength={1}
-                value={digit}
-                onChange={e => handlePinChange(idx, e.target.value, false)}
-                onKeyDown={e => handleKeyDown(idx, e, false)}
-                style={{
-                  position: 'absolute',
-                  opacity: 0,
-                  width: '100%',
-                  height: '100%',
-                  cursor: 'pointer',
-                }}
-              />
-              {digit ? '•' : ''}
-            </div>
-          ))}
-        </div>
-      </div>
+      <PinInput
+        label="[MASTER_SECURITY_PIN // 4_DIGITS]"
+        value={pin}
+        onChange={(val) => {
+          setPin(val);
+          setError('');
+        }}
+      />
 
       {/* Confirm PIN Field */}
-      <div>
-        <label
-          style={{
-            fontFamily: 'var(--font-mono)',
-            fontSize: '11px',
-            fontWeight: 700,
-            color: 'var(--text-secondary)',
-            textTransform: 'uppercase',
-            letterSpacing: '0.05em',
-            display: 'block',
-          }}
-        >
-          [CONFIRM_SECURITY_PIN]
-        </label>
-        <div className="pin-digit-grid">
-          {confirmPin.map((digit, idx) => (
-            <div
-              key={`cpin-${idx}`}
-              className={`pin-digit-slot ${digit ? 'active' : ''}`}
-              onClick={() => confirmPinRefs[idx].current?.focus()}
-            >
-              <input
-                ref={confirmPinRefs[idx]}
-                type="password"
-                maxLength={1}
-                value={digit}
-                onChange={e => handlePinChange(idx, e.target.value, true)}
-                onKeyDown={e => handleKeyDown(idx, e, true)}
-                style={{
-                  position: 'absolute',
-                  opacity: 0,
-                  width: '100%',
-                  height: '100%',
-                  cursor: 'pointer',
-                }}
-              />
-              {digit ? '•' : ''}
-            </div>
-          ))}
-        </div>
-      </div>
+      <PinInput
+        label="[CONFIRM_SECURITY_PIN]"
+        value={confirmPin}
+        onChange={(val) => {
+          setConfirmPin(val);
+          setError('');
+        }}
+      />
 
       {/* Error Message */}
       {error && (

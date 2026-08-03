@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Loader2 } from 'lucide-react';
 import { soundFx } from '../../utils/sound';
+import { LoadingNet } from './LoadingNet';
 
 interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
   variant?: 'mechanical' | 'danger' | 'ghost' | 'primary';
@@ -90,11 +90,11 @@ export const Button: React.FC<ButtonProps> = ({
           justifyContent: 'center',
           backdropFilter: 'blur(4px)',
           WebkitBackdropFilter: 'blur(4px)',
-          backgroundColor: 'rgba(128, 128, 128, 0.1)',
+          backgroundColor: 'rgba(20, 24, 30, 0.75)',
           borderRadius: 'inherit',
           zIndex: 10
         }}>
-          <Loader2 className="btn-spinner" size={20} />
+          <LoadingNet compact message="" />
         </span>
       )}
       <span style={{ 
