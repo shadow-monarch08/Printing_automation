@@ -7,10 +7,12 @@ export interface PinInputProps {
   value: string[];
   onChange: (newValue: string[]) => void;
   error?: string;
+  autoFocus?: boolean;
 }
 
-export function PinInput({ label, value, onChange, error }: PinInputProps) {
+export function PinInput({ label, value, onChange, error, autoFocus = false }: PinInputProps) {
   const [showPassword, setShowPassword] = useState(false);
+  const [focusedIndex, setFocusedIndex] = useState<number | null>(autoFocus ? 0 : null);
 
   const slotRefs = [
     useRef<HTMLInputElement>(null),
@@ -45,7 +47,7 @@ export function PinInput({ label, value, onChange, error }: PinInputProps) {
   };
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+    <div className="pin-input-component" style={{ display: 'flex', flexDirection: 'column', gap: '6px', width: '100%' }}>
       {label && (
         <label
           style={{
@@ -62,61 +64,80 @@ export function PinInput({ label, value, onChange, error }: PinInputProps) {
         </label>
       )}
 
-      <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-        <div className="pin-digit-grid" style={{ display: 'flex', gap: '12px' }}>
-          {[0, 1, 2, 3].map((idx) => (
-            <div
-              key={`slot-${idx}`}
-              className={`pin-digit-slot ${value[idx] ? 'active' : ''}`}
-              style={{
-                position: 'relative',
-                width: '52px',
-                height: '52px',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                background: 'var(--bg-primary)',
-                border: '2px solid var(--border-default)',
-                borderRadius: 'var(--radius-md)',
-                boxShadow: value[idx] ? '0 4px 0 var(--accent-primary)' : '0 4px 0 var(--border-default)',
-                borderColor: value[idx] ? 'var(--accent-primary)' : 'var(--border-default)',
-                overflow: 'hidden',
-                cursor: 'pointer',
-              }}
-              onClick={() => slotRefs[idx].current?.focus()}
-            >
-              <input
-                ref={slotRefs[idx]}
-                type={showPassword ? 'text' : 'password'}
-                maxLength={1}
-                value={value[idx] || ''}
-                onChange={(e) => handleDigitChange(idx, e.target.value)}
-                onKeyDown={(e) => handleKeyDown(idx, e)}
+      <div style={{ display: 'flex', alignItems: 'center', gap: '10px', width: '100%' }}>
+        <div className="pin-digit-grid" style={{ display: 'flex', gap: '10px', flex: 1, justifyContent: 'space-between' }}>
+          {[0, 1, 2, 3].map((idx) => {
+            const isFocused = focusedIndex === idx;
+            const hasValue = !!value[idx];
+
+            return (
+              <div
+                key={`slot-${idx}`}
+                className={`pin-digit-slot ${hasValue ? 'active' : ''} ${isFocused ? 'focused' : ''}`}
                 style={{
-                  position: 'absolute',
-                  inset: 0,
-                  width: '100%',
-                  height: '100%',
-                  opacity: 0,
+                  position: 'relative',
+                  flex: 1,
+                  maxWidth: '52px',
+                  height: '52px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  background: isFocused ? 'rgba(255, 107, 0, 0.06)' : 'var(--bg-primary)',
+                  border: '2px solid',
+                  borderColor: isFocused
+                    ? 'var(--accent-primary)'
+                    : hasValue
+                    ? 'var(--accent-primary)'
+                    : 'var(--border-default)',
+                  borderRadius: 'var(--radius-md)',
+                  boxShadow: isFocused
+                    ? '0 0 0 3px rgba(255, 107, 0, 0.3), 0 4px 12px rgba(255, 107, 0, 0.2)'
+                    : hasValue
+                    ? '0 4px 0 var(--accent-primary)'
+                    : '0 4px 0 var(--border-default)',
+                  transform: isFocused ? 'translateY(-2px)' : 'none',
+                  transition: 'all 0.15s cubic-bezier(0.4, 0, 0.2, 1)',
+                  overflow: 'hidden',
                   cursor: 'pointer',
-                  zIndex: 2,
                 }}
-              />
-              <span
-                style={{
-                  fontFamily: 'var(--font-mono)',
-                  fontSize: showPassword ? '20px' : '24px',
-                  fontWeight: 700,
-                  color: 'var(--accent-primary)',
-                  userSelect: 'none',
-                  pointerEvents: 'none',
-                  zIndex: 1,
-                }}
+                onClick={() => slotRefs[idx].current?.focus()}
               >
-                {value[idx] ? (showPassword ? value[idx] : '•') : ''}
-              </span>
-            </div>
-          ))}
+                <input
+                  ref={slotRefs[idx]}
+                  type={showPassword ? 'text' : 'password'}
+                  maxLength={1}
+                  value={value[idx] || ''}
+                  autoFocus={autoFocus && idx === 0}
+                  onChange={(e) => handleDigitChange(idx, e.target.value)}
+                  onKeyDown={(e) => handleKeyDown(idx, e)}
+                  onFocus={() => setFocusedIndex(idx)}
+                  onBlur={() => setFocusedIndex(null)}
+                  style={{
+                    position: 'absolute',
+                    inset: 0,
+                    width: '100%',
+                    height: '100%',
+                    opacity: 0,
+                    cursor: 'pointer',
+                    zIndex: 2,
+                  }}
+                />
+                <span
+                  style={{
+                    fontFamily: 'var(--font-mono)',
+                    fontSize: showPassword ? '20px' : '24px',
+                    fontWeight: 700,
+                    color: 'var(--accent-primary)',
+                    userSelect: 'none',
+                    pointerEvents: 'none',
+                    zIndex: 1,
+                  }}
+                >
+                  {value[idx] ? (showPassword ? value[idx] : '•') : isFocused ? '|' : ''}
+                </span>
+              </div>
+            );
+          })}
         </div>
 
         {/* View Password Toggle Button */}
@@ -125,8 +146,8 @@ export function PinInput({ label, value, onChange, error }: PinInputProps) {
           onClick={toggleShowPassword}
           aria-label={showPassword ? 'Hide password' : 'View password'}
           style={{
-            width: '38px',
-            height: '38px',
+            width: '42px',
+            height: '48px',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
@@ -135,6 +156,7 @@ export function PinInput({ label, value, onChange, error }: PinInputProps) {
             borderRadius: 'var(--radius-sm)',
             color: showPassword ? 'var(--accent-primary)' : 'var(--text-secondary)',
             cursor: 'pointer',
+            flexShrink: 0,
             transition: 'all 0.15s ease',
           }}
           onMouseEnter={(e) => {

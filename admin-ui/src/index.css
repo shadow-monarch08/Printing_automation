@@ -4,6 +4,6 @@
 @import './styles/modal.css';
 @import './styles/toast.css';
 @import './styles/animations.css';
-@import './styles/wifi-setup.css';
+@import './styles/onboarding.css';
 @import './styles/analytics.css';
 @import './styles/responsive.css'; /* Media query overrides must load last */

@@ -6,6 +6,7 @@ import { Lock, LayoutDashboard, Printer, ListOrdered, Settings, LogOut, Menu, X,
 import { useAdminStore } from '../stores/useAdminStore';
 import { Button } from '../components/shared/Button';
 import { LoadingNet } from '../components/shared/LoadingNet';
+import { PinInput } from '../components/shared/PinInput';
 
 export function AdminLayout({ children }: { children: ReactNode }) {
   const { isAuthenticated, authenticate, logout, checkAuth } = useAdminStore();
@@ -14,6 +15,13 @@ export function AdminLayout({ children }: { children: ReactNode }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [theme, setTheme] = useState(() => document.documentElement.getAttribute('data-theme') || 'dark');
   const navigate = useNavigate();
+
+  const pinArray = [
+    pinInput[0] || '',
+    pinInput[1] || '',
+    pinInput[2] || '',
+    pinInput[3] || '',
+  ];
 
   const toggleTheme = () => {
     const newTheme = theme === 'dark' ? 'light' : 'dark';
@@ -64,18 +72,26 @@ export function AdminLayout({ children }: { children: ReactNode }) {
           <h2 style={{ marginBottom: '0.5rem', fontSize: '1.5rem' }}>Admin Access</h2>
           <p style={{ color: 'var(--text-secondary)', marginBottom: '2rem' }}>Authentication required</p>
           
-          <input 
-            type="password" 
-            className="input-field" 
-            placeholder="Enter PIN" 
-            value={pinInput}
-            onChange={(e) => setPinInput(e.target.value)}
-            style={{ textAlign: 'center', fontSize: '1.5rem', letterSpacing: '0.2em', marginBottom: '1rem', borderColor: error ? 'var(--status-error)' : 'var(--input-border)' }}
-            autoFocus
-          />
-          {error && <p style={{ color: 'var(--status-error)', fontSize: '0.85rem', marginBottom: '1rem' }}>Invalid Authorization Code</p>}
-          
-          <Button variant="mechanical" onClick={handleLogin} style={{ width: '100%' }}>
+          <div style={{ marginBottom: '1.5rem' }}>
+            <PinInput
+              label="[MASTER_ADMIN_PIN]"
+              value={pinArray}
+              onChange={(valArray) => {
+                setPinInput(valArray.join(''));
+                setError(false);
+              }}
+              error={error ? 'Invalid Authorization Code' : undefined}
+              autoFocus
+            />
+          </div>
+
+          <Button
+            type="submit"
+            variant="mechanical"
+            onClick={handleLogin}
+            disabled={pinInput.length !== 4}
+            style={{ width: '100%', height: '44px', marginTop: '0.5rem' }}
+          >
             Authenticate
           </Button>
         </form>

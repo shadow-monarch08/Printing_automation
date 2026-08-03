@@ -96,11 +96,14 @@ export const ArchiveView: React.FC<ArchiveViewProps> = ({ startDate, endDate }) 
         </Button>
       </div>
 
-      <div style={{ marginBottom: 'var(--spacing-md)', fontFamily: 'var(--font-mono)', fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
-        Showing {(page - 1) * limit + (total > 0 ? 1 : 0)}–{Math.min(page * limit, total)} of {total} records
-      </div>
-
-      <PaperTable style={{ padding: 0 }}>
+      <PaperTable
+        style={{ padding: 0 }}
+        page={page}
+        totalPages={totalPages}
+        totalRecords={total}
+        itemsPerPage={limit}
+        onPageChange={setPage}
+      >
         <div style={{ overflowX: 'auto', width: '100%', WebkitOverflowScrolling: 'touch' }}>
           <table className="table" style={{ minWidth: '650px' }}>
             <thead>
@@ -146,14 +149,6 @@ export const ArchiveView: React.FC<ArchiveViewProps> = ({ startDate, endDate }) 
           </table>
         </div>
       </PaperTable>
-
-      {totalPages > 1 && (
-        <div className="analytics-pagination" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '1rem 0' }}>
-          <Button variant="ghost" disabled={page <= 1} onClick={() => setPage(p => p - 1)}>← Previous</Button>
-          <span style={{ fontFamily: 'var(--font-mono)', color: 'var(--text-secondary)', fontSize: '0.85rem' }}>Page {page} of {totalPages}</span>
-          <Button variant="ghost" disabled={page >= totalPages} onClick={() => setPage(p => p + 1)}>Next →</Button>
-        </div>
-      )}
     </div>
   );
 };
