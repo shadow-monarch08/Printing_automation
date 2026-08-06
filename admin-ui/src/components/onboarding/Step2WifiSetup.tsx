@@ -62,19 +62,16 @@ export function Step2WifiSetup({ shopName, adminPin, onComplete, mode: _mode }: 
     setConnectProgress(0);
     setErrorMsg('');
 
-    /* PRODUCTION CALL COMMENTED OUT FOR DUMMY PREVIEW MODE:
     try {
-      await api.provisionSetup({
+      await api.connectToWifi({
+        ssid,
+        password,
         adminPin,
         shopName,
-        wifiSsid: ssid,
-        wifiPassword: password,
       });
-    } catch (err) {
+    } catch (err: any) {
       console.warn('Network provision call submitted:', err);
     }
-    */
-    console.log('[Dummy Onboarding Preview] Wi-Fi selected:', { ssid, password, shopName, adminPin });
   };
 
   const handleSkipWifi = async () => {
@@ -86,23 +83,10 @@ export function Step2WifiSetup({ shopName, adminPin, onComplete, mode: _mode }: 
     onComplete();
   };
 
-  // Dummy Preview Mode: Simulated 3-second progress timer to demonstrate hazard overlay and advance to Step 3
+  // Production Connection Polling Engine
   useEffect(() => {
     if (!isConnecting) return;
 
-    let step = 0;
-    const interval = setInterval(() => {
-      step += 1;
-      setConnectProgress(Math.min(100, step * 33));
-
-      if (step >= 3) {
-        clearInterval(interval);
-        setIsConnecting(false);
-        onComplete();
-      }
-    }, 1000);
-
-    /* PRODUCTION POLLING ENGINE COMMENTED OUT FOR DUMMY PREVIEW MODE:
     let failedPollCount = 0;
     let secondsElapsed = 0;
 
@@ -134,7 +118,6 @@ export function Step2WifiSetup({ shopName, adminPin, onComplete, mode: _mode }: 
         }
       }
     }, 2000);
-    */
 
     return () => clearInterval(interval);
   }, [isConnecting, onComplete]);

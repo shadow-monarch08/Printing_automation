@@ -24,7 +24,7 @@ CREATE TABLE IF NOT EXISTS kiosk_sessions (
 
 CREATE TABLE IF NOT EXISTS system_config (
   id INTEGER PRIMARY KEY CHECK (id = 1),
-  is_onboarded BOOLEAN NOT NULL DEFAULT 1,
+  is_onboarded BOOLEAN NOT NULL DEFAULT 0,
   cloudflare_url TEXT,
   shop_name TEXT DEFAULT 'Modern Press',
   admin_pin_hash TEXT,
@@ -46,8 +46,6 @@ CREATE TABLE IF NOT EXISTS pricing_config (
   duplex_discount_percent INTEGER NOT NULL DEFAULT 0,
   updated_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
-
-UPDATE system_config SET is_onboarded = 1;
 
 INSERT OR IGNORE INTO pricing_config (id, base_price_bw, base_price_color, duplex_discount_percent) VALUES (1, 200, 1000, 0);
 

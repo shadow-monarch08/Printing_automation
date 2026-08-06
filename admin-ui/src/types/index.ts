@@ -97,7 +97,10 @@ export interface WifiNetwork {
 }
 
 export interface ConnectPayload {
-  ssid: string;
+  ssid?: string;
   profileName?: string;
   password?: string;
+  adminPin?: string;
+  shopName?: string;
+  skipWifi?: boolean;
 }
