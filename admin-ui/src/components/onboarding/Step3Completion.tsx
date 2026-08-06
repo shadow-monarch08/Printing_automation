@@ -1,9 +1,9 @@
-import { Button } from '../shared/Button';
+interface Step3CompletionProps {
+  mode?: 'full' | 'wifi-only';
+}
 
-export function Step3Completion() {
-  const handleLaunchDashboard = () => {
-    window.location.href = '/admin';
-  };
+export function Step3Completion({ mode = 'full' }: Step3CompletionProps) {
+  const isWifiOnly = mode === 'wifi-only';
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '24px', textAlign: 'center', padding: '16px 8px' }}>
@@ -28,10 +28,12 @@ export function Step3Completion() {
           ✓
         </div>
         <div style={{ fontFamily: 'var(--font-mono)', fontSize: '14px', fontWeight: 700, color: 'var(--status-idle)' }}>
-          [ ✓ ] TERMINAL_ONLINE_AND_PROVISIONED
+          [ ✓ ] {isWifiOnly ? 'WI-FI_RECONFIGURED_SUCCESSFULLY' : 'TERMINAL_ONLINE_AND_PROVISIONED'}
         </div>
         <p style={{ fontFamily: 'var(--font-body)', fontSize: '14px', color: 'var(--text-secondary)', margin: 0, maxWidth: '480px' }}>
-          Your kiosk terminal has successfully authenticated and connected to your shop network.
+          {isWifiOnly 
+            ? 'Your kiosk terminal has re-authenticated and joined the target network with its active shop identity.'
+            : 'Your kiosk terminal has successfully authenticated and connected to your shop network.'}
         </p>
       </div>
 
@@ -53,7 +55,7 @@ export function Step3Completion() {
         </p>
       </div>
 
-      {/* Local Disk Backup Panel */}
+      {/* Local Data File Panel */}
       <div
         style={{
           background: 'var(--bg-primary)',
@@ -63,44 +65,26 @@ export function Step3Completion() {
           textAlign: 'left',
         }}
       >
-        <div style={{ fontFamily: 'var(--font-mono)', fontSize: '11px', fontWeight: 700, color: 'var(--accent-primary)', marginBottom: '4px' }}>
-          [2] LOCAL FILE BACKUP
+        <div style={{ fontFamily: 'var(--font-mono)', fontSize: '11px', fontWeight: 700, color: 'var(--accent-secondary)', marginBottom: '4px' }}>
+          [2] LOCAL FILE FALLBACK
         </div>
-        <p style={{ fontFamily: 'var(--font-body)', fontSize: '13px', color: 'var(--text-primary)', margin: 0 }}>
-          Inspect the live public tunnel access URL on local storage at:
+        <p style={{ fontFamily: 'var(--font-body)', fontSize: '13px', color: 'var(--text-primary)', margin: '0 0 8px 0' }}>
+          The public access URL is persisted on the local filesystem at:
         </p>
         <div
           style={{
             fontFamily: 'var(--font-mono)',
             fontSize: '12px',
-            color: 'var(--accent-primary)',
-            background: 'rgba(0, 0, 0, 0.3)',
-            padding: '8px 12px',
-            borderRadius: '2px',
-            marginTop: '8px',
+            background: 'var(--bg-surface)',
             border: '1px dashed var(--border-default)',
+            padding: '8px 12px',
+            borderRadius: 'var(--radius-sm)',
+            color: 'var(--accent-primary)',
           }}
         >
           server/data/cloudflare_url.txt
         </div>
       </div>
-
-      {/* CTA Button */}
-      <Button
-        variant="primary"
-        onClick={handleLaunchDashboard}
-        style={{
-          width: '100%',
-          height: '48px',
-          fontFamily: 'var(--font-mono)',
-          fontWeight: 700,
-          textTransform: 'uppercase',
-          letterSpacing: '0.05em',
-          marginTop: '8px',
-        }}
-      >
-        [ INITIALIZE MANAGEMENT DASHBOARD ➔ ]
-      </Button>
     </div>
   );
 }

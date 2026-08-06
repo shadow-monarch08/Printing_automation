@@ -58,7 +58,7 @@ import { OnboardingLayout } from './layouts/OnboardingLayout';
 import { useAdminStore } from './stores/useAdminStore';
 
 function App() {
-  const { isSetupMode, checkSetupMode } = useAdminStore();
+  const { isSetupMode, isOnboarded, checkSetupMode } = useAdminStore();
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -67,8 +67,12 @@ function App() {
 
   if (loading) return null;
 
+  if (!isOnboarded) {
+    return <OnboardingLayout mode="full" />;
+  }
+
   if (isSetupMode) {
-    return <OnboardingLayout />;
+    return <OnboardingLayout mode="wifi-only" />;
   }
 
   return (

@@ -11,9 +11,10 @@ interface Step2WifiSetupProps {
   shopName: string;
   adminPin: string;
   onComplete: () => void;
+  mode?: 'full' | 'wifi-only';
 }
 
-export function Step2WifiSetup({ shopName, adminPin, onComplete }: Step2WifiSetupProps) {
+export function Step2WifiSetup({ shopName, adminPin, onComplete, mode: _mode }: Step2WifiSetupProps) {
   const [networks, setNetworks] = useState<WifiNetwork[]>([]);
   const [isScanning, setIsScanning] = useState(false);
   const [isConnecting, setIsConnecting] = useState(false);

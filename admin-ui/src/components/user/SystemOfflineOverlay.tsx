@@ -9,108 +9,139 @@ export interface SystemOfflineOverlayProps {
 export const SystemOfflineOverlay: React.FC<SystemOfflineOverlayProps> = ({
   title = '[SYSTEM_OFFLINE]',
   statusTag = 'STATUS: NO_HARDWARE_TARGETS_AVAILABLE',
-  message = 'Kiosk operations have been suspended. All local print hardware targets are currently offline, faulted, or paused by administration.'
+  message = 'Kiosk operations suspended. All local print hardware targets are currently offline, faulted, or paused by administration.'
 }) => {
   return (
     <div 
-      className="offline-screen-backdrop"
+      className="offline-banner-container"
       style={{
         position: 'fixed',
-        inset: 0,
+        top: '20px',
+        left: '50%',
+        transform: 'translateX(-50%)',
         zIndex: 9999,
-        backgroundColor: 'var(--bg-primary)',
-        backgroundImage: 'linear-gradient(rgba(255, 255, 255, 0.02) 1px, transparent 1px), linear-gradient(90deg, rgba(255, 255, 255, 0.02) 1px, transparent 1px)',
-        backgroundSize: '20px 20px',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        padding: '24px'
+        maxWidth: '860px',
+        width: 'calc(100% - 32px)',
+        backgroundColor: 'var(--bg-surface)',
+        border: '2px solid var(--status-error)',
+        borderRadius: 'var(--radius-sm, 4px)',
+        padding: '16px 24px',
+        boxSizing: 'border-box',
+        boxShadow: 'none',
       }}
     >
-      <div 
-        className="offline-panel"
+      {/* Corner Rivet / Bolt Accents */}
+      <span
         style={{
-          backgroundColor: 'var(--bg-surface)',
-          border: '2px solid var(--status-error)',
-          borderRadius: 'var(--radius-md, 4px)',
-          padding: '48px 32px',
-          maxWidth: '500px',
-          width: '90%',
-          boxShadow: '0 20px 60px rgba(0, 0, 0, 0.7), 0 0 0 1px var(--status-error)',
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-          textAlign: 'center',
-          boxSizing: 'border-box'
+          position: 'absolute',
+          top: '4px',
+          left: '8px',
+          fontFamily: 'var(--font-mono)',
+          fontSize: '12px',
+          color: 'var(--status-error)',
+          opacity: 0.8,
+          lineHeight: 1,
+          pointerEvents: 'none',
         }}
       >
-        {/* Top Pulsing LED Hazard Diode */}
-        <div 
-          style={{
-            width: '16px',
-            height: '16px',
-            borderRadius: '2px',
-            border: '2px solid var(--status-error)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            marginBottom: '16px',
-            backgroundColor: 'var(--bg-primary)'
-          }}
-        >
+        ▪
+      </span>
+      <span
+        style={{
+          position: 'absolute',
+          top: '4px',
+          right: '8px',
+          fontFamily: 'var(--font-mono)',
+          fontSize: '12px',
+          color: 'var(--status-error)',
+          opacity: 0.8,
+          lineHeight: 1,
+          pointerEvents: 'none',
+        }}
+      >
+        ▪
+      </span>
+
+      {/* Banner Content Layout */}
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          gap: '20px',
+          flexWrap: 'wrap',
+        }}
+      >
+        {/* Left Status & Title Seam */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+          {/* Pulsing Hazard LED Diode */}
           <div 
             style={{
-              width: '8px',
-              height: '8px',
-              borderRadius: '1px',
-              backgroundColor: 'var(--status-error)',
-              animation: 'pulseLed 1s infinite alternate',
-              boxShadow: '0 0 8px var(--status-error)'
+              width: '14px',
+              height: '14px',
+              borderRadius: '2px',
+              border: '2px solid var(--status-error)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              backgroundColor: 'var(--bg-primary)',
+              flexShrink: 0,
             }}
-          />
+          >
+            <div 
+              style={{
+                width: '6px',
+                height: '6px',
+                borderRadius: '1px',
+                backgroundColor: 'var(--status-error)',
+                animation: 'pulseLed 1s infinite alternate',
+                boxShadow: '0 0 6px var(--status-error)',
+              }}
+            />
+          </div>
+
+          <div>
+            <h2 
+              className="offline-title"
+              style={{
+                fontFamily: 'var(--font-mono)',
+                fontSize: '15px',
+                fontWeight: 800,
+                letterSpacing: '0.08em',
+                color: 'var(--status-error)',
+                margin: 0,
+                textTransform: 'uppercase',
+                lineHeight: 1.2,
+              }}
+            >
+              {title}
+            </h2>
+            <div 
+              style={{
+                fontFamily: 'var(--font-mono)',
+                fontSize: '10px',
+                fontWeight: 700,
+                letterSpacing: '0.05em',
+                color: 'var(--status-error)',
+                marginTop: '4px',
+              }}
+            >
+              {statusTag}
+            </div>
+          </div>
         </div>
 
-        <h2 
-          className="offline-title"
-          style={{
-            fontFamily: 'var(--font-mono)',
-            fontSize: '20px',
-            fontWeight: 800,
-            letterSpacing: '0.1em',
-            color: 'var(--status-error)',
-            margin: '0 0 8px 0',
-            textTransform: 'uppercase'
-          }}
-        >
-          {title}
-        </h2>
-
-        <div 
-          style={{
-            fontFamily: 'var(--font-mono)',
-            fontSize: '11px',
-            fontWeight: 700,
-            letterSpacing: '0.05em',
-            color: 'var(--status-error)',
-            backgroundColor: 'rgba(255, 68, 68, 0.1)',
-            border: '1px solid var(--status-error)',
-            padding: '4px 10px',
-            borderRadius: '2px',
-            marginBottom: '12px'
-          }}
-        >
-          {statusTag}
-        </div>
-
+        {/* Message Readout */}
         <p 
           className="offline-desc"
           style={{
             fontFamily: 'var(--font-body)',
             color: 'var(--text-secondary)',
-            fontSize: '13px',
-            marginTop: '16px',
-            marginBottom: 0,
-            lineHeight: 1.6
+            fontSize: '12px',
+            margin: 0,
+            lineHeight: 1.4,
+            flex: 1,
+            minWidth: '240px',
           }}
         >
           {message}
@@ -119,7 +150,7 @@ export const SystemOfflineOverlay: React.FC<SystemOfflineOverlayProps> = ({
 
       <style>{`
         @keyframes pulseLed {
-          0% { opacity: 0.2; transform: scale(0.9); }
+          0% { opacity: 0.3; transform: scale(0.9); }
           100% { opacity: 1; transform: scale(1.1); }
         }
       `}</style>

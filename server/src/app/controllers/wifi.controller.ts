@@ -14,9 +14,13 @@ export async function scanWifiNetworks(req: Request, res: Response) {
 }
 
 export async function getWifiSetupMode(req: Request, res: Response) {
+  const config = getSystemConfig();
+  const isOnboarded = config ? Boolean(config.isOnboarded) : false;
+  const isSetupMode = process.env.SETUP_MODE === "true";
+
   res.json({ 
-    isSetupMode: process.env.SETUP_MODE === "true",
-    isOnboarded: true
+    isSetupMode,
+    isOnboarded
   });
 }
 

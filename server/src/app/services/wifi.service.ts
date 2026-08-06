@@ -6,7 +6,7 @@ import { runSecureCommand } from "../utils/exec";
 import { ConnectPayload, WiFiNetwork } from "../types";
 import { redisConnection } from "../../infrastructure/redis";
 import { REDIS_KEYS, REDIS_TTLS } from "../../infrastructure/redisKeys";
-import { updateSystemConfig } from "./config.db.service";
+import { updateSystemConfig, getSystemConfig } from "./config.db.service";
 
 export async function scanNetworks(): Promise<WiFiNetwork[]> {
   try {
@@ -96,12 +96,19 @@ export async function connectToWifi(payload: ConnectPayload & { adminPin?: strin
 
   const persistSuccessState = async () => {
     try {
-      const pinHash = adminPin ? bcrypt.hashSync(adminPin, 10) : undefined;
-      updateSystemConfig({
-        isOnboarded: true,
-        shopName: shopName || "Modern Press",
-        adminPinHash: pinHash,
-      });
+      const currentConfig = getSystemConfig();
+      const updates: any = { isOnboarded: true };
+
+      if (adminPin) {
+        updates.adminPinHash = bcrypt.hashSync(adminPin, 10);
+      }
+      if (shopName) {
+        updates.shopName = shopName;
+      } else if (!currentConfig?.isOnboarded) {
+        updates.shopName = "Modern Press";
+      }
+
+      updateSystemConfig(updates);
 
       const dataDir = path.join(process.cwd(), "data");
       if (!fs.existsSync(dataDir)) {

@@ -11,6 +11,7 @@ export interface AdminState {
   checkAuth: () => Promise<boolean>;
   
   isSetupMode: boolean;
+  isOnboarded: boolean;
   checkSetupMode: () => Promise<void>;
 
   printers: BackendPrinter[];
@@ -96,10 +97,11 @@ export const useAdminStore = create<AdminState>((set, get) => ({
   },
   
   isSetupMode: false,
+  isOnboarded: true,
   checkSetupMode: async () => {
     try {
-      const res = await apiClient.get<{ isSetupMode: boolean }>('/wifi/setup-mode');
-      set({ isSetupMode: res.isSetupMode });
+      const res = await apiClient.get<{ isSetupMode: boolean; isOnboarded: boolean }>('/wifi/setup-mode');
+      set({ isSetupMode: res.isSetupMode, isOnboarded: res.isOnboarded });
     } catch (e) {
       console.error('Failed to check setup mode:', e);
     }
