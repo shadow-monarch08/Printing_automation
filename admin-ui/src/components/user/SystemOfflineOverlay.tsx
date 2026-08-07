@@ -15,22 +15,19 @@ export const SystemOfflineOverlay: React.FC<SystemOfflineOverlayProps> = ({
     <div 
       className="offline-banner-container"
       style={{
-        position: 'fixed',
-        top: '20px',
-        left: '50%',
-        transform: 'translateX(-50%)',
-        zIndex: 9999,
+        position: 'relative',
+        margin: '16px auto 32px auto',
         maxWidth: '860px',
-        width: 'calc(100% - 32px)',
+        width: '100%',
         backgroundColor: 'var(--bg-surface)',
         border: '2px solid var(--status-error)',
         borderRadius: 'var(--radius-sm, 4px)',
-        padding: '16px 24px',
+        padding: '20px 24px',
         boxSizing: 'border-box',
         boxShadow: 'none',
       }}
     >
-      {/* Corner Rivet / Bolt Accents */}
+      {/* Corner Rivet / Bolt Accents (4 Corners) */}
       <span
         style={{
           position: 'absolute',
@@ -50,6 +47,36 @@ export const SystemOfflineOverlay: React.FC<SystemOfflineOverlayProps> = ({
         style={{
           position: 'absolute',
           top: '4px',
+          right: '8px',
+          fontFamily: 'var(--font-mono)',
+          fontSize: '12px',
+          color: 'var(--status-error)',
+          opacity: 0.8,
+          lineHeight: 1,
+          pointerEvents: 'none',
+        }}
+      >
+        ▪
+      </span>
+      <span
+        style={{
+          position: 'absolute',
+          bottom: '4px',
+          left: '8px',
+          fontFamily: 'var(--font-mono)',
+          fontSize: '12px',
+          color: 'var(--status-error)',
+          opacity: 0.8,
+          lineHeight: 1,
+          pointerEvents: 'none',
+        }}
+      >
+        ▪
+      </span>
+      <span
+        style={{
+          position: 'absolute',
+          bottom: '4px',
           right: '8px',
           fontFamily: 'var(--font-mono)',
           fontSize: '12px',
