@@ -37,11 +37,8 @@ async function startServer() {
     // Phase 8.1 & 8.2: Start system metrics telemetry
     startMetricsPolling();
 
-    // Launch Quick Cloudflare Tunnel if system is onboarded
-    const activeConfig = getSystemConfig();
-    if (activeConfig?.isOnboarded) {
-      startQuickTunnel(PORT);
-    }
+    // Launch Quick Cloudflare Tunnel (guarded by security gate: isOnboarded && !isSetupMode)
+    startQuickTunnel(PORT);
   });
 }
 

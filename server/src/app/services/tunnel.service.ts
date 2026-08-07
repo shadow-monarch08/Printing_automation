@@ -12,7 +12,16 @@ export function getActiveTunnelUrl(): string | null {
   return config?.cloudflareUrl || null;
 }
 
+export function shouldTunnelBeActive(): boolean {
+  const config = getSystemConfig();
+  const isOnboarded = config ? Boolean(config.isOnboarded) : false;
+  const isSetupMode = process.env.SETUP_MODE === "true";
+
+  return isOnboarded && !isSetupMode;
+}
+
 export function stopQuickTunnel(): void {
+  currentTunnelUrl = null;
   if (tunnelProcess) {
     try {
       tunnelProcess.kill("SIGTERM");
@@ -25,6 +34,24 @@ export function stopQuickTunnel(): void {
 }
 
 export function startQuickTunnel(port: number = 3000): void {
+  if (!shouldTunnelBeActive()) {
+    console.log("[Tunnel Service] 🔒 Security Gate: Quick Cloudflare Tunnel start blocked because system is not onboarded or SETUP_MODE is active.");
+    stopQuickTunnel();
+    try {
+      const dataDir = path.join(process.cwd(), "data");
+      if (!fs.existsSync(dataDir)) {
+        fs.mkdirSync(dataDir, { recursive: true });
+      }
+      fs.writeFileSync(
+        path.join(dataDir, "cloudflare_url.txt"),
+        "# TUNNEL_DISABLED (System in Setup / Provisioning Mode)\n"
+      );
+    } catch (fileErr) {
+      /* ignored */
+    }
+    return;
+  }
+
   if (tunnelProcess) {
     console.log("[Tunnel Service] Quick Cloudflare Tunnel already active.");
     return;
