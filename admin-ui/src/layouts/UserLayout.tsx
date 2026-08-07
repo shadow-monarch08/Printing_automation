@@ -1,16 +1,18 @@
 import type { ReactNode } from 'react';
 import { FloatingControlsWidget } from '../components/user/FloatingControlsWidget';
 import { useUserPrintStore } from '../stores/useUserPrintStore';
+import { useAdminStore } from '../stores/useAdminStore';
 
 export function UserLayout({ children, subtitle }: { children: ReactNode; subtitle?: string }) {
   const isAcceptingJobs = useUserPrintStore(s => s.isAcceptingJobs);
+  const shopName = useAdminStore(s => s.shopName) || 'PRINT_AUTOMATION';
   const isOffline = isAcceptingJobs === false;
 
   return (
     <div className="user-layout kiosk-mobile-root">
       <header className="user-header">
         <div className="user-header-brand" style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-          <h1 className="user-header-title" style={{ margin: 0 }}>PRINT_AUTOMATION</h1>
+          <h1 className="user-header-title" style={{ margin: 0 }}>{shopName.toUpperCase()}</h1>
           <span className="user-header-sub" style={{ fontFamily: 'var(--font-mono)', fontSize: '0.75rem', color: 'var(--accent-primary)', fontWeight: 700 }}>
             // KIOSK_TERMINAL_01
           </span>

@@ -12,16 +12,22 @@ import { ValidatedInput } from '../../components/shared/ValidatedInput';
 import { EmptyState } from '../../components/shared/EmptyState';
 
 export function Settings() {
-  const { pricingConfig, isLoadingPricing, loadPricingConfig, updatePricingConfig } = useAdminStore();
+  const { pricingConfig, isLoadingPricing, loadPricingConfig, updatePricingConfig, shopName, updateShopName } = useAdminStore();
   const { addToast } = useToast();
   const { openModal, closeModal } = useModal();
   
   const [localConfig, setLocalConfig] = useState<PricingConfig | null>(null);
+  const [localShopName, setLocalShopName] = useState(shopName || 'Modern Press');
   const [isSaving, setIsSaving] = useState(false);
+  const [isSavingShopName, setIsSavingShopName] = useState(false);
 
   useEffect(() => {
     loadPricingConfig();
   }, [loadPricingConfig]);
+
+  useEffect(() => {
+    if (shopName) setLocalShopName(shopName);
+  }, [shopName]);
 
   useEffect(() => {
     if (pricingConfig) setLocalConfig({ ...pricingConfig });
@@ -80,6 +86,23 @@ export function Settings() {
       }
   };
 
+  const handleSaveShopName = async () => {
+    if (!localShopName.trim()) return;
+    setIsSavingShopName(true);
+    try {
+      const success = await updateShopName(localShopName.trim());
+      if (success) {
+        addToast({ type: 'success', title: 'Shop Identity Updated', description: 'Equipment shop name saved successfully.' });
+      } else {
+        addToast({ type: 'error', title: 'Update Failed', description: 'Failed to save shop name.' });
+      }
+    } catch (e: any) {
+      addToast({ type: 'error', title: 'Update Failed', description: e.message || 'Error occurred.' });
+    } finally {
+      setIsSavingShopName(false);
+    }
+  };
+
   const handleReset = () => {
       openModal({
           title: 'Confirm Factory Reset',
@@ -108,9 +131,37 @@ export function Settings() {
       
       <div className="settings-main">
          <header style={{ marginBottom: '2rem' }}>
-           <h1 className="page-title">Economics</h1>
-           <p className="page-desc">Global pricing matrix configuration</p>
+           <h1 className="page-title">Settings & Configuration</h1>
+           <p className="page-desc">Shop identity and global pricing matrix</p>
          </header>
+
+         {/* Shop Identity Card */}
+         <div className="card" style={{ marginBottom: '2rem' }}>
+            <h3 style={{ marginBottom: '1.25rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              [EQUIPMENT_TAG // SHOP_IDENTITY]
+            </h3>
+            <div style={{ display: 'flex', gap: '1rem', alignItems: 'flex-end', flexWrap: 'wrap' }}>
+              <div style={{ flex: 1, minWidth: '260px' }}>
+                <label style={{ display: 'block', fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '0.5rem' }}>
+                  Equipment / Business Shop Name
+                </label>
+                <ValidatedInput 
+                  value={localShopName}
+                  onChange={setLocalShopName}
+                  placeholder="Enter business / shop name..."
+                />
+              </div>
+              <Button 
+                variant="mechanical" 
+                onClick={handleSaveShopName} 
+                isLoading={isSavingShopName}
+                disabled={!localShopName.trim() || localShopName === shopName}
+                leftIcon={<Save size={16} />}
+              >
+                Update Shop Name
+              </Button>
+            </div>
+         </div>
 
          <div className="card" style={{ marginBottom: '2rem' }}>
             <h3 style={{ marginBottom: '1.5rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>

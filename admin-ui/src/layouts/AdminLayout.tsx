@@ -9,7 +9,8 @@ import { LoadingNet } from '../components/shared/LoadingNet';
 import { PinInput } from '../components/shared/PinInput';
 
 export function AdminLayout({ children }: { children: ReactNode }) {
-  const { isAuthenticated, authenticate, logout, checkAuth } = useAdminStore();
+  const { isAuthenticated, authenticate, logout, checkAuth, shopName } = useAdminStore();
+  const displayShopName = shopName || 'PRINT_AUTOMATION';
   const [pinInput, setPinInput] = useState('');
   const [error, setError] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -107,7 +108,7 @@ export function AdminLayout({ children }: { children: ReactNode }) {
       {/* Sidebar */}
       <aside className={`admin-sidebar ${sidebarOpen ? 'open' : ''}`}>
         <div className="admin-sidebar-brand">
-          <h1>PRINT_AUTOMATION</h1>
+          <h1>{displayShopName.toUpperCase()}</h1>
           <div className="data-mono" style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>CONTROL ROOM</div>
         </div>
         

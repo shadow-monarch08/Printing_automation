@@ -17,10 +17,12 @@ export async function getWifiSetupMode(req: Request, res: Response) {
   const config = getSystemConfig();
   const isOnboarded = config ? Boolean(config.isOnboarded) : false;
   const isSetupMode = process.env.SETUP_MODE === "true";
+  const shopName = config?.shopName || "Modern Press";
 
   res.json({ 
     isSetupMode,
-    isOnboarded
+    isOnboarded,
+    shopName
   });
 }
 

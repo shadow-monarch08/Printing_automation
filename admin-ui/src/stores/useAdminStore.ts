@@ -12,7 +12,9 @@ export interface AdminState {
   
   isSetupMode: boolean;
   isOnboarded: boolean;
+  shopName: string;
   checkSetupMode: () => Promise<void>;
+  updateShopName: (name: string) => Promise<boolean>;
 
   printers: BackendPrinter[];
   isLoadingPrinters: boolean;
@@ -98,13 +100,30 @@ export const useAdminStore = create<AdminState>((set, get) => ({
   
   isSetupMode: false,
   isOnboarded: true,
+  shopName: 'Modern Press',
   checkSetupMode: async () => {
     try {
-      const res = await apiClient.get<{ isSetupMode: boolean; isOnboarded: boolean }>('/wifi/setup-mode');
-      set({ isSetupMode: res.isSetupMode, isOnboarded: res.isOnboarded });
+      const res = await apiClient.get<{ isSetupMode: boolean; isOnboarded: boolean; shopName?: string }>('/wifi/setup-mode');
+      const shopName = res.shopName || 'Modern Press';
+      set({ isSetupMode: res.isSetupMode, isOnboarded: res.isOnboarded, shopName });
+      document.title = `${shopName} — Kiosk Terminal`;
     } catch (e) {
       console.error('Failed to check setup mode:', e);
     }
+  },
+  updateShopName: async (name: string) => {
+    try {
+      const res = await apiClient.post<{ success: boolean; config: any }>('/config/system', { shopName: name });
+      if (res.success && res.config?.shopName) {
+        const shopName = res.config.shopName;
+        set({ shopName });
+        document.title = `${shopName} — Kiosk Terminal`;
+        return true;
+      }
+    } catch (e) {
+      console.error('Failed to update shop name:', e);
+    }
+    return false;
   },
 
   printers: [],
