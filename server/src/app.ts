@@ -12,6 +12,7 @@ import wifiRoutes from "./app/routes/wifi.routes";
 import fleetRoutes from "./app/routes/fleet.routes";
 import sessionRoutes from "./app/routes/session.routes";
 import analyticsRoutes from "./app/routes/analytics.routes";
+import onboardingRoutes from "./app/routes/onboarding.routes";
 
 const app = express();
 
@@ -24,6 +25,7 @@ app.use(express.urlencoded({ extended: true }));
 app.use(express.static(path.join(__dirname, "../public")));
 
 // API routes
+app.use("/setup", onboardingRoutes);
 app.use("/printers", printerRoutes);
 app.use("/print", printRoutes);
 app.use("/jobs", jobsRoutes);

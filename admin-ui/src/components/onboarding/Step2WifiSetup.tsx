@@ -75,15 +75,18 @@ export function Step2WifiSetup({ shopName, adminPin, onComplete, mode: _mode }: 
   };
 
   const handleSkipWifi = async () => {
+    setErrorMsg(null);
+    setIsConnecting(true);
+    setSelectedSsid('CURRENT_ACTIVE_NETWORK');
     try {
       await api.skipWifiSetup({ adminPin, shopName });
-    } catch (err) {
-      console.warn('Skip Wi-Fi setup call:', err);
+    } catch (err: any) {
+      setIsConnecting(false);
+      setErrorMsg(err.response?.data?.error || err.message || 'Failed to trigger onboarding skip.');
     }
-    onComplete();
   };
 
-  // Production Connection Polling Engine
+  // Production Connection & Provisioning Polling Engine
   useEffect(() => {
     if (!isConnecting) return;
 
@@ -95,11 +98,11 @@ export function Step2WifiSetup({ shopName, adminPin, onComplete, mode: _mode }: 
       setConnectProgress(Math.min(100, Math.round((secondsElapsed / 36) * 100)));
 
       try {
-        const res = await api.getWifiConnectionStatus();
+        const res = await api.getProvisionStatus();
         if (res?.status === 'failed') {
           clearInterval(interval);
           setIsConnecting(false);
-          setErrorMsg(res.error || 'Wi-Fi Authentication Failed.');
+          setErrorMsg(res.error || 'Onboarding Provisioning Failed (Cloudflare Tunnel / Wi-Fi).');
           return;
         }
 
@@ -114,7 +117,7 @@ export function Step2WifiSetup({ shopName, adminPin, onComplete, mode: _mode }: 
         if (failedPollCount >= 18 || secondsElapsed >= 36) {
           clearInterval(interval);
           setIsConnecting(false);
-          onComplete();
+          setErrorMsg('Connection polling timed out. Please check hardware connection.');
         }
       }
     }, 2000);
@@ -278,24 +281,26 @@ export function Step2WifiSetup({ shopName, adminPin, onComplete, mode: _mode }: 
           )}
         </PaperTable>
 
-        {/* Skip Wi-Fi Setup Option */}
-        <Button
-          variant="ghost"
-          onClick={handleSkipWifi}
-          style={{
-            width: '100%',
-            height: '44px',
-            fontFamily: 'var(--font-mono)',
-            fontSize: '11px',
-            fontWeight: 700,
-            letterSpacing: '0.05em',
-            marginTop: '16px',
-            border: '1px dashed var(--border-default)',
-            color: 'var(--text-secondary)',
-          }}
-        >
-          [ PROCEED WITH CURRENT ACTIVE NETWORK (SKIP WI-FI SETUP) ➔ ]
-        </Button>
+        {/* Skip Wi-Fi Setup Option (Hidden in Maintenance / Setup Mode) */}
+        {_mode !== 'wifi-only' && (
+          <Button
+            variant="ghost"
+            onClick={handleSkipWifi}
+            style={{
+              width: '100%',
+              height: '44px',
+              fontFamily: 'var(--font-mono)',
+              fontSize: '11px',
+              fontWeight: 700,
+              letterSpacing: '0.05em',
+              marginTop: '16px',
+              border: '1px dashed var(--border-default)',
+              color: 'var(--text-secondary)',
+            }}
+          >
+            [ PROCEED WITH CURRENT ACTIVE NETWORK (SKIP WI-FI SETUP) ➔ ]
+          </Button>
+        )}
       </div>
 
       {/* Fullscreen Connecting Hazard Overlay */}

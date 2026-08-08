@@ -103,7 +103,7 @@ export const useAdminStore = create<AdminState>((set, get) => ({
   shopName: 'Modern Press',
   checkSetupMode: async () => {
     try {
-      const res = await apiClient.get<{ isSetupMode: boolean; isOnboarded: boolean; shopName?: string }>('/wifi/setup-mode');
+      const res = await api.getSetupStatus();
       const shopName = res.shopName || 'Modern Press';
       set({ isSetupMode: res.isSetupMode, isOnboarded: res.isOnboarded, shopName });
       document.title = `${shopName} — Kiosk Terminal`;

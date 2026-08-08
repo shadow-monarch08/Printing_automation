@@ -39,7 +39,11 @@ function UserKioskPage() {
   }
 
   if (isAcceptingJobs === false) {
-    return <SystemOfflineOverlay />;
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', flex: 1, minHeight: 'calc(60vh - 80px)', width: '100%', margin: 'auto 0' }}>
+        <SystemOfflineOverlay />
+      </div>
+    );
   }
 
   return (
@@ -67,16 +71,16 @@ function App() {
 
   if (loading) return null;
 
-  if (!isOnboarded) {
-    return <OnboardingLayout mode="full" />;
-  }
+  const renderMainContent = () => {
+    if (!isOnboarded) {
+      return <OnboardingLayout mode="full" />;
+    }
 
-  if (isSetupMode) {
-    return <OnboardingLayout mode="wifi-only" />;
-  }
+    if (isSetupMode) {
+      return <OnboardingLayout mode="wifi-only" />;
+    }
 
-  return (
-    <>
+    return (
       <Routes>
         <Route path="/" element={<UserLayout><UserKioskPage /></UserLayout>} />
         <Route path="/onboarding" element={<OnboardingLayout />} />
@@ -86,6 +90,12 @@ function App() {
         <Route path="/admin/settings" element={<AdminLayout><Settings /></AdminLayout>} />
         <Route path="/admin/analytics" element={<AdminLayout><Analytics /></AdminLayout>} />
       </Routes>
+    );
+  };
+
+  return (
+    <>
+      {renderMainContent()}
       <Modal />
       <ToastStack />
     </>

@@ -16,7 +16,7 @@ export const SystemOfflineOverlay: React.FC<SystemOfflineOverlayProps> = ({
       className="offline-banner-container"
       style={{
         position: 'relative',
-        margin: '16px auto 32px auto',
+        margin: '0 auto',
         maxWidth: '860px',
         width: '100%',
         backgroundColor: 'var(--bg-surface)',

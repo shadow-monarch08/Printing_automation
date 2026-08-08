@@ -1,6 +1,5 @@
 import { Request, Response } from "express";
 import * as wifiService from "../services/wifi.service";
-import { getSystemConfig } from "../services/config.db.service";
 import { redisConnection } from "../../infrastructure/redis";
 import { REDIS_KEYS } from "../../infrastructure/redisKeys";
 
@@ -13,29 +12,8 @@ export async function scanWifiNetworks(req: Request, res: Response) {
   }
 }
 
-export async function getWifiSetupMode(req: Request, res: Response) {
-  const config = getSystemConfig();
-  const isOnboarded = config ? Boolean(config.isOnboarded) : false;
-  const isSetupMode = process.env.SETUP_MODE === "true";
-  const shopName = config?.shopName || "Modern Press";
-
-  res.json({ 
-    isSetupMode,
-    isOnboarded,
-    shopName
-  });
-}
-
 export async function connectWifiNetwork(req: Request, res: Response) {
-  const { ssid, profileName, password, skipWifi, adminPin, shopName } = req.body;
-  
-  if (skipWifi) {
-    await wifiService.connectToWifi({ skipWifi: true, adminPin, shopName });
-    return res.json({ 
-      message: "Wi-Fi setup skipped. Onboarding completed with active network connection.",
-      skipped: true 
-    });
-  }
+  const { ssid, profileName, password, adminPin, shopName } = req.body;
 
   if (!ssid) {
     return res.status(400).json({ error: "SSID is required" });
@@ -55,15 +33,6 @@ export async function connectWifiNetwork(req: Request, res: Response) {
       console.error("[WiFi Controller] Connection background task failed:", err);
     }
   }, 1000);
-}
-
-export async function skipWifiSetup(req: Request, res: Response) {
-  const { adminPin, shopName } = req.body;
-  await wifiService.connectToWifi({ skipWifi: true, adminPin, shopName });
-  return res.json({
-    message: "Wi-Fi setup skipped. Onboarding completed with active network connection.",
-    skipped: true,
-  });
 }
 
 export async function getWifiConnectionStatus(req: Request, res: Response) {

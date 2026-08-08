@@ -69,6 +69,11 @@ export function startQuickTunnel(port: number = 3000): void {
 
       if (match && match[0]) {
         const liveUrl = match[0];
+        // Ignore Cloudflare's internal API control plane endpoint
+        if (liveUrl.includes("api.trycloudflare.com")) {
+          return;
+        }
+
         if (currentTunnelUrl !== liveUrl) {
           currentTunnelUrl = liveUrl;
           console.log(`🌐 [Tunnel Service] Quick Cloudflare Tunnel online: ${liveUrl}`);
@@ -122,4 +127,93 @@ export function startQuickTunnel(port: number = 3000): void {
     console.warn("[Tunnel Service] Failed to spawn cloudflared:", err.message || err);
     tunnelProcess = null;
   }
+}
+
+export function waitForTunnelPromise(port: number = 3000, timeoutMs: number = 15000): Promise<string> {
+  return new Promise((resolve, reject) => {
+    if (currentTunnelUrl && !currentTunnelUrl.includes("api.trycloudflare.com")) {
+      return resolve(currentTunnelUrl);
+    }
+
+    let isSettled = false;
+    let spawnErrorMsg: string | null = null;
+
+    const cleanup = () => {
+      isSettled = true;
+      if (timeoutTimer) clearTimeout(timeoutTimer);
+    };
+
+    const timeoutTimer = setTimeout(() => {
+      if (!isSettled) {
+        cleanup();
+        reject(new Error(spawnErrorMsg || "Cloudflare Quick Tunnel timed out. Verify WAN internet connection."));
+      }
+    }, timeoutMs);
+
+    // Force spawn if not active
+    if (!tunnelProcess) {
+      try {
+        console.log(`[Tunnel Service] Spawning cloudflared for onboarding tunnel verification...`);
+        tunnelProcess = spawn("cloudflared", ["tunnel", "--url", `http://localhost:${port}`]);
+      } catch (err: any) {
+        cleanup();
+        return reject(new Error(err.message || "Failed to spawn cloudflared process"));
+      }
+    }
+
+    const handleOutput = (data: Buffer) => {
+      if (isSettled) return;
+      const output = data.toString();
+      const match = output.match(/https:\/\/[a-zA-Z0-9-]+\.trycloudflare\.com/);
+
+      if (match && match[0]) {
+        const liveUrl = match[0];
+        if (liveUrl.includes("api.trycloudflare.com")) return;
+
+        currentTunnelUrl = liveUrl;
+        console.log(`🌐 [Tunnel Service] Quick Cloudflare Tunnel verified online: ${liveUrl}`);
+
+        try {
+          updateSystemConfig({ cloudflareUrl: liveUrl });
+        } catch (e) { /* ignored */ }
+
+        try {
+          const dataDir = path.join(process.cwd(), "data");
+          if (!fs.existsSync(dataDir)) fs.mkdirSync(dataDir, { recursive: true });
+          fs.writeFileSync(path.join(dataDir, "cloudflare_url.txt"), `${liveUrl}\n# Kiosk Quick Tunnel Online`);
+        } catch (e) { /* ignored */ }
+
+        cleanup();
+        resolve(liveUrl);
+      }
+    };
+
+    if (tunnelProcess.stdout) {
+      tunnelProcess.stdout.on("data", handleOutput);
+    }
+
+    if (tunnelProcess.stderr) {
+      tunnelProcess.stderr.on("data", handleOutput);
+    }
+
+    tunnelProcess.on("error", (err: any) => {
+      if (err.code === "ENOENT") {
+        spawnErrorMsg = "'cloudflared' CLI binary is not installed on system PATH.";
+      } else {
+        spawnErrorMsg = err.message || "Cloudflare process execution error";
+      }
+      if (!isSettled) {
+        cleanup();
+        reject(new Error(spawnErrorMsg || "Cloudflare process execution error"));
+      }
+    });
+
+    tunnelProcess.on("exit", (code) => {
+      tunnelProcess = null;
+      if (!isSettled) {
+        cleanup();
+        reject(new Error(spawnErrorMsg || `cloudflared process exited unexpectedly with code ${code}`));
+      }
+    });
+  });
 }

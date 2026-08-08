@@ -84,6 +84,43 @@ export async function scanNetworks(): Promise<WiFiNetwork[]> {
 
 import { startQuickTunnel } from "./tunnel.service";
 
+export async function connectToWifiRaw(ssid?: string, password?: string, profileName?: string): Promise<void> {
+  if (profileName) {
+    console.log(`[WiFi Service] Connecting to saved profile "${profileName}"...`);
+    await runSecureCommand('sudo', ['nmcli', 'connection', 'up', profileName]);
+    return;
+  }
+
+  if (!ssid) throw new Error("Wi-Fi SSID is required");
+
+  console.log(`[WiFi Service] Connecting to network "${ssid}"...`);
+  try {
+    await runSecureCommand('sudo', ['nmcli', 'connection', 'delete', ssid]);
+  } catch (e) { /* ignored */ }
+
+  if (password) {
+    await runSecureCommand('sudo', [
+      'nmcli', 'connection', 'add', 
+      'type', 'wifi', 
+      'ifname', 'wlan0', 
+      'con-name', ssid, 
+      'ssid', ssid, 
+      'wifi-sec.key-mgmt', 'wpa-psk', 
+      'wifi-sec.psk', password
+    ]);
+  } else {
+    await runSecureCommand('sudo', [
+      'nmcli', 'connection', 'add', 
+      'type', 'wifi', 
+      'ifname', 'wlan0', 
+      'con-name', ssid, 
+      'ssid', ssid
+    ]);
+  }
+
+  await runSecureCommand('sudo', ['nmcli', 'connection', 'up', ssid]);
+}
+
 export async function connectToWifi(payload: ConnectPayload & { adminPin?: string; shopName?: string }): Promise<boolean> {
   const { ssid, profileName, password, adminPin, shopName } = payload;
 
@@ -139,42 +176,8 @@ export async function connectToWifi(payload: ConnectPayload & { adminPin?: strin
   }
 
   try {
-    // FLOW A: Saved Network
-    if (profileName) {
-      console.log(`[WiFi Service] Connecting to saved profile "${profileName}"...`);
-      await runSecureCommand('sudo', ['nmcli', 'connection', 'up', profileName]);
-      await persistSuccessState();
-      await redisConnection.set(
-        REDIS_KEYS.wifiConnectionStatus,
-        JSON.stringify({ status: "success", timestamp: Date.now() }),
-        "EX",
-        REDIS_TTLS.WIFI_STATUS
-      );
-      return true;
-    }
-
-    // FLOW B: New Network
-    if (!ssid || !password) throw new Error("SSID and Password are required for new networks");
-
-    console.log(`[WiFi Service] Connecting to new network "${ssid}"...`);
-    try {
-      await runSecureCommand('sudo', ['nmcli', 'connection', 'delete', ssid]);
-    } catch (e) { /* ignored */ }
-
-    await runSecureCommand('sudo', [
-      'nmcli', 'connection', 'add', 
-      'type', 'wifi', 
-      'ifname', 'wlan0', 
-      'con-name', ssid, 
-      'ssid', ssid, 
-      'wifi-sec.key-mgmt', 'wpa-psk', 
-      'wifi-sec.psk', password
-    ]);
-
-    await runSecureCommand('sudo', ['nmcli', 'connection', 'up', ssid]);
-
+    await connectToWifiRaw(ssid, password, profileName);
     await persistSuccessState();
-
     await redisConnection.set(
       REDIS_KEYS.wifiConnectionStatus,
       JSON.stringify({ status: "success", timestamp: Date.now() }),
