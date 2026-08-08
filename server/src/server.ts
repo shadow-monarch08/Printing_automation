@@ -42,6 +42,15 @@ async function startServer() {
   });
 }
 
+// Process-level Crash Protection
+process.on("uncaughtException", (err) => {
+  console.error("💥 [CRITICAL] Uncaught Exception in Node process:", err);
+});
+
+process.on("unhandledRejection", (reason) => {
+  console.error("💥 [CRITICAL] Unhandled Rejection in background task:", reason);
+});
+
 startServer().catch(err => {
   console.error("Failed to start server:", err);
   process.exit(1);

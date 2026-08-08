@@ -1,5 +1,6 @@
 import { printMasterQueue } from "../../infrastructure/printMaster.queue";
 import { cupsCommands } from "../../commands/cups.commands";
+import { NotFoundError, ConflictError } from "../utils/errors";
 
 export async function getAllJobs(sessionId?: string) {
   const [waiting, active, delayed, completed, failed] = await Promise.all([
@@ -22,25 +23,25 @@ export async function getAllJobs(sessionId?: string) {
       colorMode: job.data.colorMode,
       duplex: job.data.duplex,
       orientation: job.data.orientation,
-      targetPrinter: job.data.targetPrinter || 'Auto',
+      targetPrinter: job.data.targetPrinter || "Auto",
       status: status,
       cost: job.data.cost,
       submittedAt: job.data.submittedAt,
       completedAt: job.finishedOn ? new Date(job.finishedOn).toISOString() : null,
-      error: job.failedReason || null
+      error: job.failedReason || null,
     };
   };
 
   let allJobs = [
-    ...active.map(j => mapJob(j, "printing")),
-    ...waiting.map(j => mapJob(j, "queued")),
-    ...delayed.map(j => mapJob(j, "spooling")),
-    ...completed.map(j => mapJob(j, "done")),
-    ...failed.map(j => mapJob(j, "failed")),
+    ...active.map((j) => mapJob(j, "printing")),
+    ...waiting.map((j) => mapJob(j, "queued")),
+    ...delayed.map((j) => mapJob(j, "spooling")),
+    ...completed.map((j) => mapJob(j, "done")),
+    ...failed.map((j) => mapJob(j, "failed")),
   ];
 
   if (sessionId) {
-    allJobs = allJobs.filter(j => j.sessionId === sessionId);
+    allJobs = allJobs.filter((j) => j.sessionId === sessionId);
   }
 
   return allJobs;
@@ -49,13 +50,12 @@ export async function getAllJobs(sessionId?: string) {
 export async function deleteJob(jobId: string) {
   const job = await printMasterQueue.getJob(jobId);
   if (!job) {
-    throw new Error(`Job ${jobId} not found`);
+    throw new NotFoundError("JOB_NOT_FOUND", `Print job ${jobId} not found in queue.`);
   }
 
   const isActive = await job.isActive();
-  
+
   if (isActive && job.returnvalue?.cupsJobId) {
-    // If it's already sent to CUPS, try to cancel it
     try {
       await cupsCommands.cancelJob(job.returnvalue.cupsJobId);
     } catch (e) {
@@ -69,32 +69,32 @@ export async function deleteJob(jobId: string) {
 
 export async function pauseJob(jobId: string) {
   const job = await printMasterQueue.getJob(jobId);
-  if (!job) throw new Error(`Job ${jobId} not found`);
+  if (!job) throw new NotFoundError("JOB_NOT_FOUND", `Print job ${jobId} not found in queue.`);
 
-  const cupsJobId = job.data.cupsJobId; 
+  const cupsJobId = job.data.cupsJobId;
   if (cupsJobId) {
     await cupsCommands.holdJob(cupsJobId);
   } else {
-    throw new Error(`Job ${jobId} has no active CUPS job to pause.`);
+    throw new ConflictError("JOB_NO_CUPS_ID", `Job ${jobId} has no active CUPS process to pause.`);
   }
 }
 
 export async function resumeJob(jobId: string) {
   const job = await printMasterQueue.getJob(jobId);
-  if (!job) throw new Error(`Job ${jobId} not found`);
+  if (!job) throw new NotFoundError("JOB_NOT_FOUND", `Print job ${jobId} not found in queue.`);
 
-  const cupsJobId = job.data.cupsJobId; 
+  const cupsJobId = job.data.cupsJobId;
   if (cupsJobId) {
     await cupsCommands.resumeJob(cupsJobId);
   } else {
-    throw new Error(`Job ${jobId} has no active CUPS job to resume.`);
+    throw new ConflictError("JOB_NO_CUPS_ID", `Job ${jobId} has no active CUPS process to resume.`);
   }
 }
 
 export async function changePriority(jobId: string, priority: number) {
   const job = await printMasterQueue.getJob(jobId);
-  if (!job) throw new Error(`Job ${jobId} not found`);
-  
+  if (!job) throw new NotFoundError("JOB_NOT_FOUND", `Print job ${jobId} not found in queue.`);
+
   await job.changePriority({ priority });
 }
 
@@ -112,14 +112,10 @@ export async function getQueueStatus() {
 }
 
 export async function emergencyStop() {
-  // Obliterate the BullMQ queue (removes all jobs, regardless of state)
   await printMasterQueue.obliterate({ force: true });
-  
-  // Also wipe CUPS queue at OS level
   try {
     await cupsCommands.cancelAllJobs();
   } catch (err) {
     console.error("Failed to cancel CUPS jobs during emergency stop:", err);
   }
 }
-

@@ -39,11 +39,9 @@ const AliasModalBody = ({ printerName, currentAlias, closeModal }: { printerName
             if (success) {
               addToast({ type: 'success', title: 'Alias Updated', description: `${printerName} is now known as ${newAlias}.` });
               closeModal();
-            } else {
-              addToast({ type: 'error', title: 'Update Failed', description: `Could not update alias for ${printerName}.` });
             }
           } catch (error: any) {
-            addToast({ type: 'error', title: 'Update Failed', description: error.message || 'Unknown error occurred.' });
+            /* Handled by global API error interceptor */
           } finally {
             setIsSaving(false);
           }
@@ -72,11 +70,9 @@ const DeletePrinterModalBody = ({ printerName, closeModal }: { printerName: stri
             if (success) {
               addToast({ type: 'success', title: 'Printer Deleted', description: `${printerName} has been removed.` });
               closeModal();
-            } else {
-              addToast({ type: 'error', title: 'Deletion Failed', description: `Could not delete ${printerName}.` });
             }
           } catch (error: any) {
-            addToast({ type: 'error', title: 'Deletion Failed', description: error.message || 'Unknown error occurred.' });
+            /* Handled by global API error interceptor */
           } finally {
             setIsDeleting(false);
           }
@@ -105,11 +101,9 @@ const DeleteAllPrintersModalBody = ({ closeModal }: { closeModal: () => void }) 
             if (success) {
               addToast({ type: 'success', title: 'Fleet Cleared', description: `All printers have been removed.` });
               closeModal();
-            } else {
-              addToast({ type: 'error', title: 'Deletion Failed', description: `Could not delete printers.` });
             }
           } catch (error: any) {
-            addToast({ type: 'error', title: 'Deletion Failed', description: error.message || 'Unknown error occurred.' });
+            /* Handled by global API error interceptor */
           } finally {
             setIsDeleting(false);
           }
@@ -153,11 +147,9 @@ const SetupWizardModalBody = ({ device, closeModal }: { device: { uri: string, r
 
         setStep(2);
       } else {
-        addToast({ type: 'error', title: 'Configuration Failed', description: res.error || 'Unknown error' });
         closeModal();
       }
     } catch (err: any) {
-      addToast({ type: 'error', title: 'Configuration Failed', description: err.message || 'Unknown error' });
       closeModal();
     } finally {
       setIsConfiguring(false);
@@ -176,11 +168,9 @@ const SetupWizardModalBody = ({ device, closeModal }: { device: { uri: string, r
         }));
 
         closeModal();
-      } else {
-        addToast({ type: 'error', title: 'Update Failed', description: 'Failed to save capabilities.' });
       }
     } catch (e: any) {
-      addToast({ type: 'error', title: 'Update Failed', description: e.message });
+      /* Handled by global API error interceptor */
     } finally {
       setIsConfiguring(false);
     }
@@ -332,11 +322,9 @@ export function Fleet() {
       const success = await setDefaultPrinter(name);
       if (success) {
         addToast({ type: 'success', title: 'Default Updated', description: `${name} is now the primary target.` });
-      } else {
-        addToast({ type: 'error', title: 'Update Failed', description: `Failed to set ${name} as default.` });
       }
     } catch (error: any) {
-      addToast({ type: 'error', title: 'Update Failed', description: error.message || 'Unknown error occurred.' });
+      /* Handled by global API error interceptor */
     }
   };
 

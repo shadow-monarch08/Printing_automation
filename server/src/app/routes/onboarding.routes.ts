@@ -1,12 +1,13 @@
 import { Router } from "express";
 import * as onboardingController from "../controllers/onboarding.controller";
 import { requireNonSetupModeForSkip } from "../middlewares/onboarding.middleware";
+import { asyncHandler } from "../utils/asyncHandler";
 
 const router = Router();
 
-router.get("/status", onboardingController.getSetupStatus);
-router.get("/provision-status", onboardingController.getProvisionStatus);
-router.post("/provision", requireNonSetupModeForSkip, onboardingController.provisionSetup);
-router.post("/skip", requireNonSetupModeForSkip, onboardingController.skipWifiSetup);
+router.get("/status", asyncHandler(onboardingController.getSetupStatus));
+router.get("/provision-status", asyncHandler(onboardingController.getProvisionStatus));
+router.post("/provision", asyncHandler(requireNonSetupModeForSkip), asyncHandler(onboardingController.provisionSetup));
+router.post("/skip", asyncHandler(requireNonSetupModeForSkip), asyncHandler(onboardingController.skipWifiSetup));
 
 export default router;

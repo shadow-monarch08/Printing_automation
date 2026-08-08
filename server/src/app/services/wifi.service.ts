@@ -7,6 +7,7 @@ import { ConnectPayload, WiFiNetwork } from "../types";
 import { redisConnection } from "../../infrastructure/redis";
 import { REDIS_KEYS, REDIS_TTLS } from "../../infrastructure/redisKeys";
 import { updateSystemConfig, getSystemConfig } from "./config.db.service";
+import { ValidationError, HardwareError } from "../utils/errors";
 
 export async function scanNetworks(): Promise<WiFiNetwork[]> {
   try {
@@ -111,7 +112,7 @@ export async function connectToWifiRaw(ssid?: string, password?: string, profile
   }
 
   const targetSsid = ssid || profileName;
-  if (!targetSsid) throw new Error("Wi-Fi SSID is required");
+  if (!targetSsid) throw new ValidationError("VALIDATION_SSID_REQUIRED", "Wi-Fi SSID is required.");
 
   console.log(`[WiFi Service] Connecting to network "${targetSsid}"...`);
   try {

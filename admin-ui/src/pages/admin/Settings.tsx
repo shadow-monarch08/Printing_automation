@@ -76,11 +76,9 @@ export function Settings() {
         const success = await updatePricingConfig(localConfig);
         if (success) {
             addToast({ type: 'success', title: 'Settings Saved', description: 'Global pricing constraints updated successfully.' });
-        } else {
-            addToast({ type: 'error', title: 'Save Failed', description: 'Failed to update pricing constraints.' });
         }
       } catch (error: any) {
-        addToast({ type: 'error', title: 'Save Failed', description: error.message || 'Unknown error occurred.' });
+        /* Handled by global API error interceptor */
       } finally {
         setIsSaving(false);
       }
@@ -93,11 +91,9 @@ export function Settings() {
       const success = await updateShopName(localShopName.trim());
       if (success) {
         addToast({ type: 'success', title: 'Shop Identity Updated', description: 'Equipment shop name saved successfully.' });
-      } else {
-        addToast({ type: 'error', title: 'Update Failed', description: 'Failed to save shop name.' });
       }
     } catch (e: any) {
-      addToast({ type: 'error', title: 'Update Failed', description: e.message || 'Error occurred.' });
+      /* Handled by global API error interceptor */
     } finally {
       setIsSavingShopName(false);
     }

@@ -13,6 +13,7 @@ import fleetRoutes from "./app/routes/fleet.routes";
 import sessionRoutes from "./app/routes/session.routes";
 import analyticsRoutes from "./app/routes/analytics.routes";
 import onboardingRoutes from "./app/routes/onboarding.routes";
+import { globalErrorHandler } from "./app/middlewares/errorHandler.middleware";
 
 const app = express();
 
@@ -47,5 +48,8 @@ app.get("/health", (_req, res) => {
 app.get(/.*/, (_, res) => {
   res.sendFile(path.join(__dirname, "../public/index.html"));
 });
+
+// Global Error Handler
+app.use(globalErrorHandler);
 
 export default app;

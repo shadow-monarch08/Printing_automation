@@ -7,6 +7,7 @@ import { waitForTunnelPromise } from "./tunnel.service";
 import { redisConnection } from "../../infrastructure/redis";
 import { REDIS_KEYS, REDIS_TTLS } from "../../infrastructure/redisKeys";
 import { runSecureCommand } from "../utils/exec";
+import { ForbiddenError, ValidationError, HardwareError } from "../utils/errors";
 
 export interface ProvisionOnboardingPayload {
   adminPin?: string;
@@ -34,7 +35,10 @@ export async function provisionOnboarding(payload: ProvisionOnboardingPayload) {
   const isSetupMode = process.env.SETUP_MODE === "true";
 
   if (skipWifi && isSetupMode) {
-    throw new Error("Skipping Wi-Fi setup is strictly forbidden in Maintenance/Setup Mode.");
+    throw new ForbiddenError(
+      "SETUP_SKIP_FORBIDDEN",
+      "Skipping Wi-Fi setup is strictly forbidden in Maintenance/Setup Mode."
+    );
   }
 
   // Publish connecting status to Redis
@@ -48,7 +52,9 @@ export async function provisionOnboarding(payload: ProvisionOnboardingPayload) {
   try {
     // 1. Handle Wi-Fi Connection (if not skipping)
     if (!skipWifi) {
-      if (!wifiSsid) throw new Error("Wi-Fi SSID is required.");
+      if (!wifiSsid) {
+        throw new ValidationError("VALIDATION_SSID_REQUIRED", "Wi-Fi SSID is required.");
+      }
       console.log(`[Onboarding Service] Attempting Wi-Fi connection to "${wifiSsid}"...`);
       await wifiService.connectToWifiRaw(wifiSsid, wifiPassword);
     } else {
@@ -97,17 +103,21 @@ export async function provisionOnboarding(payload: ProvisionOnboardingPayload) {
     };
   } catch (error: any) {
     let errorMsg = error.message || "Onboarding provisioning failed";
-    if (typeof errorMsg === 'string' && errorMsg.includes('Command failed:')) {
-      errorMsg = errorMsg.replace(/^Command failed:\s*sudo\s*nmcli\s*/i, '').trim();
-      if (errorMsg.includes('Secrets were required')) {
-        errorMsg = 'Invalid Wi-Fi Passphrase (WPA2 security key rejected).';
+    let code = error.code || "WIFI_CONNECTION_FAILED";
+
+    if (typeof errorMsg === "string" && errorMsg.includes("Command failed:")) {
+      errorMsg = errorMsg.replace(/^Command failed:\s*sudo\s*nmcli\s*/i, "").trim();
+      if (errorMsg.includes("Secrets were required") || errorMsg.includes("no-secrets")) {
+        code = "WIFI_AUTH_FAILED";
+        errorMsg = "Invalid Wi-Fi Passphrase (WPA2 security key rejected).";
       }
     }
+
     console.error(`[Onboarding Service] Provisioning failed:`, errorMsg);
 
     // Fallback: Re-enable Kiosk-Hotspot Access Point
     try {
-      await runSecureCommand('sudo', ['nmcli', 'connection', 'up', 'Kiosk-Hotspot']);
+      await runSecureCommand("sudo", ["nmcli", "connection", "up", "Kiosk-Hotspot"]);
     } catch (e) {
       console.warn("[Onboarding Service] Hotspot fallback trigger warning:", e);
     }
@@ -124,6 +134,6 @@ export async function provisionOnboarding(payload: ProvisionOnboardingPayload) {
       REDIS_TTLS.WIFI_STATUS
     );
 
-    throw new Error(errorMsg);
+    throw new HardwareError(code, errorMsg);
   }
 }

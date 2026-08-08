@@ -38,11 +38,9 @@ export function Queue() {
                 const success = await cancelJob(id);
                 if (success) {
                   addToast({ type: 'success', title: 'Job Annihilated', description: `${id.substring(0, 8)} removed.` });
-                } else {
-                  addToast({ type: 'error', title: 'Action Failed', description: `Could not cancel job ${id.substring(0, 8)}.` });
                 }
              } catch (error: any) {
-                addToast({ type: 'error', title: 'Action Failed', description: error.message || 'Unknown error occurred.' });
+                /* Handled by global API error interceptor */
              } finally {
                 setProcessingAction(null);
                 closeModal();
@@ -59,7 +57,7 @@ export function Queue() {
           await pauseJob(id);
           addToast({ type: 'info', title: 'Job Paused', description: `${id.substring(0, 8)} has been suspended.` });
       } catch (error: any) {
-          addToast({ type: 'error', title: 'Action Failed', description: error.message || 'Unknown error occurred.' });
+          /* Handled by global API error interceptor */
       } finally {
           setProcessingAction(null);
       }
@@ -71,7 +69,7 @@ export function Queue() {
           await resumeJob(id);
           addToast({ type: 'success', title: 'Job Resumed', description: `${id.substring(0, 8)} is now resuming.` });
       } catch (error: any) {
-          addToast({ type: 'error', title: 'Action Failed', description: error.message || 'Unknown error occurred.' });
+          /* Handled by global API error interceptor */
       } finally {
           setProcessingAction(null);
       }
@@ -83,11 +81,9 @@ export function Queue() {
           const success = await prioritizeJob(id);
           if (success) {
               addToast({ type: 'success', title: 'Route Override', description: `${id.substring(0, 8)} moved to front of queue.` });
-          } else {
-              addToast({ type: 'error', title: 'Action Failed', description: `Could not prioritize job ${id.substring(0, 8)}.` });
           }
       } catch (error: any) {
-          addToast({ type: 'error', title: 'Action Failed', description: error.message || 'Unknown error occurred.' });
+          /* Handled by global API error interceptor */
       } finally {
           setProcessingAction(null);
       }
@@ -104,7 +100,7 @@ export function Queue() {
         addToast({ type: 'info', title: 'Queue Paused', description: 'Master queue suspended. Active jobs will finish.' });
       }
     } catch (error: any) {
-      addToast({ type: 'error', title: 'Action Failed', description: error.message || 'Could not change queue state.' });
+      /* Handled by global API error interceptor */
     } finally {
       setProcessingAction(null);
     }
@@ -134,7 +130,7 @@ export function Queue() {
                   addToast({ type: 'success', title: 'Emergency Stop Executed', description: 'All jobs have been wiped.' });
                 }
              } catch (error: any) {
-                addToast({ type: 'error', title: 'Action Failed', description: error.message || 'Emergency stop failed.' });
+                /* Handled by global API error interceptor */
              } finally {
                 setProcessingAction(null);
                 closeModal();

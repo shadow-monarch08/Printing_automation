@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useCallback } from 'react';
+import { createContext, useContext, useState, useCallback, useEffect } from 'react';
 import type { ReactNode } from 'react';
 
 function generateUUID(): string {
@@ -57,6 +57,26 @@ export function ToastProvider({ children }: { children: ReactNode }) {
     setToasts([]);
   }, []);
 
+  // Global API Error Event Listener
+  useEffect(() => {
+    const handleGlobalApiError = (event: Event) => {
+      const customEvent = event as CustomEvent;
+      if (customEvent.detail) {
+        const { title, description } = customEvent.detail;
+        addToast({
+          type: 'error',
+          title: title || 'Error',
+          description: description || 'An error occurred while communicating with the server.',
+        });
+      }
+    };
+
+    window.addEventListener('global_api_error', handleGlobalApiError);
+    return () => {
+      window.removeEventListener('global_api_error', handleGlobalApiError);
+    };
+  }, [addToast]);
+
   return (
     <ToastContext.Provider value={{ addToast, dismissToast, clearAll, toasts }}>
       {children}
@@ -92,5 +112,5 @@ export const toast = {
     if (globalAddToast) {
       globalAddToast({ type: 'warning', title, description });
     }
-  }
+  },
 };

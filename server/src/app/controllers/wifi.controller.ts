@@ -2,30 +2,25 @@ import { Request, Response } from "express";
 import * as wifiService from "../services/wifi.service";
 import { redisConnection } from "../../infrastructure/redis";
 import { REDIS_KEYS } from "../../infrastructure/redisKeys";
+import { ValidationError } from "../utils/errors";
 
-export async function scanWifiNetworks(req: Request, res: Response) {
-  try {
-    const networks = await wifiService.scanNetworks();
-    res.json(networks);
-  } catch (error) {
-    res.status(500).json({ error: "Failed to scan networks" });
-  }
+export async function scanWifiNetworks(_req: Request, res: Response) {
+  const networks = await wifiService.scanNetworks();
+  res.json(networks);
 }
 
 export async function connectWifiNetwork(req: Request, res: Response) {
   const { ssid, profileName, password, adminPin, shopName } = req.body;
 
   if (!ssid) {
-    return res.status(400).json({ error: "SSID is required" });
+    throw new ValidationError("VALIDATION_SSID_REQUIRED", "SSID is required.");
   }
 
-  // CRITICAL: Return response immediately because the hotspot will drop
-  res.json({ 
+  res.json({
     message: "Connection request received. Applying credentials...",
-    rebooting: true 
+    rebooting: true,
   });
 
-  // Execute connection after a short delay to allow the response to be sent
   setTimeout(async () => {
     try {
       await wifiService.connectToWifi({ ssid, profileName, password, adminPin, shopName });
@@ -35,14 +30,10 @@ export async function connectWifiNetwork(req: Request, res: Response) {
   }, 1000);
 }
 
-export async function getWifiConnectionStatus(req: Request, res: Response) {
-  try {
-    const raw = await redisConnection.get(REDIS_KEYS.wifiConnectionStatus);
-    if (!raw) {
-      return res.json({ status: "idle", timestamp: Date.now() });
-    }
-    res.json(JSON.parse(raw));
-  } catch (error) {
-    res.json({ status: "idle", timestamp: Date.now() });
+export async function getWifiConnectionStatus(_req: Request, res: Response) {
+  const raw = await redisConnection.get(REDIS_KEYS.wifiConnectionStatus);
+  if (!raw) {
+    return res.json({ status: "idle", timestamp: Date.now() });
   }
+  res.json(JSON.parse(raw));
 }

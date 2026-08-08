@@ -1,14 +1,12 @@
 import { useState } from 'react';
 import { useUserPrintStore } from '../../stores/useUserPrintStore';
 import { Receipt, ArrowLeft, Printer } from 'lucide-react';
-import { useToast } from '../../context/ToastContext';
 import { LoadingNet } from '../../components/shared/LoadingNet';
 import { Button } from '../../components/shared/Button';
 import { soundFx } from '../../utils/sound';
 
 export function QuoteReceipt() {
   const { quote, copies, colorMode, duplex, orientation, submitJob, goToStep } = useUserPrintStore();
-  const { addToast } = useToast();
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   if (!quote) return null;
@@ -19,11 +17,7 @@ export function QuoteReceipt() {
     try {
       await submitJob();
     } catch (err: any) {
-      addToast({
-        type: 'error',
-        title: 'Job Dispatch Failed',
-        description: err.message || 'Unable to route print payload to hardware.'
-      });
+      /* Handled by global API error interceptor */
     } finally {
       setIsSubmitting(false);
     }

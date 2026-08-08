@@ -66,11 +66,9 @@ export const PrinterCard: React.FC<PrinterCardProps> = ({
       const success = await forceRefreshPrinter(printer.name);
       if (success) {
         addToast({ type: 'success', title: 'Refreshed', description: `Health status for ${printer.name} updated.` });
-      } else {
-        addToast({ type: 'error', title: 'Refresh Failed', description: `Failed to refresh ${printer.name}.` });
       }
     } catch (e: any) {
-      addToast({ type: 'error', title: 'Refresh Error', description: e.message || 'Unknown error' });
+      /* Handled by global API error interceptor */
     } finally {
       setInternalRefreshing(false);
     }

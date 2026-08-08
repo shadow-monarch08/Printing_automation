@@ -78,7 +78,7 @@ export function Dashboard() {
                 addToast({ type: 'success', title: 'Emergency Stop Executed', description: 'All jobs have been wiped.' });
               }
             } catch (error: any) {
-              addToast({ type: 'error', title: 'Action Failed', description: error.message || 'Emergency stop failed.' });
+              /* Handled by global API error interceptor */
             } finally {
               setIsEmergencyStopping(false);
               closeModal();

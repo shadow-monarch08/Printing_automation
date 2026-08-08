@@ -2,6 +2,7 @@ import { spawn, ChildProcess } from "child_process";
 import fs from "fs";
 import path from "path";
 import { updateSystemConfig, getSystemConfig } from "./config.db.service";
+import { HardwareError } from "../utils/errors";
 
 let tunnelProcess: ChildProcess | null = null;
 let currentTunnelUrl: string | null = null;
@@ -146,7 +147,7 @@ export function waitForTunnelPromise(port: number = 3000, timeoutMs: number = 15
     const timeoutTimer = setTimeout(() => {
       if (!isSettled) {
         cleanup();
-        reject(new Error(spawnErrorMsg || "Cloudflare Quick Tunnel timed out. Verify WAN internet connection."));
+        reject(new HardwareError("CLOUDFLARE_TUNNEL_TIMEOUT", spawnErrorMsg || "Cloudflare Quick Tunnel timed out. Verify WAN internet connection."));
       }
     }, timeoutMs);
 
@@ -157,7 +158,7 @@ export function waitForTunnelPromise(port: number = 3000, timeoutMs: number = 15
         tunnelProcess = spawn("cloudflared", ["tunnel", "--url", `http://localhost:${port}`]);
       } catch (err: any) {
         cleanup();
-        return reject(new Error(err.message || "Failed to spawn cloudflared process"));
+        return reject(new HardwareError("CLOUDFLARE_PROCESS_ERROR", err.message || "Failed to spawn cloudflared process"));
       }
     }
 
@@ -197,14 +198,16 @@ export function waitForTunnelPromise(port: number = 3000, timeoutMs: number = 15
     }
 
     tunnelProcess.on("error", (err: any) => {
+      let code = "CLOUDFLARE_PROCESS_ERROR";
       if (err.code === "ENOENT") {
+        code = "CLOUDFLARE_BINARY_MISSING";
         spawnErrorMsg = "'cloudflared' CLI binary is not installed on system PATH.";
       } else {
         spawnErrorMsg = err.message || "Cloudflare process execution error";
       }
       if (!isSettled) {
         cleanup();
-        reject(new Error(spawnErrorMsg || "Cloudflare process execution error"));
+        reject(new HardwareError(code, spawnErrorMsg || "Cloudflare process execution error"));
       }
     });
 
@@ -212,7 +215,7 @@ export function waitForTunnelPromise(port: number = 3000, timeoutMs: number = 15
       tunnelProcess = null;
       if (!isSettled) {
         cleanup();
-        reject(new Error(spawnErrorMsg || `cloudflared process exited unexpectedly with code ${code}`));
+        reject(new HardwareError("CLOUDFLARE_PROCESS_ERROR", spawnErrorMsg || `cloudflared process exited unexpectedly with code ${code}`));
       }
     });
   });

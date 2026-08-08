@@ -3,6 +3,7 @@ import multer from "multer";
 import path from "path";
 import * as printController from "../controllers/print.controller";
 import { requireValidSession } from "../middlewares/auth.middleware";
+import { asyncHandler } from "../utils/asyncHandler";
 
 const upload = multer({
   dest: path.join(__dirname, "../../../uploads"),
@@ -11,7 +12,7 @@ const upload = multer({
 
 const router = Router();
 
-router.post("/", requireValidSession, upload.single("file"), printController.printFile);
-router.post("/quote", requireValidSession, printController.calculateQuote);
+router.post("/", asyncHandler(requireValidSession), upload.single("file"), asyncHandler(printController.printFile));
+router.post("/quote", asyncHandler(requireValidSession), asyncHandler(printController.calculateQuote));
 
 export default router;
