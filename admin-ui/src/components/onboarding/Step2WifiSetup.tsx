@@ -75,7 +75,7 @@ export function Step2WifiSetup({ shopName, adminPin, onComplete, mode: _mode }: 
   };
 
   const handleSkipWifi = async () => {
-    setErrorMsg(null);
+    setErrorMsg('');
     setIsConnecting(true);
     setSelectedSsid('CURRENT_ACTIVE_NETWORK');
     try {
