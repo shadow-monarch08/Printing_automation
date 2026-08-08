@@ -84,18 +84,38 @@ export async function scanNetworks(): Promise<WiFiNetwork[]> {
 
 import { startQuickTunnel } from "./tunnel.service";
 
+function formatCleanWifiError(rawMsg: string, targetName?: string): string {
+  if (!rawMsg) return `Wi-Fi connection to "${targetName || 'network'}" failed.`;
+  const clean = rawMsg.replace(/^Command failed:\s*sudo\s*nmcli\s*/i, '').trim();
+  if (clean.includes('Secrets were required') || clean.includes('no-secrets')) {
+    return `Invalid Wi-Fi Passphrase for "${targetName || 'network'}". Please verify security key.`;
+  }
+  if (clean.includes('No network with SSID') || clean.includes('not found')) {
+    return `Network "${targetName || 'network'}" is out of range or no longer broadcasting.`;
+  }
+  if (clean.includes('connection up')) {
+    return `Failed to activate saved Wi-Fi profile "${targetName || 'network'}". Please re-enter passphrase.`;
+  }
+  return clean;
+}
+
 export async function connectToWifiRaw(ssid?: string, password?: string, profileName?: string): Promise<void> {
   if (profileName) {
     console.log(`[WiFi Service] Connecting to saved profile "${profileName}"...`);
-    await runSecureCommand('sudo', ['nmcli', 'connection', 'up', profileName]);
-    return;
+    try {
+      await runSecureCommand('sudo', ['nmcli', 'connection', 'up', profileName]);
+      return;
+    } catch (err: any) {
+      console.warn(`[WiFi Service] Saved profile "${profileName}" failed to activate directly. Falling back to SSID connection...`, err?.message || err);
+    }
   }
 
-  if (!ssid) throw new Error("Wi-Fi SSID is required");
+  const targetSsid = ssid || profileName;
+  if (!targetSsid) throw new Error("Wi-Fi SSID is required");
 
-  console.log(`[WiFi Service] Connecting to network "${ssid}"...`);
+  console.log(`[WiFi Service] Connecting to network "${targetSsid}"...`);
   try {
-    await runSecureCommand('sudo', ['nmcli', 'connection', 'delete', ssid]);
+    await runSecureCommand('sudo', ['nmcli', 'connection', 'delete', targetSsid]);
   } catch (e) { /* ignored */ }
 
   if (password) {
@@ -103,8 +123,8 @@ export async function connectToWifiRaw(ssid?: string, password?: string, profile
       'nmcli', 'connection', 'add', 
       'type', 'wifi', 
       'ifname', 'wlan0', 
-      'con-name', ssid, 
-      'ssid', ssid, 
+      'con-name', targetSsid, 
+      'ssid', targetSsid, 
       'wifi-sec.key-mgmt', 'wpa-psk', 
       'wifi-sec.psk', password
     ]);
@@ -113,12 +133,12 @@ export async function connectToWifiRaw(ssid?: string, password?: string, profile
       'nmcli', 'connection', 'add', 
       'type', 'wifi', 
       'ifname', 'wlan0', 
-      'con-name', ssid, 
-      'ssid', ssid
+      'con-name', targetSsid, 
+      'ssid', targetSsid
     ]);
   }
 
-  await runSecureCommand('sudo', ['nmcli', 'connection', 'up', ssid]);
+  await runSecureCommand('sudo', ['nmcli', 'connection', 'up', targetSsid]);
 }
 
 export async function connectToWifi(payload: ConnectPayload & { adminPin?: string; shopName?: string }): Promise<boolean> {
@@ -186,17 +206,20 @@ export async function connectToWifi(payload: ConnectPayload & { adminPin?: strin
     );
     return true;
   } catch (error: any) {
-    console.error(`[WiFi Service] Connection to "${ssid}" failed:`, error.message || error);
+    const rawError = error.message || error;
+    console.error(`[WiFi Service] Connection to "${ssid || profileName}" failed:`, rawError);
 
     try {
       await runSecureCommand('sudo', ['nmcli', 'connection', 'up', 'Kiosk-Hotspot']);
     } catch (e) { /* ignored */ }
 
+    const userFriendlyError = formatCleanWifiError(String(rawError), ssid || profileName);
+
     await redisConnection.set(
       REDIS_KEYS.wifiConnectionStatus,
       JSON.stringify({
         status: "failed",
-        error: error.message || "Invalid Wi-Fi Passphrase",
+        error: userFriendlyError,
         timestamp: Date.now()
       }),
       "EX",

@@ -96,7 +96,13 @@ export async function provisionOnboarding(payload: ProvisionOnboardingPayload) {
       cloudflareUrl: liveTunnelUrl,
     };
   } catch (error: any) {
-    const errorMsg = error.message || "Onboarding provisioning failed";
+    let errorMsg = error.message || "Onboarding provisioning failed";
+    if (typeof errorMsg === 'string' && errorMsg.includes('Command failed:')) {
+      errorMsg = errorMsg.replace(/^Command failed:\s*sudo\s*nmcli\s*/i, '').trim();
+      if (errorMsg.includes('Secrets were required')) {
+        errorMsg = 'Invalid Wi-Fi Passphrase (WPA2 security key rejected).';
+      }
+    }
     console.error(`[Onboarding Service] Provisioning failed:`, errorMsg);
 
     // Fallback: Re-enable Kiosk-Hotspot Access Point

@@ -3,6 +3,7 @@ import { RefreshCw } from 'lucide-react';
 import { Button } from '../shared/Button';
 import { PaperTable } from '../shared/PaperTable';
 import { useModal } from '../../context/ModalContext';
+import { useToast } from '../../context/ToastContext';
 import { WifiConnectModalBody } from './WifiConnectModalBody';
 import { api } from '../../services/api';
 import type { WifiNetwork } from '../../types';
@@ -20,19 +21,26 @@ export function Step2WifiSetup({ shopName, adminPin, onComplete, mode: _mode }: 
   const [isConnecting, setIsConnecting] = useState(false);
   const [selectedSsid, setSelectedSsid] = useState('');
   const [connectProgress, setConnectProgress] = useState(0);
-  const [errorMsg, setErrorMsg] = useState('');
 
   const { openModal, closeModal } = useModal();
+  const { addToast } = useToast();
+
+  const triggerErrorToast = (description: string) => {
+    addToast({
+      type: 'error',
+      title: 'ONBOARDING_ERROR',
+      description,
+      duration: 7000,
+    });
+  };
 
   const fetchNetworks = async () => {
     setIsScanning(true);
     try {
       const data = await api.scanWifiNetworks();
       setNetworks(data);
-      setErrorMsg('');
     } catch (err: any) {
       console.error(err);
-      setErrorMsg(err.message || 'Could not scan Wi-Fi networks.');
     } finally {
       setIsScanning(false);
     }
@@ -42,25 +50,24 @@ export function Step2WifiSetup({ shopName, adminPin, onComplete, mode: _mode }: 
     fetchNetworks();
   }, []);
 
-  const handleNetworkSelect = (net: WifiNetwork) => {
+  const handleNetworkSelect = (network: WifiNetwork) => {
+    setSelectedSsid(network.ssid);
     openModal({
-      title: `CONNECT_TO: [${net.ssid}]`,
+      title: `CONNECT_TO: [${network.ssid}]`,
       content: (
         <WifiConnectModalBody
-          ssid={net.ssid}
-          isSaved={net.isSaved}
+          ssid={network.ssid}
+          isSaved={network.isSaved}
           closeModal={closeModal}
-          onSubmit={(password) => handleConnectSubmit(net.ssid, password)}
+          onSubmit={(password) => handleConnectSubmit(network.ssid, password)}
         />
       ),
     });
   };
 
   const handleConnectSubmit = async (ssid: string, password?: string) => {
-    setSelectedSsid(ssid);
     setIsConnecting(true);
     setConnectProgress(0);
-    setErrorMsg('');
 
     try {
       await api.connectToWifi({
@@ -75,14 +82,13 @@ export function Step2WifiSetup({ shopName, adminPin, onComplete, mode: _mode }: 
   };
 
   const handleSkipWifi = async () => {
-    setErrorMsg('');
     setIsConnecting(true);
     setSelectedSsid('CURRENT_ACTIVE_NETWORK');
     try {
       await api.skipWifiSetup({ adminPin, shopName });
     } catch (err: any) {
       setIsConnecting(false);
-      setErrorMsg(err.response?.data?.error || err.message || 'Failed to trigger onboarding skip.');
+      triggerErrorToast(err.response?.data?.error || err.message || 'Failed to trigger onboarding skip.');
     }
   };
 
@@ -102,7 +108,7 @@ export function Step2WifiSetup({ shopName, adminPin, onComplete, mode: _mode }: 
         if (res?.status === 'failed') {
           clearInterval(interval);
           setIsConnecting(false);
-          setErrorMsg(res.error || 'Onboarding Provisioning Failed (Cloudflare Tunnel / Wi-Fi).');
+          triggerErrorToast(res.error || 'Onboarding Provisioning Failed (Cloudflare Tunnel / Wi-Fi).');
           return;
         }
 
@@ -117,7 +123,7 @@ export function Step2WifiSetup({ shopName, adminPin, onComplete, mode: _mode }: 
         if (failedPollCount >= 18 || secondsElapsed >= 36) {
           clearInterval(interval);
           setIsConnecting(false);
-          setErrorMsg('Connection polling timed out. Please check hardware connection.');
+          triggerErrorToast('Connection polling timed out. Please check hardware connection.');
         }
       }
     }, 2000);
@@ -168,22 +174,7 @@ export function Step2WifiSetup({ shopName, adminPin, onComplete, mode: _mode }: 
         </Button>
       </div>
 
-      {/* Error Message */}
-      {errorMsg && (
-        <div
-          style={{
-            background: 'rgba(255, 68, 68, 0.08)',
-            border: '1px solid var(--border-default)',
-            borderLeft: '4px solid var(--status-error)',
-            padding: '10px 14px',
-            fontFamily: 'var(--font-mono)',
-            fontSize: '12px',
-            color: 'var(--status-error)',
-          }}
-        >
-          [ERROR] {errorMsg}
-        </div>
-      )}
+
 
       {/* Currently Connected Active Plate */}
       {activeNetworks.length > 0 && (
