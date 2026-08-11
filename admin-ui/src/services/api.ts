@@ -176,7 +176,15 @@ export const api = {
     return apiClient.get<{ status: 'idle' | 'connecting' | 'success' | 'failed'; error?: string; timestamp: number }>('/setup/provision-status');
   },
 
-  provisionSetup: async (payload: { adminPin: string; shopName: string; wifiSsid?: string; wifiPassword?: string; skipWifi?: boolean }) => {
+  provisionSetup: async (payload: {
+    adminPin: string;
+    shopName: string;
+    wifiSsid?: string;
+    wifiPassword?: string;
+    profileName?: string;
+    isSaved?: boolean;
+    skipWifi?: boolean;
+  }) => {
     return apiClient.post<{ success: boolean; cloudflareUrl?: string }>('/setup/provision', payload);
   },
 

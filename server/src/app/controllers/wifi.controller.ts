@@ -10,9 +10,9 @@ export async function scanWifiNetworks(_req: Request, res: Response) {
 }
 
 export async function connectWifiNetwork(req: Request, res: Response) {
-  const { ssid, profileName, password, adminPin, shopName } = req.body;
+  const { ssid, profileName, password, isSaved } = req.body;
 
-  if (!ssid) {
+  if (!ssid && !profileName) {
     throw new ValidationError("VALIDATION_SSID_REQUIRED", "SSID is required.");
   }
 
@@ -23,7 +23,7 @@ export async function connectWifiNetwork(req: Request, res: Response) {
 
   setTimeout(async () => {
     try {
-      await wifiService.connectToWifi({ ssid, profileName, password, adminPin, shopName });
+      await wifiService.connectToWifi(ssid, password, profileName, isSaved);
     } catch (err) {
       console.error("[WiFi Controller] Connection background task failed:", err);
     }

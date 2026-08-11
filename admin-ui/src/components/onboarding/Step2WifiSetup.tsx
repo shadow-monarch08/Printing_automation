@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { RefreshCw } from 'lucide-react';
 import { Button } from '../shared/Button';
 import { PaperTable } from '../shared/PaperTable';
@@ -21,6 +21,10 @@ export function Step2WifiSetup({ shopName, adminPin, onComplete, mode: _mode }: 
   const [isConnecting, setIsConnecting] = useState(false);
   const [selectedSsid, setSelectedSsid] = useState('');
   const [connectProgress, setConnectProgress] = useState(0);
+
+  const hasHandledErrorRef = useRef(false);
+  const onCompleteRef = useRef(onComplete);
+  onCompleteRef.current = onComplete;
 
   const { openModal, closeModal } = useModal();
   const { addToast } = useToast();
@@ -59,20 +63,23 @@ export function Step2WifiSetup({ shopName, adminPin, onComplete, mode: _mode }: 
           ssid={network.ssid}
           isSaved={network.isSaved}
           closeModal={closeModal}
-          onSubmit={(password) => handleConnectSubmit(network.ssid, password)}
+          onSubmit={(password) => handleConnectSubmit(network.ssid, password, network.isSaved, network.profileName || undefined)}
         />
       ),
     });
   };
 
-  const handleConnectSubmit = async (ssid: string, password?: string) => {
+  const handleConnectSubmit = async (ssid: string, password?: string, isSaved?: boolean, profileName?: string) => {
+    hasHandledErrorRef.current = false;
     setIsConnecting(true);
     setConnectProgress(0);
 
     try {
-      await api.connectToWifi({
-        ssid,
-        password,
+      await api.provisionSetup({
+        wifiSsid: ssid,
+        wifiPassword: password,
+        profileName,
+        isSaved,
         adminPin,
         shopName,
       });
@@ -82,13 +89,14 @@ export function Step2WifiSetup({ shopName, adminPin, onComplete, mode: _mode }: 
   };
 
   const handleSkipWifi = async () => {
+    hasHandledErrorRef.current = false;
     setIsConnecting(true);
     setSelectedSsid('CURRENT_ACTIVE_NETWORK');
     try {
       await api.skipWifiSetup({ adminPin, shopName });
     } catch (err: any) {
       setIsConnecting(false);
-      triggerErrorToast(err.response?.data?.error || err.message || 'Failed to trigger onboarding skip.');
+      /* Handled by global API error interceptor */
     }
   };
 
@@ -108,14 +116,17 @@ export function Step2WifiSetup({ shopName, adminPin, onComplete, mode: _mode }: 
         if (res?.status === 'failed') {
           clearInterval(interval);
           setIsConnecting(false);
-          triggerErrorToast(res.error || 'Onboarding Provisioning Failed (Cloudflare Tunnel / Wi-Fi).');
+          if (!hasHandledErrorRef.current) {
+            hasHandledErrorRef.current = true;
+            triggerErrorToast(res.error || 'Onboarding Provisioning Failed (Cloudflare Tunnel / Wi-Fi).');
+          }
           return;
         }
 
         if (res?.status === 'success') {
           clearInterval(interval);
           setIsConnecting(false);
-          onComplete();
+          onCompleteRef.current();
           return;
         }
       } catch (err) {
@@ -123,13 +134,16 @@ export function Step2WifiSetup({ shopName, adminPin, onComplete, mode: _mode }: 
         if (failedPollCount >= 18 || secondsElapsed >= 36) {
           clearInterval(interval);
           setIsConnecting(false);
-          triggerErrorToast('Connection polling timed out. Please check hardware connection.');
+          if (!hasHandledErrorRef.current) {
+            hasHandledErrorRef.current = true;
+            triggerErrorToast('Connection polling timed out. Please check hardware connection.');
+          }
         }
       }
     }, 2000);
 
     return () => clearInterval(interval);
-  }, [isConnecting, onComplete]);
+  }, [isConnecting]);
 
   const renderSignalGauge = (signal: number) => {
     const blocks = Math.min(4, Math.max(1, Math.ceil(signal / 25)));

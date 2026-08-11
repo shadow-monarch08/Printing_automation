@@ -14,6 +14,8 @@ export interface ProvisionOnboardingPayload {
   shopName?: string;
   wifiSsid?: string;
   wifiPassword?: string;
+  profileName?: string;
+  isSaved?: boolean;
   skipWifi?: boolean;
 }
 
@@ -31,7 +33,7 @@ export function getSetupStatus() {
 }
 
 export async function provisionOnboarding(payload: ProvisionOnboardingPayload) {
-  const { adminPin, shopName, wifiSsid, wifiPassword, skipWifi } = payload;
+  const { adminPin, shopName, wifiSsid, wifiPassword, profileName, isSaved, skipWifi } = payload;
   const isSetupMode = process.env.SETUP_MODE === "true";
 
   if (skipWifi && isSetupMode) {
@@ -52,11 +54,11 @@ export async function provisionOnboarding(payload: ProvisionOnboardingPayload) {
   try {
     // 1. Handle Wi-Fi Connection (if not skipping)
     if (!skipWifi) {
-      if (!wifiSsid) {
+      if (!wifiSsid && !profileName) {
         throw new ValidationError("VALIDATION_SSID_REQUIRED", "Wi-Fi SSID is required.");
       }
-      console.log(`[Onboarding Service] Attempting Wi-Fi connection to "${wifiSsid}"...`);
-      await wifiService.connectToWifiRaw(wifiSsid, wifiPassword);
+      console.log(`[Onboarding Service] Attempting Wi-Fi connection to "${wifiSsid || profileName}" (Saved: ${Boolean(isSaved)})...`);
+      await wifiService.connectToWifi(wifiSsid, wifiPassword, profileName, isSaved);
     } else {
       console.log(`[Onboarding Service] Skipping Wi-Fi radio changes. Proceeding with active connection...`);
     }

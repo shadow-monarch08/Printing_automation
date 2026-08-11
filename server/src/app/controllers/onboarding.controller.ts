@@ -9,7 +9,7 @@ export async function getSetupStatus(_req: Request, res: Response) {
 }
 
 export async function provisionSetup(req: Request, res: Response) {
-  const { adminPin, shopName, wifiSsid, wifiPassword, skipWifi } = req.body;
+  const { adminPin, shopName, wifiSsid, wifiPassword, profileName, isSaved, skipWifi } = req.body;
 
   res.json({
     message: "Provisioning request received. Applying setup configuration & verifying Cloudflare Tunnel...",
@@ -23,6 +23,8 @@ export async function provisionSetup(req: Request, res: Response) {
         shopName,
         wifiSsid,
         wifiPassword,
+        profileName,
+        isSaved,
         skipWifi,
       });
     } catch (err: any) {

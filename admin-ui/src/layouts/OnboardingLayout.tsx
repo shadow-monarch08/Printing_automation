@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 import { Step1NameAndPin } from '../components/onboarding/Step1NameAndPin';
 import { Step2WifiSetup } from '../components/onboarding/Step2WifiSetup';
 import { Step3Completion } from '../components/onboarding/Step3Completion';
@@ -22,14 +22,14 @@ export function OnboardingLayout({ mode = 'full' }: OnboardingLayoutProps) {
     adminPin: '',
   });
 
-  const handleStep1Complete = (shopName: string, adminPin: string) => {
+  const handleStep1Complete = useCallback((shopName: string, adminPin: string) => {
     setOnboardingData(prev => ({ ...prev, shopName, adminPin }));
     setCurrentStep(2);
-  };
+  }, []);
 
-  const handleStep2Complete = () => {
+  const handleStep2Complete = useCallback(() => {
     setCurrentStep(3);
-  };
+  }, []);
 
   return (
     <div className="onboarding-canvas">
