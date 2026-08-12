@@ -116,7 +116,7 @@ export async function connectToWifi(
         console.log(`[WiFi Service] Successfully connected to saved profile "${targetName}".`);
         return;
       } catch (err: any) {
-        const rawMsg = err?.message || String(err);
+        const rawMsg = String(err);
         console.error(
           `[WiFi Service] FAILED to activate saved profile "${targetName}". Detailed Error Output:\n`,
           rawMsg
