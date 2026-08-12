@@ -112,7 +112,9 @@ export async function connectToWifi(
     if (targetName) {
       console.log(`[WiFi Service] Attempting connection to saved profile "${targetName}"...`);
       try {
-        await runSecureCommand("sudo", ["nmcli", "connection", "up", targetName]);
+        await runSecureCommand("sudo", ["nmcli", "connection", "up", targetName], {
+          timeout: 90000
+        });
         console.log(`[WiFi Service] Successfully connected to saved profile "${targetName}".`);
         return;
       } catch (err: any) {
