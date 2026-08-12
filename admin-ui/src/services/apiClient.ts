@@ -33,6 +33,9 @@ let refreshSubscribers: ((sessionId: string) => void)[] = [];
 // Strategy B: Dedicated Polling Error Deduplication State
 const pollingErrorState = new Map<string, { triggered: boolean }>();
 
+// Global Systemic Network Error Lock
+let isNetworkErrorTriggered = false;
+
 const KNOWN_POLLING_ENDPOINTS = [
   '/setup/provision-status',
   '/wifi/connection-status',
@@ -61,6 +64,16 @@ function addRefreshSubscriber(callback: (sessionId: string) => void) {
 }
 
 function dispatchGlobalError(data: any, status?: number, endpoint?: string) {
+  const code = data?.error?.code || data?.code || 'INTERNAL_SERVER_ERROR';
+
+  // Global Network Error Debounce (Single-shot toast when server turns off / network drops)
+  if (code === 'NETWORK_ERROR') {
+    if (isNetworkErrorTriggered) {
+      return;
+    }
+    isNetworkErrorTriggered = true;
+  }
+
   if (endpoint && isPollingEndpoint(endpoint)) {
     const existing = pollingErrorState.get(endpoint);
     if (existing?.triggered) {
@@ -77,7 +90,7 @@ function dispatchGlobalError(data: any, status?: number, endpoint?: string) {
         title,
         description,
         status: status || 500,
-        code: data?.error?.code || data?.code || 'INTERNAL_SERVER_ERROR',
+        code,
       },
     })
   );
@@ -151,6 +164,9 @@ async function handleResponse<T>(
     const message = (data && (data.error?.message || data.message)) || response.statusText || 'API Request Failed';
     throw new Error(message);
   }
+
+  // Reset global network error lock as soon as any API request succeeds
+  isNetworkErrorTriggered = false;
 
   return data;
 }

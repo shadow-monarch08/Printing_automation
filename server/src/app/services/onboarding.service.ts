@@ -7,7 +7,7 @@ import { waitForTunnelPromise } from "./tunnel.service";
 import { redisConnection } from "../../infrastructure/redis";
 import { REDIS_KEYS, REDIS_TTLS } from "../../infrastructure/redisKeys";
 import { runSecureCommand } from "../utils/exec";
-import { ForbiddenError, ValidationError, HardwareError } from "../utils/errors";
+import { ForbiddenError, ValidationError, HardwareError, AppError } from "../utils/errors";
 
 export interface ProvisionOnboardingPayload {
   adminPin?: string;
@@ -104,18 +104,10 @@ export async function provisionOnboarding(payload: ProvisionOnboardingPayload) {
       cloudflareUrl: liveTunnelUrl,
     };
   } catch (error: any) {
-    let errorMsg = error.message || "Onboarding provisioning failed";
-    let code = error.code || "WIFI_CONNECTION_FAILED";
+    const errorMsg = error.message || "Onboarding provisioning failed";
+    const code = error.code || "WIFI_CONNECTION_FAILED";
 
-    if (typeof errorMsg === "string" && errorMsg.includes("Command failed:")) {
-      errorMsg = errorMsg.replace(/^Command failed:\s*sudo\s*nmcli\s*/i, "").trim();
-      if (errorMsg.includes("Secrets were required") || errorMsg.includes("no-secrets")) {
-        code = "WIFI_AUTH_FAILED";
-        errorMsg = "Invalid Wi-Fi Passphrase (WPA2 security key rejected).";
-      }
-    }
-
-    console.error(`[Onboarding Service] Provisioning failed:`, errorMsg);
+    console.error(`[Onboarding Service] Provisioning failed (${code}):`, errorMsg);
 
     // Fallback: Re-enable Kiosk-Hotspot Access Point
     try {
@@ -129,7 +121,7 @@ export async function provisionOnboarding(payload: ProvisionOnboardingPayload) {
       REDIS_KEYS.wifiConnectionStatus,
       JSON.stringify({
         status: "failed",
-        code: code || "WIFI_CONNECTION_FAILED",
+        code,
         error: errorMsg,
         timestamp: Date.now(),
       }),
@@ -137,6 +129,6 @@ export async function provisionOnboarding(payload: ProvisionOnboardingPayload) {
       REDIS_TTLS.WIFI_STATUS
     );
 
-    throw new HardwareError(code, errorMsg);
+    throw error instanceof AppError ? error : new HardwareError(code, errorMsg);
   }
 }

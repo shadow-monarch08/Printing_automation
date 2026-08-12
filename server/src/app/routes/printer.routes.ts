@@ -5,16 +5,19 @@ import { asyncHandler } from "../utils/asyncHandler";
 
 const router = Router();
 
+// Public / Kiosk-facing read endpoints
 router.get("/", asyncHandler(printerCtrl.getPrinters));
 router.get("/default", asyncHandler(printerCtrl.getDefaultPrinter));
-router.post("/default", asyncHandler(printerCtrl.setDefaultPrinter));
-router.put("/:name/alias", asyncHandler(printerCtrl.updateAlias));
 router.get("/:name/supplies", asyncHandler(printerCtrl.getSupplies));
-router.post("/:name/refresh", asyncHandler(printerCtrl.forceRefreshPrinter));
-router.post("/detect", asyncHandler(printerCtrl.detectPrinters));
-router.get("/detect-legacy", asyncHandler(printerCtrl.detectLegacyPrinters));
-router.post("/configure", asyncHandler(printerCtrl.configurePrinter));
-router.put("/:name/capabilities", asyncHandler(printerCtrl.updateCapabilities));
+
+// Admin-protected printer management endpoints
+router.post("/default", asyncHandler(requireAuth), asyncHandler(printerCtrl.setDefaultPrinter));
+router.put("/:name/alias", asyncHandler(requireAuth), asyncHandler(printerCtrl.updateAlias));
+router.post("/:name/refresh", asyncHandler(requireAuth), asyncHandler(printerCtrl.forceRefreshPrinter));
+router.post("/detect", asyncHandler(requireAuth), asyncHandler(printerCtrl.detectPrinters));
+router.get("/detect-legacy", asyncHandler(requireAuth), asyncHandler(printerCtrl.detectLegacyPrinters));
+router.post("/configure", asyncHandler(requireAuth), asyncHandler(printerCtrl.configurePrinter));
+router.put("/:name/capabilities", asyncHandler(requireAuth), asyncHandler(printerCtrl.updateCapabilities));
 router.delete("/", asyncHandler(requireAuth), asyncHandler(printerCtrl.deleteAllPrinters));
 router.delete("/:name", asyncHandler(requireAuth), asyncHandler(printerCtrl.deletePrinter));
 

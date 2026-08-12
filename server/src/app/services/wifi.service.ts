@@ -1,7 +1,7 @@
 import { systemCommands } from "../../commands/system.commands";
 import { runSecureCommand } from "../utils/exec";
 import { WiFiNetwork } from "../types";
-import { ValidationError } from "../utils/errors";
+import { ValidationError, HardwareError } from "../utils/errors";
 
 export async function scanNetworks(): Promise<WiFiNetwork[]> {
   try {
@@ -100,6 +100,13 @@ export async function connectToWifi(
 ): Promise<void> {
   const activeProfileName = profileName || (isSaved && ssid ? ssid : undefined);
 
+  console.log({
+    uid: process.getuid?.(),
+    user: process.env.USER,
+    home: process.env.HOME,
+    path: process.env.PATH,
+  });
+
   if (activeProfileName || isSaved) {
     const targetName = activeProfileName || ssid;
     if (targetName) {
@@ -126,39 +133,53 @@ export async function connectToWifi(
     /* ignored */
   }
 
-  if (password) {
-    await runSecureCommand("sudo", [
-      "nmcli",
-      "connection",
-      "add",
-      "type",
-      "wifi",
-      "ifname",
-      "wlan0",
-      "con-name",
-      targetSsid,
-      "ssid",
-      targetSsid,
-      "wifi-sec.key-mgmt",
-      "wpa-psk",
-      "wifi-sec.psk",
-      password,
-    ]);
-  } else {
-    await runSecureCommand("sudo", [
-      "nmcli",
-      "connection",
-      "add",
-      "type",
-      "wifi",
-      "ifname",
-      "wlan0",
-      "con-name",
-      targetSsid,
-      "ssid",
-      targetSsid,
-    ]);
-  }
+  try {
+    if (password) {
+      await runSecureCommand("sudo", [
+        "nmcli",
+        "connection",
+        "add",
+        "type",
+        "wifi",
+        "ifname",
+        "wlan0",
+        "con-name",
+        targetSsid,
+        "ssid",
+        targetSsid,
+        "wifi-sec.key-mgmt",
+        "wpa-psk",
+        "wifi-sec.psk",
+        password,
+      ]);
+    } else {
+      await runSecureCommand("sudo", [
+        "nmcli",
+        "connection",
+        "add",
+        "type",
+        "wifi",
+        "ifname",
+        "wlan0",
+        "con-name",
+        targetSsid,
+        "ssid",
+        targetSsid,
+      ]);
+    }
 
-  await runSecureCommand("sudo", ["nmcli", "connection", "up", targetSsid]);
+    await runSecureCommand("sudo", ["nmcli", "connection", "up", targetSsid]);
+  } catch (rawErr: any) {
+    const rawMsg = rawErr?.message || String(rawErr);
+    let code = "WIFI_CONNECTION_FAILED";
+
+    if (rawMsg.includes("Secrets were required") || rawMsg.includes("no-secrets")) {
+      code = "WIFI_AUTH_FAILED";
+    } else if (rawMsg.includes("No network with SSID") || rawMsg.includes("not found")) {
+      code = "WIFI_NETWORK_NOT_FOUND";
+    }
+
+    const cleanMsg = formatCleanWifiError(rawMsg, targetSsid);
+    throw new HardwareError(code, cleanMsg);
+  }
 }
