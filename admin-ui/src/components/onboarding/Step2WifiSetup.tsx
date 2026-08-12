@@ -3,7 +3,6 @@ import { RefreshCw } from 'lucide-react';
 import { Button } from '../shared/Button';
 import { PaperTable } from '../shared/PaperTable';
 import { useModal } from '../../context/ModalContext';
-import { useToast } from '../../context/ToastContext';
 import { WifiConnectModalBody } from './WifiConnectModalBody';
 import { api } from '../../services/api';
 import type { WifiNetwork } from '../../types';
@@ -22,21 +21,10 @@ export function Step2WifiSetup({ shopName, adminPin, onComplete, mode: _mode }: 
   const [selectedSsid, setSelectedSsid] = useState('');
   const [connectProgress, setConnectProgress] = useState(0);
 
-  const hasHandledErrorRef = useRef(false);
   const onCompleteRef = useRef(onComplete);
   onCompleteRef.current = onComplete;
 
   const { openModal, closeModal } = useModal();
-  const { addToast } = useToast();
-
-  const triggerErrorToast = (description: string) => {
-    addToast({
-      type: 'error',
-      title: 'ONBOARDING_ERROR',
-      description,
-      duration: 7000,
-    });
-  };
 
   const fetchNetworks = async () => {
     setIsScanning(true);
@@ -70,7 +58,6 @@ export function Step2WifiSetup({ shopName, adminPin, onComplete, mode: _mode }: 
   };
 
   const handleConnectSubmit = async (ssid: string, password?: string, isSaved?: boolean, profileName?: string) => {
-    hasHandledErrorRef.current = false;
     setIsConnecting(true);
     setConnectProgress(0);
 
@@ -89,7 +76,6 @@ export function Step2WifiSetup({ shopName, adminPin, onComplete, mode: _mode }: 
   };
 
   const handleSkipWifi = async () => {
-    hasHandledErrorRef.current = false;
     setIsConnecting(true);
     setSelectedSsid('CURRENT_ACTIVE_NETWORK');
     try {
@@ -113,16 +99,6 @@ export function Step2WifiSetup({ shopName, adminPin, onComplete, mode: _mode }: 
 
       try {
         const res = await api.getProvisionStatus();
-        if (res?.status === 'failed') {
-          clearInterval(interval);
-          setIsConnecting(false);
-          if (!hasHandledErrorRef.current) {
-            hasHandledErrorRef.current = true;
-            triggerErrorToast(res.error || 'Onboarding Provisioning Failed (Cloudflare Tunnel / Wi-Fi).');
-          }
-          return;
-        }
-
         if (res?.status === 'success') {
           clearInterval(interval);
           setIsConnecting(false);
@@ -131,14 +107,8 @@ export function Step2WifiSetup({ shopName, adminPin, onComplete, mode: _mode }: 
         }
       } catch (err) {
         failedPollCount += 1;
-        if (failedPollCount >= 18 || secondsElapsed >= 36) {
-          clearInterval(interval);
-          setIsConnecting(false);
-          if (!hasHandledErrorRef.current) {
-            hasHandledErrorRef.current = true;
-            triggerErrorToast('Connection polling timed out. Please check hardware connection.');
-          }
-        }
+        clearInterval(interval);
+        setIsConnecting(false);
       }
     }, 2000);
 

@@ -32,6 +32,8 @@ export const ERROR_CODE_MAP: Record<string, ErrorMapping> = {
   CLOUDFLARE_TUNNEL_TIMEOUT: { title: "Tunnel Setup Failed", defaultMessage: "Remote access tunnel timed out. Verify WAN connection." },
   CLOUDFLARE_BINARY_MISSING: { title: "Tunnel Binary Missing", defaultMessage: "Cloudflare tunnel binary is not installed on system PATH." },
   CLOUDFLARE_PROCESS_ERROR: { title: "Tunnel Execution Error", defaultMessage: "Cloudflare tunnel process exited unexpectedly." },
+  SETUP_PROVISION_FAILED: { title: "Setup Provisioning Failed", defaultMessage: "Failed to apply system setup configuration." },
+  HARDWARE_POLLING_TIMEOUT: { title: "Connection Timed Out", defaultMessage: "Connection polling timed out. Please check hardware connection." },
   PRINTER_CONFIGURE_FAILED: { title: "Setup Failed", defaultMessage: "Failed to configure CUPS queue or hardware adapter." },
   PRINTER_UNSUPPORTED_URI: { title: "Unsupported Device", defaultMessage: "Printer URI scheme is not supported by system adapters." },
   CUPS_COMMAND_FAILED: { title: "CUPS Execution Fault", defaultMessage: "CUPS printing daemon command failed." },

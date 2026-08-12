@@ -129,6 +129,7 @@ export async function provisionOnboarding(payload: ProvisionOnboardingPayload) {
       REDIS_KEYS.wifiConnectionStatus,
       JSON.stringify({
         status: "failed",
+        code: code || "WIFI_CONNECTION_FAILED",
         error: errorMsg,
         timestamp: Date.now(),
       }),

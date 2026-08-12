@@ -173,7 +173,13 @@ export const api = {
   },
 
   getProvisionStatus: async () => {
-    return apiClient.get<{ status: 'idle' | 'connecting' | 'success' | 'failed'; error?: string; timestamp: number }>('/setup/provision-status');
+    const res = await apiClient.get<{ status: 'idle' | 'connecting' | 'success' | 'failed'; code?: string; error?: string; timestamp: number }>('/setup/provision-status');
+    if (res?.status === 'failed') {
+      const err: any = new Error(res.error || 'Onboarding Provisioning Failed');
+      err.code = res.code || 'WIFI_CONNECTION_FAILED';
+      throw err;
+    }
+    return res;
   },
 
   provisionSetup: async (payload: {
