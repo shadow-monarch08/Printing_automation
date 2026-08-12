@@ -110,15 +110,31 @@ export async function connectToWifi(
   if (activeProfileName || isSaved) {
     const targetName = activeProfileName || ssid;
     if (targetName) {
-      console.log(`[WiFi Service] Connecting to saved profile "${targetName}"...`);
+      console.log(`[WiFi Service] Attempting connection to saved profile "${targetName}"...`);
       try {
         await runSecureCommand("sudo", ["nmcli", "connection", "up", targetName]);
+        console.log(`[WiFi Service] Successfully connected to saved profile "${targetName}".`);
         return;
       } catch (err: any) {
-        console.warn(
-          `[WiFi Service] Saved profile "${targetName}" failed to activate directly. Falling back to SSID connection re-creation...`,
-          err?.message || err
+        const rawMsg = err?.message || String(err);
+        console.error(
+          `[WiFi Service] FAILED to activate saved profile "${targetName}". Detailed Error Output:\n`,
+          rawMsg
         );
+
+        // If no new password was provided, do NOT attempt to delete or recreate as an unencrypted network!
+        if (!password) {
+          let code = "WIFI_CONNECTION_FAILED";
+          if (rawMsg.includes("Secrets were required") || rawMsg.includes("no-secrets")) {
+            code = "WIFI_AUTH_FAILED";
+          } else if (rawMsg.includes("No network with SSID") || rawMsg.includes("not found")) {
+            code = "WIFI_NETWORK_NOT_FOUND";
+          }
+          const cleanMsg = formatCleanWifiError(rawMsg, targetName);
+          throw new HardwareError(code, cleanMsg);
+        }
+
+        console.warn(`[WiFi Service] New password provided for saved profile "${targetName}". Re-creating connection profile...`);
       }
     }
   }
