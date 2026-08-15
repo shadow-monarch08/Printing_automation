@@ -20,6 +20,7 @@ import { Fleet } from './pages/admin/Fleet';
 import { Queue } from './pages/admin/Queue';
 import { Settings } from './pages/admin/Settings';
 import { Analytics } from './pages/admin/Analytics';
+import { Network } from './pages/admin/Network';
 
 function UserKioskPage() {
   const currentStep = useUserPrintStore(s => s.currentStep);
@@ -59,25 +60,45 @@ function UserKioskPage() {
 }
 
 import { OnboardingLayout } from './layouts/OnboardingLayout';
+import { WelcomeScreen } from './components/onboarding/WelcomeScreen';
 import { useAdminStore } from './stores/useAdminStore';
+import { api } from './services/api';
+import type { HandoffData } from './types';
 
 function App() {
-  const { isSetupMode, isOnboarded, checkSetupMode } = useAdminStore();
+  const { isOnboarded, checkSetupMode } = useAdminStore();
   const [loading, setLoading] = useState(true);
+  const [handoffData, setHandoffData] = useState<HandoffData | null>(null);
 
   useEffect(() => {
-    checkSetupMode().finally(() => setLoading(false));
+    checkSetupMode()
+      .then(async () => {
+        const token = localStorage.getItem('onboarding_handoff_token');
+        if (token) {
+          try {
+            const res = await api.consumeHandoff(token);
+            if (res && res.handoff) {
+              setHandoffData(res.handoff);
+            }
+          } catch (e) {
+            console.warn('Failed to consume onboarding handoff:', e);
+          } finally {
+            localStorage.removeItem('onboarding_handoff_token');
+          }
+        }
+      })
+      .finally(() => setLoading(false));
   }, [checkSetupMode]);
 
   if (loading) return null;
 
   const renderMainContent = () => {
-    if (!isOnboarded) {
-      return <OnboardingLayout mode="full" />;
+    if (handoffData) {
+      return <WelcomeScreen data={handoffData} onContinue={() => setHandoffData(null)} />;
     }
 
-    if (isSetupMode) {
-      return <OnboardingLayout mode="wifi-only" />;
+    if (!isOnboarded) {
+      return <OnboardingLayout />;
     }
 
     return (
@@ -88,6 +109,7 @@ function App() {
         <Route path="/admin/fleet" element={<AdminLayout><Fleet /></AdminLayout>} />
         <Route path="/admin/queue" element={<AdminLayout><Queue /></AdminLayout>} />
         <Route path="/admin/settings" element={<AdminLayout><Settings /></AdminLayout>} />
+        <Route path="/admin/network" element={<AdminLayout><Network /></AdminLayout>} />
         <Route path="/admin/analytics" element={<AdminLayout><Analytics /></AdminLayout>} />
       </Routes>
     );
@@ -103,3 +125,4 @@ function App() {
 }
 
 export default App;
+

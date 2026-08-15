@@ -2,6 +2,7 @@ import { systemCommands } from "../../commands/system.commands";
 import { runSecureCommand } from "../utils/exec";
 import { WiFiNetwork } from "../types";
 import { ValidationError, HardwareError } from "../utils/errors";
+import { suspendRecoveryMonitoring, resumeRecoveryMonitoring } from "./networkRecovery.service";
 
 export async function scanNetworks(): Promise<WiFiNetwork[]> {
   try {
@@ -98,106 +99,105 @@ export async function connectToWifi(
   profileName?: string,
   isSaved?: boolean
 ): Promise<void> {
-  const activeProfileName = profileName || (isSaved && ssid ? ssid : undefined);
+  suspendRecoveryMonitoring();
 
-  console.log({
-    uid: process.getuid?.(),
-    user: process.env.USER,
-    home: process.env.HOME,
-    path: process.env.PATH,
-  });
+  try {
+    const activeProfileName = profileName || (isSaved && ssid ? ssid : undefined);
 
-  if (activeProfileName || isSaved) {
-    const targetName = activeProfileName || ssid;
-    if (targetName) {
-      console.log(`[WiFi Service] Attempting connection to saved profile "${targetName}"...`);
-      try {
-        await runSecureCommand("sudo", ["nmcli", "connection", "up", targetName], {
-          timeout: 90000
-        });
-        console.log(`[WiFi Service] Successfully connected to saved profile "${targetName}".`);
-        return;
-      } catch (err: any) {
-        const rawMsg = String(err);
-        console.error(
-          `[WiFi Service] FAILED to activate saved profile "${targetName}". Detailed Error Output:\n`,
-          rawMsg
-        );
+    if (activeProfileName || isSaved) {
+      const targetName = activeProfileName || ssid;
+      if (targetName) {
+        console.log(`[WiFi Service] Attempting connection to saved profile "${targetName}"...`);
+        try {
+          await runSecureCommand("sudo", ["nmcli", "connection", "up", targetName], {
+            timeout: 90000
+          });
+          console.log(`[WiFi Service] Successfully connected to saved profile "${targetName}".`);
+          return;
+        } catch (err: any) {
+          const rawMsg = String(err);
+          console.error(
+            `[WiFi Service] FAILED to activate saved profile "${targetName}". Detailed Error Output:\n`,
+            rawMsg
+          );
 
-        // If no new password was provided, do NOT attempt to delete or recreate as an unencrypted network!
-        if (!password) {
-          let code = "WIFI_CONNECTION_FAILED";
-          if (rawMsg.includes("Secrets were required") || rawMsg.includes("no-secrets")) {
-            code = "WIFI_AUTH_FAILED";
-          } else if (rawMsg.includes("No network with SSID") || rawMsg.includes("not found")) {
-            code = "WIFI_NETWORK_NOT_FOUND";
+          // If no new password was provided, do NOT attempt to delete or recreate as an unencrypted network!
+          if (!password) {
+            let code = "WIFI_CONNECTION_FAILED";
+            if (rawMsg.includes("Secrets were required") || rawMsg.includes("no-secrets")) {
+              code = "WIFI_AUTH_FAILED";
+            } else if (rawMsg.includes("No network with SSID") || rawMsg.includes("not found")) {
+              code = "WIFI_NETWORK_NOT_FOUND";
+            }
+            const cleanMsg = formatCleanWifiError(rawMsg, targetName);
+            throw new HardwareError(code, cleanMsg);
           }
-          const cleanMsg = formatCleanWifiError(rawMsg, targetName);
-          throw new HardwareError(code, cleanMsg);
-        }
 
-        console.warn(`[WiFi Service] New password provided for saved profile "${targetName}". Re-creating connection profile...`);
+          console.warn(`[WiFi Service] New password provided for saved profile "${targetName}". Re-creating connection profile...`);
+        }
       }
     }
-  }
 
-  const targetSsid = ssid || profileName;
-  if (!targetSsid) throw new ValidationError("VALIDATION_SSID_REQUIRED", "Wi-Fi SSID is required.");
+    const targetSsid = ssid || profileName;
+    if (!targetSsid) throw new ValidationError("VALIDATION_SSID_REQUIRED", "Wi-Fi SSID is required.");
 
-  console.log(`[WiFi Service] Connecting to new network "${targetSsid}"...`);
-  try {
-    await runSecureCommand("sudo", ["nmcli", "connection", "delete", targetSsid]);
-  } catch (e) {
-    /* ignored */
-  }
-
-  try {
-    if (password) {
-      await runSecureCommand("sudo", [
-        "nmcli",
-        "connection",
-        "add",
-        "type",
-        "wifi",
-        "ifname",
-        "wlan0",
-        "con-name",
-        targetSsid,
-        "ssid",
-        targetSsid,
-        "wifi-sec.key-mgmt",
-        "wpa-psk",
-        "wifi-sec.psk",
-        password,
-      ]);
-    } else {
-      await runSecureCommand("sudo", [
-        "nmcli",
-        "connection",
-        "add",
-        "type",
-        "wifi",
-        "ifname",
-        "wlan0",
-        "con-name",
-        targetSsid,
-        "ssid",
-        targetSsid,
-      ]);
+    console.log(`[WiFi Service] Connecting to new network "${targetSsid}"...`);
+    try {
+      await runSecureCommand("sudo", ["nmcli", "connection", "delete", targetSsid]);
+    } catch (e) {
+      /* ignored */
     }
 
-    await runSecureCommand("sudo", ["nmcli", "connection", "up", targetSsid]);
-  } catch (rawErr: any) {
-    const rawMsg = rawErr?.message || String(rawErr);
-    let code = "WIFI_CONNECTION_FAILED";
+    try {
+      if (password) {
+        await runSecureCommand("sudo", [
+          "nmcli",
+          "connection",
+          "add",
+          "type",
+          "wifi",
+          "ifname",
+          "wlan0",
+          "con-name",
+          targetSsid,
+          "ssid",
+          targetSsid,
+          "wifi-sec.key-mgmt",
+          "wpa-psk",
+          "wifi-sec.psk",
+          password,
+        ]);
+      } else {
+        await runSecureCommand("sudo", [
+          "nmcli",
+          "connection",
+          "add",
+          "type",
+          "wifi",
+          "ifname",
+          "wlan0",
+          "con-name",
+          targetSsid,
+          "ssid",
+          targetSsid,
+        ]);
+      }
 
-    if (rawMsg.includes("Secrets were required") || rawMsg.includes("no-secrets")) {
-      code = "WIFI_AUTH_FAILED";
-    } else if (rawMsg.includes("No network with SSID") || rawMsg.includes("not found")) {
-      code = "WIFI_NETWORK_NOT_FOUND";
+      await runSecureCommand("sudo", ["nmcli", "connection", "up", targetSsid]);
+    } catch (rawErr: any) {
+      const rawMsg = rawErr?.message || String(rawErr);
+      let code = "WIFI_CONNECTION_FAILED";
+
+      if (rawMsg.includes("Secrets were required") || rawMsg.includes("no-secrets")) {
+        code = "WIFI_AUTH_FAILED";
+      } else if (rawMsg.includes("No network with SSID") || rawMsg.includes("not found")) {
+        code = "WIFI_NETWORK_NOT_FOUND";
+      }
+
+      const cleanMsg = formatCleanWifiError(rawMsg, targetSsid);
+      throw new HardwareError(code, cleanMsg);
     }
-
-    const cleanMsg = formatCleanWifiError(rawMsg, targetSsid);
-    throw new HardwareError(code, cleanMsg);
+  } finally {
+    resumeRecoveryMonitoring();
   }
 }

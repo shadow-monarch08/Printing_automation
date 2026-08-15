@@ -30,29 +30,8 @@ function getAuthHeaders(): HeadersInit {
 let isFetchingSession = false;
 let refreshSubscribers: ((sessionId: string) => void)[] = [];
 
-// Strategy B: Dedicated Polling Error Deduplication State
-const pollingErrorState = new Map<string, { triggered: boolean }>();
-
 // Global Systemic Network Error Lock
 let isNetworkErrorTriggered = false;
-
-const KNOWN_POLLING_ENDPOINTS = [
-  '/setup/provision-status',
-  '/wifi/connection-status',
-  '/metrics',
-];
-
-function isPollingEndpoint(endpoint: string): boolean {
-  return KNOWN_POLLING_ENDPOINTS.some((url) => endpoint.includes(url));
-}
-
-export function resetPollingState(endpoint?: string) {
-  if (endpoint) {
-    pollingErrorState.delete(endpoint);
-  } else {
-    pollingErrorState.clear();
-  }
-}
 
 function onSessionRefreshed(sessionId: string) {
   refreshSubscribers.forEach((callback) => callback(sessionId));
@@ -63,7 +42,7 @@ function addRefreshSubscriber(callback: (sessionId: string) => void) {
   refreshSubscribers.push(callback);
 }
 
-function dispatchGlobalError(data: any, status?: number, endpoint?: string) {
+function dispatchGlobalError(data: any, status?: number) {
   const code = data?.error?.code || data?.code || 'INTERNAL_SERVER_ERROR';
 
   // Global Network Error Debounce (Single-shot toast when server turns off / network drops)
@@ -72,15 +51,6 @@ function dispatchGlobalError(data: any, status?: number, endpoint?: string) {
       return;
     }
     isNetworkErrorTriggered = true;
-  }
-
-  if (endpoint && isPollingEndpoint(endpoint)) {
-    const existing = pollingErrorState.get(endpoint);
-    if (existing?.triggered) {
-      // Suppress duplicate global error toast for active polling failure
-      return;
-    }
-    pollingErrorState.set(endpoint, { triggered: true });
   }
 
   const { title, description } = mapApiError(data);
@@ -99,8 +69,7 @@ function dispatchGlobalError(data: any, status?: number, endpoint?: string) {
 async function handleResponse<T>(
   response: Response,
   requestFn: () => Promise<T>,
-  options?: ApiOptions,
-  endpoint?: string
+  options?: ApiOptions
 ): Promise<T> {
   const contentType = response.headers.get('content-type');
   let data: any;
@@ -132,8 +101,7 @@ async function handleResponse<T>(
           if (!options?.skipGlobalError) {
             dispatchGlobalError(
               { code: 'SESSION_INVALID', message: 'Kiosk session initialization failed.' },
-              401,
-              endpoint
+              401
             );
           }
           throw err;
@@ -151,7 +119,7 @@ async function handleResponse<T>(
       localStorage.removeItem('auth_token');
       window.dispatchEvent(new Event('auth_unauthorized'));
       if (!options?.skipGlobalError) {
-        dispatchGlobalError(data, 401, endpoint);
+        dispatchGlobalError(data, 401);
       }
       throw new Error((data && (data.error?.message || data.message)) || 'Unauthorized');
     }
@@ -159,7 +127,7 @@ async function handleResponse<T>(
 
   if (!response.ok) {
     if (!options?.skipGlobalError) {
-      dispatchGlobalError(data, response.status, endpoint);
+      dispatchGlobalError(data, response.status);
     }
     const message = (data && (data.error?.message || data.message)) || response.statusText || 'API Request Failed';
     throw new Error(message);
@@ -181,11 +149,11 @@ export const apiClient = {
 
     try {
       const response = await makeRequest();
-      return handleResponse<T>(response, () => apiClient.get<T>(endpoint, options), options, endpoint);
+      return handleResponse<T>(response, () => apiClient.get<T>(endpoint, options), options);
     } catch (err: any) {
       if (err.name === 'TypeError' && err.message?.includes('fetch')) {
         if (!options?.skipGlobalError) {
-          dispatchGlobalError({ code: 'NETWORK_ERROR', message: 'Unable to connect to the print server.' }, 0, endpoint);
+          dispatchGlobalError({ code: 'NETWORK_ERROR', message: 'Unable to connect to the print server.' }, 0);
         }
       }
       throw err;
@@ -193,9 +161,6 @@ export const apiClient = {
   },
 
   post: async <T>(endpoint: string, body?: any, isFormDataOrOptions: boolean | ApiOptions = false): Promise<T> => {
-    // Strategy B: Any user mutation / action request automatically resets polling error states
-    resetPollingState();
-
     const options: ApiOptions =
       typeof isFormDataOrOptions === 'boolean'
         ? { isFormData: isFormDataOrOptions }
@@ -215,11 +180,11 @@ export const apiClient = {
 
     try {
       const response = await makeRequest();
-      return handleResponse<T>(response, () => apiClient.post<T>(endpoint, body, options), options, endpoint);
+      return handleResponse<T>(response, () => apiClient.post<T>(endpoint, body, options), options);
     } catch (err: any) {
       if (err.name === 'TypeError' && err.message?.includes('fetch')) {
         if (!options?.skipGlobalError) {
-          dispatchGlobalError({ code: 'NETWORK_ERROR', message: 'Unable to connect to the print server.' }, 0, endpoint);
+          dispatchGlobalError({ code: 'NETWORK_ERROR', message: 'Unable to connect to the print server.' }, 0);
         }
       }
       throw err;
@@ -227,9 +192,6 @@ export const apiClient = {
   },
 
   put: async <T>(endpoint: string, body?: any, options?: ApiOptions): Promise<T> => {
-    // Strategy B: Any user mutation / action request automatically resets polling error states
-    resetPollingState();
-
     const makeRequest = () =>
       fetch(`${BASE_URL}${endpoint}`, {
         method: 'PUT',
@@ -239,11 +201,11 @@ export const apiClient = {
 
     try {
       const response = await makeRequest();
-      return handleResponse<T>(response, () => apiClient.put<T>(endpoint, body, options), options, endpoint);
+      return handleResponse<T>(response, () => apiClient.put<T>(endpoint, body, options), options);
     } catch (err: any) {
       if (err.name === 'TypeError' && err.message?.includes('fetch')) {
         if (!options?.skipGlobalError) {
-          dispatchGlobalError({ code: 'NETWORK_ERROR', message: 'Unable to connect to the print server.' }, 0, endpoint);
+          dispatchGlobalError({ code: 'NETWORK_ERROR', message: 'Unable to connect to the print server.' }, 0);
         }
       }
       throw err;
@@ -251,9 +213,6 @@ export const apiClient = {
   },
 
   delete: async <T>(endpoint: string, options?: ApiOptions): Promise<T> => {
-    // Strategy B: Any user mutation / action request automatically resets polling error states
-    resetPollingState();
-
     const makeRequest = () =>
       fetch(`${BASE_URL}${endpoint}`, {
         method: 'DELETE',
@@ -262,11 +221,11 @@ export const apiClient = {
 
     try {
       const response = await makeRequest();
-      return handleResponse<T>(response, () => apiClient.delete<T>(endpoint, options), options, endpoint);
+      return handleResponse<T>(response, () => apiClient.delete<T>(endpoint, options), options);
     } catch (err: any) {
       if (err.name === 'TypeError' && err.message?.includes('fetch')) {
         if (!options?.skipGlobalError) {
-          dispatchGlobalError({ code: 'NETWORK_ERROR', message: 'Unable to connect to the print server.' }, 0, endpoint);
+          dispatchGlobalError({ code: 'NETWORK_ERROR', message: 'Unable to connect to the print server.' }, 0);
         }
       }
       throw err;

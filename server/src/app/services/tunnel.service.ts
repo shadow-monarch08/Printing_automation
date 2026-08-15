@@ -16,9 +16,9 @@ export function getActiveTunnelUrl(): string | null {
 export function shouldTunnelBeActive(): boolean {
   const config = getSystemConfig();
   const isOnboarded = config ? Boolean(config.isOnboarded) : false;
-  const isSetupMode = process.env.SETUP_MODE === "true";
+  const isReady = config?.provisioningState === "READY";
 
-  return isOnboarded && !isSetupMode;
+  return isOnboarded && isReady;
 }
 
 export function stopQuickTunnel(): void {
@@ -36,7 +36,7 @@ export function stopQuickTunnel(): void {
 
 export function startQuickTunnel(port: number = 3000): void {
   if (!shouldTunnelBeActive()) {
-    console.log("[Tunnel Service] 🔒 Security Gate: Quick Cloudflare Tunnel start blocked because system is not onboarded or SETUP_MODE is active.");
+    console.log("[Tunnel Service] 🔒 Security Gate: Quick Cloudflare Tunnel start blocked because system is not in READY provisioning state.");
     stopQuickTunnel();
     try {
       const dataDir = path.join(process.cwd(), "data");

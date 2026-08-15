@@ -5,21 +5,23 @@ import { PaperTable } from '../shared/PaperTable';
 import { useModal } from '../../context/ModalContext';
 import { WifiConnectModalBody } from './WifiConnectModalBody';
 import { api } from '../../services/api';
+import { useAdminStore } from '../../stores/useAdminStore';
 import type { WifiNetwork } from '../../types';
 
 interface Step2WifiSetupProps {
   shopName: string;
   adminPin: string;
   onComplete: () => void;
-  mode?: 'full' | 'wifi-only';
 }
 
-export function Step2WifiSetup({ shopName, adminPin, onComplete, mode: _mode }: Step2WifiSetupProps) {
+export function Step2WifiSetup({ shopName, adminPin, onComplete }: Step2WifiSetupProps) {
+  const provisioningState = useAdminStore((s) => s.provisioningState);
   const [networks, setNetworks] = useState<WifiNetwork[]>([]);
   const [isScanning, setIsScanning] = useState(false);
   const [isConnecting, setIsConnecting] = useState(false);
   const [selectedSsid, setSelectedSsid] = useState('');
   const [connectProgress, setConnectProgress] = useState(0);
+  const [currentPhase, setCurrentPhase] = useState<'CONNECTING' | 'VERIFYING_INTERNET' | 'STARTING_TUNNEL' | 'TRANSITION'>('CONNECTING');
 
   const onCompleteRef = useRef(onComplete);
   onCompleteRef.current = onComplete;
@@ -59,7 +61,15 @@ export function Step2WifiSetup({ shopName, adminPin, onComplete, mode: _mode }: 
 
   const handleConnectSubmit = async (ssid: string, password?: string, isSaved?: boolean, profileName?: string) => {
     setIsConnecting(true);
-    setConnectProgress(0);
+    setConnectProgress(5);
+    setCurrentPhase('CONNECTING');
+
+    const handoffToken = crypto.randomUUID();
+    try {
+      localStorage.setItem('onboarding_handoff_token', handoffToken);
+    } catch {
+      /* ignore local storage error */
+    }
 
     try {
       await api.provisionSetup({
@@ -69,6 +79,7 @@ export function Step2WifiSetup({ shopName, adminPin, onComplete, mode: _mode }: 
         isSaved,
         adminPin,
         shopName,
+        handoffToken,
       });
     } catch (err: any) {
       console.warn('Network provision call submitted:', err);
@@ -78,41 +89,93 @@ export function Step2WifiSetup({ shopName, adminPin, onComplete, mode: _mode }: 
   const handleSkipWifi = async () => {
     setIsConnecting(true);
     setSelectedSsid('CURRENT_ACTIVE_NETWORK');
+    setConnectProgress(15);
+    setCurrentPhase('VERIFYING_INTERNET');
+
+    const handoffToken = crypto.randomUUID();
     try {
-      await api.skipWifiSetup({ adminPin, shopName });
+      localStorage.setItem('onboarding_handoff_token', handoffToken);
+    } catch {
+      /* ignore local storage error */
+    }
+
+    try {
+      await api.skipWifiSetup({ adminPin, shopName, handoffToken });
     } catch (err: any) {
       setIsConnecting(false);
       /* Handled by global API error interceptor */
     }
   };
 
-  // Production Connection & Provisioning Polling Engine
+  // Resilient Multi-Phase Provisioning Polling Engine
   useEffect(() => {
     if (!isConnecting) return;
 
-    let failedPollCount = 0;
+    let isMounted = true;
     let secondsElapsed = 0;
+    let consecutiveNetworkErrors = 0;
+    const MAX_POLLING_DURATION = 90; // 90 seconds overall window
 
-    const interval = setInterval(async () => {
+    let pollTimeoutId: ReturnType<typeof setTimeout> | null = null;
+
+    const poll = async () => {
+      if (!isMounted) return;
       secondsElapsed += 2;
-      setConnectProgress(Math.min(100, Math.round((secondsElapsed / 36) * 100)));
+
+      // Smooth progress interpolation
+      const calculatedProgress = Math.min(95, Math.round((secondsElapsed / MAX_POLLING_DURATION) * 100));
+      setConnectProgress(calculatedProgress);
+
+      let nextInterval = 2000;
 
       try {
         const res = await api.getProvisionStatus();
+        consecutiveNetworkErrors = 0; // reset on successful poll
+
         if (res?.status === 'success') {
-          clearInterval(interval);
+          setConnectProgress(100);
           setIsConnecting(false);
           onCompleteRef.current();
           return;
         }
-      } catch (err) {
-        failedPollCount += 1;
-        clearInterval(interval);
-        setIsConnecting(false);
-      }
-    }, 2000);
 
-    return () => clearInterval(interval);
+        if (res?.status === 'failed') {
+          setIsConnecting(false);
+          return;
+        }
+
+        if (res?.status === 'verifying_internet') {
+          setCurrentPhase('VERIFYING_INTERNET');
+        } else if (res?.status === 'starting_tunnel' || res?.status === 'verifying_tunnel') {
+          setCurrentPhase('STARTING_TUNNEL');
+        } else {
+          setCurrentPhase('CONNECTING');
+        }
+      } catch (err) {
+        // Network drop during Wi-Fi switch is expected behavior
+        consecutiveNetworkErrors += 1;
+        setCurrentPhase('TRANSITION');
+
+        // Adaptive exponential backoff schedule: 2s, 4s, 6s, 8s, max 10s
+        nextInterval = Math.min(10000, 2000 + consecutiveNetworkErrors * 2000);
+
+        if (secondsElapsed >= MAX_POLLING_DURATION) {
+          setIsConnecting(false);
+          return;
+        }
+      }
+
+      if (isMounted) {
+        pollTimeoutId = setTimeout(poll, nextInterval);
+      }
+    };
+
+    pollTimeoutId = setTimeout(poll, 1500);
+
+    return () => {
+      isMounted = false;
+      if (pollTimeoutId) clearTimeout(pollTimeoutId);
+    };
   }, [isConnecting]);
 
   const renderSignalGauge = (signal: number) => {
@@ -157,8 +220,6 @@ export function Step2WifiSetup({ shopName, adminPin, onComplete, mode: _mode }: 
           <span>]</span>
         </Button>
       </div>
-
-
 
       {/* Currently Connected Active Plate */}
       {activeNetworks.length > 0 && (
@@ -256,8 +317,8 @@ export function Step2WifiSetup({ shopName, adminPin, onComplete, mode: _mode }: 
           )}
         </PaperTable>
 
-        {/* Skip Wi-Fi Setup Option (Hidden in Maintenance / Setup Mode) */}
-        {_mode !== 'wifi-only' && (
+        {/* Skip Wi-Fi Setup Option (Available only in Recovery Mode) */}
+        {provisioningState !== 'FIRST_BOOT' && (
           <Button
             variant="ghost"
             onClick={handleSkipWifi}
@@ -278,19 +339,29 @@ export function Step2WifiSetup({ shopName, adminPin, onComplete, mode: _mode }: 
         )}
       </div>
 
-      {/* Fullscreen Connecting Hazard Overlay */}
+      {/* Fullscreen Phased Provisioning Hazard Overlay */}
       {isConnecting && (
         <div className="hazard-overlay-backdrop">
           <div className="hazard-overlay-card">
-            <span className="led-diode amber" style={{ width: '16px', height: '16px' }} />
-            <h3 style={{ fontFamily: 'var(--font-mono)', fontSize: '14px', fontWeight: 700, color: 'var(--text-primary)', margin: 0 }}>
-              [ APPLYING_NETWORK_CREDENTIALS ]
-            </h3>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '4px' }}>
+              <span className={`led-diode ${currentPhase === 'TRANSITION' ? 'amber' : currentPhase === 'STARTING_TUNNEL' ? 'green' : 'amber'}`} style={{ width: '16px', height: '16px' }} />
+              <h3 style={{ fontFamily: 'var(--font-mono)', fontSize: '14px', fontWeight: 700, color: 'var(--text-primary)', margin: 0 }}>
+                {currentPhase === 'CONNECTING' && '[ APPLYING_NETWORK_CREDENTIALS ]'}
+                {currentPhase === 'VERIFYING_INTERNET' && '[ VERIFYING_WAN_CONNECTIVITY ]'}
+                {currentPhase === 'STARTING_TUNNEL' && '[ ESTABLISHING_REMOTE_TUNNEL ]'}
+                {currentPhase === 'TRANSITION' && '[ NETWORK_TRANSITION_IN_PROGRESS ]'}
+              </h3>
+            </div>
+
             <p style={{ fontFamily: 'var(--font-body)', fontSize: '13px', color: 'var(--text-secondary)', margin: 0, lineHeight: 1.5 }}>
-              The kiosk terminal is cycling its Wi-Fi radio to join <strong>{selectedSsid}</strong>. Please wait while authentication completes.
+              {currentPhase === 'CONNECTING' && `The kiosk terminal is cycling its wireless radio to join [${selectedSsid}]. Please wait while authentication completes.`}
+              {currentPhase === 'VERIFYING_INTERNET' && `Wi-Fi association confirmed. Validating DNS resolution and secure gateway communication.`}
+              {currentPhase === 'STARTING_TUNNEL' && `Provisioning encrypted Cloudflare Quick Tunnel for customer and remote dashboard access.`}
+              {currentPhase === 'TRANSITION' && `The terminal is switching network interfaces. If disconnected from the temporary hotspot, reconnect to your local Wi-Fi. Please keep this screen open.`}
             </p>
+
             <div style={{ fontFamily: 'var(--font-mono)', fontSize: '12px', fontWeight: 700, color: 'var(--accent-primary)', marginTop: '8px', letterSpacing: '0.05em' }}>
-              {renderProgressBlocks(connectProgress)} {connectProgress}% (36s TIMEOUT)
+              {renderProgressBlocks(connectProgress)} {connectProgress}%
             </div>
           </div>
         </div>
@@ -298,3 +369,4 @@ export function Step2WifiSetup({ shopName, adminPin, onComplete, mode: _mode }: 
     </div>
   );
 }
+
