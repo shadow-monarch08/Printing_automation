@@ -1,5 +1,4 @@
 import { useState, useEffect, useRef } from 'react';
-import { RefreshCw } from 'lucide-react';
 import { Button } from '../shared/Button';
 import { PaperTable } from '../shared/PaperTable';
 import { useModal } from '../../context/ModalContext';
