@@ -1,4 +1,5 @@
 import { Request, Response } from "express";
+import { randomUUID } from "crypto";
 import * as onboardingService from "../services/onboarding.service";
 import { redisConnection } from "../../infrastructure/redis";
 import { REDIS_KEYS, REDIS_TTLS } from "../../infrastructure/redisKeys";
@@ -13,7 +14,8 @@ export async function getSetupStatus(_req: Request, res: Response) {
 }
 
 export async function provisionSetup(req: Request, res: Response) {
-  const { adminPin, shopName, wifiSsid, wifiPassword, profileName, isSaved, skipWifi, handoffToken } = req.body;
+  const { adminPin, shopName, wifiSsid, wifiPassword, profileName, isSaved, skipWifi } = req.body;
+  const handoffToken = req.body?.handoffToken || randomUUID();
 
   // Synchronously initialize Redis status so first polling request receives active state
   await redisConnection.set(
@@ -30,6 +32,7 @@ export async function provisionSetup(req: Request, res: Response) {
   res.json({
     message: "Provisioning request received. Applying setup configuration & verifying Cloudflare Tunnel...",
     rebooting: true,
+    handoffToken,
   });
 
   setTimeout(async () => {
@@ -51,7 +54,8 @@ export async function provisionSetup(req: Request, res: Response) {
 }
 
 export async function skipWifiSetup(req: Request, res: Response) {
-  const { adminPin, shopName, handoffToken } = req.body;
+  const { adminPin, shopName } = req.body;
+  const handoffToken = req.body?.handoffToken || randomUUID();
 
   // Synchronously initialize Redis status so first polling request receives active state
   await redisConnection.set(
@@ -68,6 +72,7 @@ export async function skipWifiSetup(req: Request, res: Response) {
   res.json({
     message: "Skip Wi-Fi setup request received. Verifying Cloudflare Tunnel...",
     rebooting: true,
+    handoffToken,
   });
 
   setTimeout(async () => {
