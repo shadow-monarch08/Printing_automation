@@ -187,11 +187,11 @@ export const api = {
     skipWifi?: boolean;
     handoffToken?: string;
   }) => {
-    return apiClient.post<{ success: boolean; cloudflareUrl?: string }>('/setup/provision', payload);
+    return apiClient.post<{ success?: boolean; message: string; rebooting?: boolean; handoffToken?: string; cloudflareUrl?: string }>('/setup/provision', payload);
   },
 
   skipWifiSetup: async (payload: { adminPin?: string; shopName?: string; handoffToken?: string }) => {
-    return apiClient.post<{ success: boolean; message: string; skipped: boolean }>('/setup/skip', payload);
+    return apiClient.post<{ success?: boolean; message: string; rebooting?: boolean; handoffToken?: string; skipped?: boolean }>('/setup/skip', payload);
   },
 
   consumeHandoff: async (token: string) => {

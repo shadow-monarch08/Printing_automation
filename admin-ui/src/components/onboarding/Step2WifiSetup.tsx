@@ -63,23 +63,23 @@ export function Step2WifiSetup({ shopName, adminPin, onComplete }: Step2WifiSetu
   const handleConnectSubmit = async (ssid: string, password?: string, isSaved?: boolean, profileName?: string) => {
     setIsSubmitting(true);
 
-    const handoffToken = crypto.randomUUID();
     try {
-      localStorage.setItem('onboarding_handoff_token', handoffToken);
-    } catch {
-      /* ignore local storage error */
-    }
-
-    try {
-      await api.provisionSetup({
+      const res = await api.provisionSetup({
         wifiSsid: ssid,
         wifiPassword: password,
         profileName,
         isSaved,
         adminPin,
         shopName,
-        handoffToken,
       });
+
+      if (res?.handoffToken) {
+        try {
+          localStorage.setItem('onboarding_handoff_token', res.handoffToken);
+        } catch {
+          /* ignore local storage error */
+        }
+      }
 
       // ONLY start polling overlay when POST returns 200 OK
       setIsSubmitting(false);
@@ -96,15 +96,16 @@ export function Step2WifiSetup({ shopName, adminPin, onComplete }: Step2WifiSetu
   const handleSkipWifi = async () => {
     setIsSubmitting(true);
 
-    const handoffToken = crypto.randomUUID();
     try {
-      localStorage.setItem('onboarding_handoff_token', handoffToken);
-    } catch {
-      /* ignore local storage error */
-    }
+      const res = await api.skipWifiSetup({ adminPin, shopName });
 
-    try {
-      await api.skipWifiSetup({ adminPin, shopName, handoffToken });
+      if (res?.handoffToken) {
+        try {
+          localStorage.setItem('onboarding_handoff_token', res.handoffToken);
+        } catch {
+          /* ignore local storage error */
+        }
+      }
 
       // ONLY start polling overlay when POST returns 200 OK
       setIsSubmitting(false);
@@ -240,9 +241,7 @@ export function Step2WifiSetup({ shopName, adminPin, onComplete }: Step2WifiSetu
           disabled={isScanning}
           style={{ fontFamily: 'var(--font-mono)', fontSize: '11px', height: '32px' }}
         >
-          <span>[ REFRESH SCAN</span>
-          <RefreshCw className={isScanning ? 'animate-spin' : ''} size={14} style={{ marginLeft: '6px' }} />
-          <span>]</span>
+          <span>[ REFRESH SCAN ]</span>
         </Button>
       </div>
 
