@@ -8,10 +8,15 @@ export const REDIS_KEYS = {
   session: (id: string) => `session:${id}`,
   blacklist: (token: string) => `blacklist:${token}`,
   wifiConnectionStatus: "wifi:connection:status",
+  onboardingHandoff: (token: string) => `onboarding:handoff:${token}`,
+  networkRecoveryState: "network:recovery:state",
 } as const;
 
 export const REDIS_TTLS = {
-  SUPPLIES: 300,   // 5 minutes in seconds
-  SESSION: 43200,  // 12 hours in seconds
-  WIFI_STATUS: 120, // 2 minutes transient connection TTL
+  SUPPLIES: 300,        // 5 minutes in seconds
+  SESSION: 43200,       // 12 hours in seconds
+  WIFI_STATUS: 300,      // 5 minutes provisioning status TTL
+  ONBOARDING_HANDOFF: 900, // 15 minutes one-time handoff ticket TTL
+  NETWORK_RECOVERY: 3600,  // 1 hour network recovery state TTL
 } as const;
+

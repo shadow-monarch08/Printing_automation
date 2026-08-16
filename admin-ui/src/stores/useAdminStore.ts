@@ -10,7 +10,7 @@ export interface AdminState {
   logout: () => Promise<void>;
   checkAuth: () => Promise<boolean>;
   
-  isSetupMode: boolean;
+  provisioningState: 'FIRST_BOOT' | 'RECOVERY' | 'READY';
   isOnboarded: boolean;
   shopName: string;
   checkSetupMode: () => Promise<void>;
@@ -98,14 +98,15 @@ export const useAdminStore = create<AdminState>((set, get) => ({
     }
   },
   
-  isSetupMode: false,
+  provisioningState: 'READY',
   isOnboarded: true,
   shopName: 'Modern Press',
   checkSetupMode: async () => {
     try {
       const res = await api.getSetupStatus();
       const shopName = res.shopName || 'Modern Press';
-      set({ isSetupMode: res.isSetupMode, isOnboarded: res.isOnboarded, shopName });
+      const provisioningState = res.provisioningState || (res.isOnboarded ? 'READY' : 'FIRST_BOOT');
+      set({ provisioningState, isOnboarded: res.isOnboarded, shopName });
       document.title = `${shopName} — Kiosk Terminal`;
     } catch (e) {
       console.error('Failed to check setup mode:', e);

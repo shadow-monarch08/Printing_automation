@@ -28,6 +28,7 @@ CREATE TABLE IF NOT EXISTS system_config (
   cloudflare_url TEXT,
   shop_name TEXT DEFAULT 'Modern Press',
   admin_pin_hash TEXT,
+  provisioning_state TEXT NOT NULL DEFAULT 'FIRST_BOOT',
   updated_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
@@ -91,6 +92,23 @@ try {
   db.exec(`ALTER TABLE printers ADD COLUMN ipp_uri TEXT`);
 } catch (e) {
   // Column already exists
+}
+
+try {
+  db.exec(`ALTER TABLE system_config ADD COLUMN provisioning_state TEXT NOT NULL DEFAULT 'FIRST_BOOT'`);
+} catch (e) {
+  // Column already exists
+}
+
+// Backfill existing onboarded configurations
+try {
+  db.exec(`
+    UPDATE system_config
+    SET provisioning_state = 'READY'
+    WHERE is_onboarded = 1 AND provisioning_state = 'FIRST_BOOT'
+  `);
+} catch (e) {
+  // Ignore migration backfill errors if any
 }
 
 console.log("🗄️ SQLite Cold Tier initialized (WAL mode)");

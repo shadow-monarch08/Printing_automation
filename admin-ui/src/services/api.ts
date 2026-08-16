@@ -1,6 +1,7 @@
 // src/services/api.ts
 import { apiClient } from './apiClient';
-import type { BackendPrinter, BackendJob, BackendMetrics, PricingConfig, WifiNetwork, ConnectPayload } from '../types';
+import { pollingApiClient } from './pollingApiClient';
+import type { BackendPrinter, BackendJob, BackendMetrics, PricingConfig, WifiNetwork, ConnectPayload, HandoffData, NetworkStatus } from '../types';
 
 export const api = {
   fetchPrinters: async () => {
@@ -165,21 +166,15 @@ export const api = {
   },
 
   getWifiConnectionStatus: async () => {
-    return apiClient.get<{ status: 'idle' | 'connecting' | 'success' | 'failed'; error?: string; timestamp: number }>('/wifi/connection-status');
+    return pollingApiClient.get<{ status: 'idle' | 'connecting' | 'success' | 'failed'; code?: string; error?: string; timestamp: number }>('/wifi/connection-status');
   },
 
   getSetupStatus: async () => {
-    return apiClient.get<{ isSetupMode: boolean; isOnboarded: boolean; shopName: string }>('/setup/status');
+    return apiClient.get<{ provisioningState: 'FIRST_BOOT' | 'RECOVERY' | 'READY'; isOnboarded: boolean; shopName: string }>('/setup/status');
   },
 
   getProvisionStatus: async () => {
-    const res = await apiClient.get<{ status: 'idle' | 'connecting' | 'success' | 'failed'; code?: string; error?: string; timestamp: number }>('/setup/provision-status');
-    if (res?.status === 'failed') {
-      const err: any = new Error(res.error || 'Onboarding Provisioning Failed');
-      err.code = res.code || 'WIFI_CONNECTION_FAILED';
-      throw err;
-    }
-    return res;
+    return pollingApiClient.get<{ status: 'idle' | 'connecting' | 'wifi_connected' | 'verifying_internet' | 'starting_tunnel' | 'verifying_tunnel' | 'success' | 'failed'; phase?: string; code?: string; error?: string; timestamp: number }>('/setup/provision-status');
   },
 
   provisionSetup: async (payload: {
@@ -190,12 +185,21 @@ export const api = {
     profileName?: string;
     isSaved?: boolean;
     skipWifi?: boolean;
+    handoffToken?: string;
   }) => {
     return apiClient.post<{ success: boolean; cloudflareUrl?: string }>('/setup/provision', payload);
   },
 
-  skipWifiSetup: async (payload: { adminPin?: string; shopName?: string }) => {
+  skipWifiSetup: async (payload: { adminPin?: string; shopName?: string; handoffToken?: string }) => {
     return apiClient.post<{ success: boolean; message: string; skipped: boolean }>('/setup/skip', payload);
+  },
+
+  consumeHandoff: async (token: string) => {
+    return apiClient.post<{ handoff: HandoffData | null }>('/setup/handoff', { token }, { skipGlobalError: true });
+  },
+
+  getNetworkStatus: async () => {
+    return pollingApiClient.get<NetworkStatus>('/setup/network-status');
   },
 
   // Analytics API

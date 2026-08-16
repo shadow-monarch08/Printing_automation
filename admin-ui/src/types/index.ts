@@ -103,4 +103,25 @@ export interface ConnectPayload {
   adminPin?: string;
   shopName?: string;
   skipWifi?: boolean;
+  isSaved?: boolean;
 }
+
+export interface HandoffData {
+  type: string;
+  shopName: string;
+  tunnelUrl: string;
+  localAccessUrl: string | null;
+  printerCount?: number;
+  createdAt: number;
+}
+
+export interface NetworkStatus {
+  internetOnline: boolean;
+  recoveryState: 'ONLINE' | 'CONNECTIVITY_FAILURE' | 'GRACE_PERIOD' | 'HOTSPOT_ACTIVATING' | 'HOTSPOT_ACTIVE' | 'RECOVERING';
+  hotspotActive: boolean;
+  activeProfile: string | null;
+  cloudflareUrl: string | null;
+  localAccessUrl: string | null;
+}
+
+

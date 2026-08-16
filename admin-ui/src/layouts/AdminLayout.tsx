@@ -2,7 +2,7 @@
 import { useState, useEffect } from 'react';
 import type { ReactNode } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
-import { Lock, LayoutDashboard, Printer, ListOrdered, Settings, LogOut, Menu, X, Sun, Moon, BarChart3 } from 'lucide-react';
+import { Lock, LayoutDashboard, Printer, ListOrdered, Settings, LogOut, Menu, X, Sun, Moon, BarChart3, Wifi } from 'lucide-react';
 import { useAdminStore } from '../stores/useAdminStore';
 import { Button } from '../components/shared/Button';
 import { LoadingNet } from '../components/shared/LoadingNet';
@@ -124,6 +124,9 @@ export function AdminLayout({ children }: { children: ReactNode }) {
           </NavLink>
           <NavLink to="/admin/settings" className={({ isActive }) => `sidebar-link ${isActive ? 'active' : ''}`} onClick={closeSidebar}>
             <Settings size={20} /> Pricing & Settings
+          </NavLink>
+          <NavLink to="/admin/network" className={({ isActive }) => `sidebar-link ${isActive ? 'active' : ''}`} onClick={closeSidebar}>
+            <Wifi size={20} /> Network / Wi-Fi
           </NavLink>
           <NavLink to="/admin/analytics" className={({ isActive }) => `sidebar-link ${isActive ? 'active' : ''}`} onClick={closeSidebar}>
             <BarChart3 size={20} /> Analytics

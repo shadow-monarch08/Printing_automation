@@ -5,6 +5,7 @@ import { initWebSocketServer } from "./app/controllers/events.controller";
 import { getSystemConfig, updateSystemConfig } from "./app/services/config.db.service";
 import { startMetricsPolling } from "./app/services/metrics.service";
 import { startQuickTunnel } from "./app/services/tunnel.service";
+import { startRecoveryMonitoring } from "./app/services/networkRecovery.service";
 import { hydrateSystem } from "./infrastructure/boot";
 
 const PORT = parseInt(process.env.PORT || "3000", 10);
@@ -37,8 +38,11 @@ async function startServer() {
     // Phase 8.1 & 8.2: Start system metrics telemetry
     startMetricsPolling();
 
-    // Launch Quick Cloudflare Tunnel (guarded by security gate: isOnboarded && !isSetupMode)
+    // Launch Quick Cloudflare Tunnel (guarded by security gate: isOnboarded && provisioningState === 'READY')
     startQuickTunnel(PORT);
+
+    // Launch continuous Network Recovery Daemon (guarded: operates only when provisioningState === 'READY')
+    startRecoveryMonitoring();
   });
 }
 

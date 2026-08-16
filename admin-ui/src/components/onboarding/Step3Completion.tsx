@@ -1,10 +1,4 @@
-interface Step3CompletionProps {
-  mode?: 'full' | 'wifi-only';
-}
-
-export function Step3Completion({ mode = 'full' }: Step3CompletionProps) {
-  const isWifiOnly = mode === 'wifi-only';
-
+export function Step3Completion() {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '24px', textAlign: 'center', padding: '16px 8px' }}>
       {/* Emerald Badge */}
@@ -28,12 +22,10 @@ export function Step3Completion({ mode = 'full' }: Step3CompletionProps) {
           ✓
         </div>
         <div style={{ fontFamily: 'var(--font-mono)', fontSize: '14px', fontWeight: 700, color: 'var(--status-idle)' }}>
-          [ ✓ ] {isWifiOnly ? 'WI-FI_RECONFIGURED_SUCCESSFULLY' : 'TERMINAL_ONLINE_AND_PROVISIONED'}
+          [ ✓ ] TERMINAL_ONLINE_AND_PROVISIONED
         </div>
         <p style={{ fontFamily: 'var(--font-body)', fontSize: '14px', color: 'var(--text-secondary)', margin: 0, maxWidth: '480px' }}>
-          {isWifiOnly 
-            ? 'Your kiosk terminal has re-authenticated and joined the target network with its active shop identity.'
-            : 'Your kiosk terminal has successfully authenticated and connected to your shop network.'}
+          Your kiosk terminal has successfully authenticated and connected to your shop network.
         </p>
       </div>
 
