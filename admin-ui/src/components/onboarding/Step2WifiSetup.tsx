@@ -18,6 +18,7 @@ export function Step2WifiSetup({ shopName, adminPin, onComplete }: Step2WifiSetu
   const provisioningState = useAdminStore((s) => s.provisioningState);
   const [networks, setNetworks] = useState<WifiNetwork[]>([]);
   const [isScanning, setIsScanning] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [isConnecting, setIsConnecting] = useState(false);
   const [selectedSsid, setSelectedSsid] = useState('');
   const [connectProgress, setConnectProgress] = useState(0);
@@ -60,9 +61,7 @@ export function Step2WifiSetup({ shopName, adminPin, onComplete }: Step2WifiSetu
   };
 
   const handleConnectSubmit = async (ssid: string, password?: string, isSaved?: boolean, profileName?: string) => {
-    setIsConnecting(true);
-    setConnectProgress(5);
-    setCurrentPhase('CONNECTING');
+    setIsSubmitting(true);
 
     const handoffToken = crypto.randomUUID();
     try {
@@ -81,16 +80,21 @@ export function Step2WifiSetup({ shopName, adminPin, onComplete }: Step2WifiSetu
         shopName,
         handoffToken,
       });
+
+      // ONLY start polling overlay when POST returns 200 OK
+      setIsSubmitting(false);
+      setConnectProgress(5);
+      setCurrentPhase('CONNECTING');
+      setIsConnecting(true);
     } catch (err: any) {
-      console.warn('Network provision call submitted:', err);
+      setIsSubmitting(false);
+      setIsConnecting(false);
+      /* Handled by global API error interceptor in apiClient */
     }
   };
 
   const handleSkipWifi = async () => {
-    setIsConnecting(true);
-    setSelectedSsid('CURRENT_ACTIVE_NETWORK');
-    setConnectProgress(15);
-    setCurrentPhase('VERIFYING_INTERNET');
+    setIsSubmitting(true);
 
     const handoffToken = crypto.randomUUID();
     try {
@@ -101,9 +105,17 @@ export function Step2WifiSetup({ shopName, adminPin, onComplete }: Step2WifiSetu
 
     try {
       await api.skipWifiSetup({ adminPin, shopName, handoffToken });
+
+      // ONLY start polling overlay when POST returns 200 OK
+      setIsSubmitting(false);
+      setSelectedSsid('CURRENT_ACTIVE_NETWORK');
+      setConnectProgress(15);
+      setCurrentPhase('VERIFYING_INTERNET');
+      setIsConnecting(true);
     } catch (err: any) {
+      setIsSubmitting(false);
       setIsConnecting(false);
-      /* Handled by global API error interceptor */
+      /* Handled by global API error interceptor in apiClient */
     }
   };
 
@@ -113,6 +125,7 @@ export function Step2WifiSetup({ shopName, adminPin, onComplete }: Step2WifiSetu
 
     let isMounted = true;
     let secondsElapsed = 0;
+    let consecutiveIdleCount = 0;
     let consecutiveNetworkErrors = 0;
     const MAX_POLLING_DURATION = 90; // 90 seconds overall window
 
@@ -132,24 +145,36 @@ export function Step2WifiSetup({ shopName, adminPin, onComplete }: Step2WifiSetu
         const res = await api.getProvisionStatus();
         consecutiveNetworkErrors = 0; // reset on successful poll
 
-        if (res?.status === 'success') {
-          setConnectProgress(100);
-          setIsConnecting(false);
-          onCompleteRef.current();
-          return;
-        }
-
-        if (res?.status === 'failed') {
-          setIsConnecting(false);
-          return;
-        }
-
-        if (res?.status === 'verifying_internet') {
-          setCurrentPhase('VERIFYING_INTERNET');
-        } else if (res?.status === 'starting_tunnel' || res?.status === 'verifying_tunnel') {
-          setCurrentPhase('STARTING_TUNNEL');
-        } else {
+        if (res?.status === 'idle') {
+          consecutiveIdleCount += 1;
+          // If server reports idle repeatedly, the provisioning process is not running
+          if (consecutiveIdleCount >= 3) {
+            setIsConnecting(false);
+            return;
+          }
           setCurrentPhase('CONNECTING');
+        } else {
+          consecutiveIdleCount = 0;
+
+          if (res?.status === 'success') {
+            setConnectProgress(100);
+            setIsConnecting(false);
+            onCompleteRef.current();
+            return;
+          }
+
+          if (res?.status === 'failed') {
+            setIsConnecting(false);
+            return;
+          }
+
+          if (res?.status === 'verifying_internet') {
+            setCurrentPhase('VERIFYING_INTERNET');
+          } else if (res?.status === 'starting_tunnel' || res?.status === 'verifying_tunnel') {
+            setCurrentPhase('STARTING_TUNNEL');
+          } else {
+            setCurrentPhase('CONNECTING');
+          }
         }
       } catch (err) {
         // Network drop during Wi-Fi switch is expected behavior
@@ -317,11 +342,12 @@ export function Step2WifiSetup({ shopName, adminPin, onComplete }: Step2WifiSetu
           )}
         </PaperTable>
 
-        {/* Skip Wi-Fi Setup Option (Available only in Recovery Mode) */}
-        {provisioningState !== 'FIRST_BOOT' && (
+        {/* Skip Wi-Fi Setup Option (Strictly Available Only in Recovery Mode) */}
+        {provisioningState === 'RECOVERY' && (
           <Button
             variant="ghost"
             onClick={handleSkipWifi}
+            disabled={isSubmitting || isConnecting}
             style={{
               width: '100%',
               height: '44px',
@@ -334,7 +360,9 @@ export function Step2WifiSetup({ shopName, adminPin, onComplete }: Step2WifiSetu
               color: 'var(--text-secondary)',
             }}
           >
-            [ PROCEED WITH CURRENT ACTIVE NETWORK (SKIP WI-FI SETUP) ➔ ]
+            {isSubmitting
+              ? '[ VERIFYING ACTIVE NETWORK GATEWAY... ]'
+              : '[ PROCEED WITH CURRENT ACTIVE NETWORK (SKIP WI-FI SETUP) ➔ ]'}
           </Button>
         )}
       </div>

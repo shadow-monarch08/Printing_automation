@@ -48,6 +48,7 @@ CREATE TABLE IF NOT EXISTS pricing_config (
   updated_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
+INSERT OR IGNORE INTO system_config (id, is_onboarded, provisioning_state, shop_name) VALUES (1, 0, 'FIRST_BOOT', 'Modern Press');
 INSERT OR IGNORE INTO pricing_config (id, base_price_bw, base_price_color, duplex_discount_percent) VALUES (1, 200, 1000, 0);
 
 CREATE TABLE IF NOT EXISTS print_jobs (
