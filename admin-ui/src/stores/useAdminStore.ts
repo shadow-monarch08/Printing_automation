@@ -98,8 +98,8 @@ export const useAdminStore = create<AdminState>((set, get) => ({
     }
   },
   
-  provisioningState: 'READY',
-  isOnboarded: true,
+  provisioningState: 'FIRST_BOOT',
+  isOnboarded: false,
   shopName: 'Modern Press',
   checkSetupMode: async () => {
     try {

@@ -1,7 +1,7 @@
 import { Request, Response } from "express";
 import * as onboardingService from "../services/onboarding.service";
 import { redisConnection } from "../../infrastructure/redis";
-import { REDIS_KEYS } from "../../infrastructure/redisKeys";
+import { REDIS_KEYS, REDIS_TTLS } from "../../infrastructure/redisKeys";
 import db from "../../infrastructure/database";
 import { getRecoveryStatus } from "../services/networkRecovery.service";
 import { getActiveConnectionProfile, getLocalIpAddress, checkInternetConnectivity } from "../utils/network.utils";
@@ -14,6 +14,18 @@ export async function getSetupStatus(_req: Request, res: Response) {
 
 export async function provisionSetup(req: Request, res: Response) {
   const { adminPin, shopName, wifiSsid, wifiPassword, profileName, isSaved, skipWifi, handoffToken } = req.body;
+
+  // Synchronously initialize Redis status so first polling request receives active state
+  await redisConnection.set(
+    REDIS_KEYS.wifiConnectionStatus,
+    JSON.stringify({
+      status: "connecting",
+      phase: "CONNECTING_WIFI",
+      timestamp: Date.now(),
+    }),
+    "EX",
+    REDIS_TTLS.WIFI_STATUS
+  );
 
   res.json({
     message: "Provisioning request received. Applying setup configuration & verifying Cloudflare Tunnel...",
@@ -35,11 +47,23 @@ export async function provisionSetup(req: Request, res: Response) {
     } catch (err: any) {
       console.error("[Onboarding Controller] Background provisioning failed:", err.message || err);
     }
-  }, 500);
+  }, 100);
 }
 
 export async function skipWifiSetup(req: Request, res: Response) {
   const { adminPin, shopName, handoffToken } = req.body;
+
+  // Synchronously initialize Redis status so first polling request receives active state
+  await redisConnection.set(
+    REDIS_KEYS.wifiConnectionStatus,
+    JSON.stringify({
+      status: "connecting",
+      phase: "VERIFYING_INTERNET",
+      timestamp: Date.now(),
+    }),
+    "EX",
+    REDIS_TTLS.WIFI_STATUS
+  );
 
   res.json({
     message: "Skip Wi-Fi setup request received. Verifying Cloudflare Tunnel...",
@@ -57,7 +81,7 @@ export async function skipWifiSetup(req: Request, res: Response) {
     } catch (err: any) {
       console.error("[Onboarding Controller] Background skip provisioning failed:", err.message || err);
     }
-  }, 500);
+  }, 100);
 }
 
 export async function getProvisionStatus(_req: Request, res: Response) {

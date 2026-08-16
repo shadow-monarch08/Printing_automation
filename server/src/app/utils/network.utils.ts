@@ -8,19 +8,35 @@ import { HardwareError } from "./errors";
  */
 export async function getActiveConnectionProfile(): Promise<string | null> {
   try {
-    const { stdout } = await runSecureCommand("nmcli", ["-t", "-f", "NAME,DEVICE", "connection", "show", "--active"]);
+    const { stdout } = await runSecureCommand("sudo", ["nmcli", "-t", "-f", "NAME,DEVICE,TYPE", "connection", "show", "--active"]);
     const lines = stdout.split("\n").map((l) => l.trim()).filter(Boolean);
+    
+    // First priority: active Wi-Fi profile (excluding Kiosk-Hotspot)
     for (const line of lines) {
-      const [name, device] = line.split(":");
-      if (device && (device === "wlan0" || device.startsWith("wl"))) {
+      const [name, device, type] = line.split(":");
+      if (name === "Kiosk-Hotspot" || name === "lo") continue;
+      if (type === "802-11-wireless" || type === "wifi" || (device && (device === "wlan0" || device.startsWith("wl")))) {
         return name || null;
       }
     }
-    // Fallback: if single line returned without explicit wlan0
-    if (lines.length > 0) {
-      const [name] = lines[0].split(":");
-      return name || null;
+
+    // Second priority: active Ethernet profile
+    for (const line of lines) {
+      const [name, device, type] = line.split(":");
+      if (name === "Kiosk-Hotspot" || name === "lo") continue;
+      if (type === "802-3-ethernet" || type === "ethernet" || (device && (device.startsWith("eth") || device.startsWith("en")))) {
+        return name || null;
+      }
     }
+
+    // Fallback: any active profile that isn't Kiosk-Hotspot or loopback
+    for (const line of lines) {
+      const [name] = line.split(":");
+      if (name && name !== "Kiosk-Hotspot" && name !== "lo") {
+        return name;
+      }
+    }
+
     return null;
   } catch (err) {
     console.warn("[Network Utils] Could not query active NetworkManager profile:", err);

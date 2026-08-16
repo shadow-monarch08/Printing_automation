@@ -76,9 +76,6 @@ export function Network() {
   };
 
   const handleConnectSubmit = async (ssid: string, password?: string, isSaved?: boolean, profileName?: string) => {
-    setIsConnecting(true);
-    setConnectProgress(5);
-
     try {
       await api.connectToWifi({
         ssid,
@@ -87,14 +84,12 @@ export function Network() {
         isSaved,
       });
 
-      addToast({
-        title: 'Reconfiguration Dispatched',
-        description: `Applying credentials for "${ssid}".`,
-        type: 'info',
-      });
+      // ONLY start polling on successful dispatch
+      setConnectProgress(5);
+      setIsConnecting(true);
     } catch (err: any) {
       setIsConnecting(false);
-      /* Handled by global interceptor */
+      /* Handled by global interceptor in apiClient */
     }
   };
 
@@ -126,11 +121,7 @@ export function Network() {
         } else if (res?.status === 'failed') {
           clearInterval(interval);
           setIsConnecting(false);
-          addToast({
-            title: 'Connection Failed',
-            description: res.error || 'Failed to authenticate with selected access point.',
-            type: 'error',
-          });
+          // Handled automatically by pollingApiClient domain error interceptor
           fetchStatus();
         }
       } catch {
