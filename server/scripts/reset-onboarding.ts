@@ -16,7 +16,7 @@ try {
 
   db.prepare(`
     UPDATE system_config 
-    SET is_onboarded = 0, cloudflare_url = NULL, updated_at = datetime('now')
+    SET is_onboarded = 0, provisioning_state = 'FIRST_BOOT', cloudflare_url = NULL, updated_at = datetime('now')
     WHERE id = 1;
   `).run();
 
