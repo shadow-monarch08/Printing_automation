@@ -125,3 +125,37 @@ export interface NetworkStatus {
 }
 
 
+
+export interface ProvisioningTelemetry {
+  status: 'idle' | 'connecting' | 'verifying_internet' | 'starting_tunnel' | 'verifying_daemons' | 'success' | 'failed';
+  phase: 'IDLE' | 'CYCLING_RADIO_HARDWARE' | 'NEGOTIATING_WAN_DHCP_LEASE' | 'SPAWNING_CLOUDFLARE_EDGE_TUNNEL' | 'VERIFYING_DAEMON_READINESS' | 'SUCCESS' | 'FAILED';
+  step: number;
+  totalSteps: number;
+  progressPercent: number;
+  message: string;
+  ssid?: string;
+  shopName?: string;
+  cloudflareUrl?: string | null;
+  localAccessUrl?: string | null;
+  printerCount?: number;
+  code?: string;
+  error?: string;
+  rollbackActive?: boolean;
+  timestamp: number;
+}
+
+export interface KioskSummaryData {
+  isOnboarded: boolean;
+  provisioningState: 'FIRST_BOOT' | 'RECOVERY' | 'READY';
+  shopName: string;
+  hotspotSsid: string;
+  setupUrl: string;
+  localAccessUrl: string | null;
+  cloudflareUrl: string | null;
+  internetOnline: boolean;
+  activeProfile: string | null;
+  hotspotActive: boolean;
+  printerCount: number;
+  provisioning: ProvisioningTelemetry | null;
+  timestamp: number;
+}

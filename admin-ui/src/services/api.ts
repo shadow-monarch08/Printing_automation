@@ -1,7 +1,7 @@
-// src/services/api.ts
+﻿// src/services/api.ts
 import { apiClient } from './apiClient';
 import { pollingApiClient } from './pollingApiClient';
-import type { BackendPrinter, BackendJob, BackendMetrics, PricingConfig, WifiNetwork, ConnectPayload, HandoffData, NetworkStatus } from '../types';
+import type { BackendPrinter, BackendJob, BackendMetrics, PricingConfig, WifiNetwork, ConnectPayload, HandoffData, NetworkStatus, KioskSummaryData, ProvisioningTelemetry } from '../types';
 
 export const api = {
   fetchPrinters: async () => {
@@ -174,7 +174,11 @@ export const api = {
   },
 
   getProvisionStatus: async () => {
-    return pollingApiClient.get<{ status: 'idle' | 'connecting' | 'wifi_connected' | 'verifying_internet' | 'starting_tunnel' | 'verifying_tunnel' | 'success' | 'failed'; phase?: string; code?: string; error?: string; timestamp: number }>('/setup/provision-status');
+    return pollingApiClient.get<ProvisioningTelemetry>('/setup/provision-status');
+  },
+
+  getKioskSummary: async () => {
+    return pollingApiClient.get<KioskSummaryData>('/setup/kiosk-summary');
   },
 
   provisionSetup: async (payload: {

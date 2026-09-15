@@ -1,4 +1,4 @@
-import express from "express";
+﻿import express from "express";
 import cors from "cors";
 import path from "path";
 import printerRoutes from "./app/routes/printer.routes";
@@ -13,6 +13,7 @@ import fleetRoutes from "./app/routes/fleet.routes";
 import sessionRoutes from "./app/routes/session.routes";
 import analyticsRoutes from "./app/routes/analytics.routes";
 import onboardingRoutes from "./app/routes/onboarding.routes";
+import { requireLoopbackOnly } from "./app/middlewares/onboarding.middleware";
 import { globalErrorHandler } from "./app/middlewares/errorHandler.middleware";
 
 const app = express();
@@ -44,8 +45,16 @@ app.get("/health", (_req, res) => {
   res.json({ status: "ok", timestamp: new Date().toISOString() });
 });
 
+// Dedicated Physical Kiosk Terminal Route (Restricted strictly to 127.0.0.1 / loopback)
+app.get("/terminal", requireLoopbackOnly, (_req, res) => {
+  res.sendFile(path.join(__dirname, "../public/index.html"));
+});
+
 // React Catch-all
-app.get(/.*/, (_, res) => {
+app.get(/.*/, (req, res) => {
+  if (req.path.startsWith("/terminal")) {
+    return res.redirect("/");
+  }
   res.sendFile(path.join(__dirname, "../public/index.html"));
 });
 

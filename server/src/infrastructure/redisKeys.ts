@@ -1,3 +1,21 @@
+export interface ProvisioningTelemetryPayload {
+  status: "idle" | "connecting" | "verifying_internet" | "starting_tunnel" | "verifying_daemons" | "success" | "failed";
+  phase: "IDLE" | "CYCLING_RADIO_HARDWARE" | "NEGOTIATING_WAN_DHCP_LEASE" | "SPAWNING_CLOUDFLARE_EDGE_TUNNEL" | "VERIFYING_DAEMON_READINESS" | "SUCCESS" | "FAILED";
+  step: number;             // 1 to 4
+  totalSteps: number;       // 4
+  progressPercent: number;  // 0, 25, 50, 75, 90, 100
+  message: string;
+  ssid?: string;
+  shopName?: string;
+  cloudflareUrl?: string | null;
+  localAccessUrl?: string | null;
+  printerCount?: number;
+  code?: string;
+  error?: string;
+  rollbackActive?: boolean;
+  timestamp: number;
+}
+
 export const REDIS_KEYS = {
   FLEET_PRINTERS: "fleet:printers",
   printerState: (name: string) => `printer:${name}:state`,
@@ -8,7 +26,6 @@ export const REDIS_KEYS = {
   session: (id: string) => `session:${id}`,
   blacklist: (token: string) => `blacklist:${token}`,
   wifiConnectionStatus: "wifi:connection:status",
-  onboardingHandoff: (token: string) => `onboarding:handoff:${token}`,
   networkRecoveryState: "network:recovery:state",
 } as const;
 
@@ -16,7 +33,6 @@ export const REDIS_TTLS = {
   SUPPLIES: 300,        // 5 minutes in seconds
   SESSION: 43200,       // 12 hours in seconds
   WIFI_STATUS: 300,      // 5 minutes provisioning status TTL
-  ONBOARDING_HANDOFF: 900, // 15 minutes one-time handoff ticket TTL
   NETWORK_RECOVERY: 3600,  // 1 hour network recovery state TTL
 } as const;
 

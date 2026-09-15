@@ -1,6 +1,8 @@
 import db from "./database";
 import { startHeartbeatLoop as runHeartbeatSweep } from "../app/services/printer.service";
 import { getActiveConnectionProfile } from "../app/utils/network.utils";
+import { redisConnection } from "./redis";
+import { REDIS_KEYS, REDIS_TTLS, ProvisioningTelemetryPayload } from "./redisKeys";
 
 export interface SystemConfigRow {
   id: number;
@@ -46,6 +48,29 @@ export async function hydrateSystem() {
       }
     } catch (err) {
       console.warn("[Boot] Could not check active connection profile during boot hydration:", err);
+    }
+  }
+
+  // Ensure clean IDLE provisioning telemetry in Redis if system is not onboarded
+  if (globalSystemConfig && !globalSystemConfig.is_onboarded) {
+    try {
+      const initialPayload: ProvisioningTelemetryPayload = {
+        status: "idle",
+        phase: "IDLE",
+        step: 0,
+        totalSteps: 4,
+        progressPercent: 0,
+        message: "Kiosk terminal online. Awaiting shop identity and Wi-Fi provisioning.",
+        timestamp: Date.now(),
+      };
+      await redisConnection.set(
+        REDIS_KEYS.wifiConnectionStatus,
+        JSON.stringify(initialPayload),
+        "EX",
+        REDIS_TTLS.WIFI_STATUS
+      );
+    } catch (redisErr) {
+      console.warn("[Boot] Could not initialize Redis provisioning status:", redisErr);
     }
   }
 

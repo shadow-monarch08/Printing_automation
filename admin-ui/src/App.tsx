@@ -1,4 +1,4 @@
-import { Routes, Route } from 'react-router-dom';
+﻿import { Routes, Route } from 'react-router-dom';
 import { useEffect, useState } from 'react';
 import { Modal } from './components/shared/Modal';
 import { ToastStack } from './components/shared/ToastStack';
@@ -21,6 +21,10 @@ import { Queue } from './pages/admin/Queue';
 import { Settings } from './pages/admin/Settings';
 import { Analytics } from './pages/admin/Analytics';
 import { Network } from './pages/admin/Network';
+
+import { OnboardingLayout } from './layouts/OnboardingLayout';
+import { KioskTerminalHub } from './pages/kiosk/KioskTerminalHub';
+import { useAdminStore } from './stores/useAdminStore';
 
 function UserKioskPage() {
   const currentStep = useUserPrintStore(s => s.currentStep);
@@ -59,51 +63,32 @@ function UserKioskPage() {
   );
 }
 
-import { OnboardingLayout } from './layouts/OnboardingLayout';
-import { WelcomeScreen } from './components/onboarding/WelcomeScreen';
-import { useAdminStore } from './stores/useAdminStore';
-import { api } from './services/api';
-import type { HandoffData } from './types';
-
 function App() {
   const { isOnboarded, checkSetupMode } = useAdminStore();
   const [loading, setLoading] = useState(true);
-  const [handoffData, setHandoffData] = useState<HandoffData | null>(null);
 
   useEffect(() => {
-    checkSetupMode()
-      .then(async () => {
-        const token = localStorage.getItem('onboarding_handoff_token');
-        if (token) {
-          try {
-            const res = await api.consumeHandoff(token);
-            if (res && res.handoff) {
-              setHandoffData(res.handoff);
-            }
-          } catch (e) {
-            console.warn('Failed to consume onboarding handoff:', e);
-          } finally {
-            localStorage.removeItem('onboarding_handoff_token');
-          }
-        }
-      })
-      .finally(() => setLoading(false));
+    checkSetupMode().finally(() => setLoading(false));
   }, [checkSetupMode]);
 
   if (loading) return null;
 
   const renderMainContent = () => {
-    if (handoffData) {
-      return <WelcomeScreen data={handoffData} onContinue={() => setHandoffData(null)} />;
+    // 1. Dedicated Hardware Screen Route (Restricted to 5-inch physical screen)
+    if (window.location.pathname === '/terminal') {
+      return <KioskTerminalHub />;
     }
 
+    // 2. Unprovisioned Setup Wizard (Admin Smartphone on Hotspot)
     if (!isOnboarded) {
       return <OnboardingLayout />;
     }
 
+    // 3. Operational Routes (Customer Web Portal & Admin Control Room)
     return (
       <Routes>
         <Route path="/" element={<UserLayout><UserKioskPage /></UserLayout>} />
+        <Route path="/terminal" element={<KioskTerminalHub />} />
         <Route path="/onboarding" element={<OnboardingLayout />} />
         <Route path="/admin" element={<AdminLayout><Dashboard /></AdminLayout>} />
         <Route path="/admin/fleet" element={<AdminLayout><Fleet /></AdminLayout>} />
@@ -125,4 +110,3 @@ function App() {
 }
 
 export default App;
-

@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+﻿import { useState, useEffect } from 'react';
 import { Button } from '../shared/Button';
 import { PaperTable } from '../shared/PaperTable';
 import { useModal } from '../../context/ModalContext';
@@ -13,18 +13,13 @@ interface Step2WifiSetupProps {
   onComplete: () => void;
 }
 
-export function Step2WifiSetup({ shopName, adminPin, onComplete }: Step2WifiSetupProps) {
+export function Step2WifiSetup({ shopName, adminPin }: Step2WifiSetupProps) {
   const provisioningState = useAdminStore((s) => s.provisioningState);
   const [networks, setNetworks] = useState<WifiNetwork[]>([]);
   const [isScanning, setIsScanning] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [isConnecting, setIsConnecting] = useState(false);
+  const [isDispatched, setIsDispatched] = useState(false);
   const [selectedSsid, setSelectedSsid] = useState('');
-  const [connectProgress, setConnectProgress] = useState(0);
-  const [currentPhase, setCurrentPhase] = useState<'CONNECTING' | 'VERIFYING_INTERNET' | 'STARTING_TUNNEL' | 'TRANSITION'>('CONNECTING');
-
-  const onCompleteRef = useRef(onComplete);
-  onCompleteRef.current = onComplete;
 
   const { openModal, closeModal } = useModal();
 
@@ -63,7 +58,7 @@ export function Step2WifiSetup({ shopName, adminPin, onComplete }: Step2WifiSetu
     setIsSubmitting(true);
 
     try {
-      const res = await api.provisionSetup({
+      await api.provisionSetup({
         wifiSsid: ssid,
         wifiPassword: password,
         profileName,
@@ -72,23 +67,11 @@ export function Step2WifiSetup({ shopName, adminPin, onComplete }: Step2WifiSetu
         shopName,
       });
 
-      if (res?.handoffToken) {
-        try {
-          localStorage.setItem('onboarding_handoff_token', res.handoffToken);
-        } catch {
-          /* ignore local storage error */
-        }
-      }
-
-      // ONLY start polling overlay when POST returns 200 OK
       setIsSubmitting(false);
-      setConnectProgress(5);
-      setCurrentPhase('CONNECTING');
-      setIsConnecting(true);
+      setIsDispatched(true);
     } catch (err: any) {
       setIsSubmitting(false);
-      setIsConnecting(false);
-      /* Handled by global API error interceptor in apiClient */
+      setIsDispatched(false);
     }
   };
 
@@ -96,124 +79,21 @@ export function Step2WifiSetup({ shopName, adminPin, onComplete }: Step2WifiSetu
     setIsSubmitting(true);
 
     try {
-      const res = await api.skipWifiSetup({ adminPin, shopName });
-
-      if (res?.handoffToken) {
-        try {
-          localStorage.setItem('onboarding_handoff_token', res.handoffToken);
-        } catch {
-          /* ignore local storage error */
-        }
-      }
-
-      // ONLY start polling overlay when POST returns 200 OK
+      await api.skipWifiSetup({ adminPin, shopName });
       setIsSubmitting(false);
       setSelectedSsid('CURRENT_ACTIVE_NETWORK');
-      setConnectProgress(15);
-      setCurrentPhase('VERIFYING_INTERNET');
-      setIsConnecting(true);
+      setIsDispatched(true);
     } catch (err: any) {
       setIsSubmitting(false);
-      setIsConnecting(false);
-      /* Handled by global API error interceptor in apiClient */
+      setIsDispatched(false);
     }
   };
-
-  // Resilient Multi-Phase Provisioning Polling Engine
-  useEffect(() => {
-    if (!isConnecting) return;
-
-    let isMounted = true;
-    let secondsElapsed = 0;
-    let consecutiveIdleCount = 0;
-    let consecutiveNetworkErrors = 0;
-    const MAX_POLLING_DURATION = 90; // 90 seconds overall window
-
-    let pollTimeoutId: ReturnType<typeof setTimeout> | null = null;
-
-    const poll = async () => {
-      if (!isMounted) return;
-      secondsElapsed += 2;
-
-      // Smooth progress interpolation
-      const calculatedProgress = Math.min(95, Math.round((secondsElapsed / MAX_POLLING_DURATION) * 100));
-      setConnectProgress(calculatedProgress);
-
-      let nextInterval = 2000;
-
-      try {
-        const res = await api.getProvisionStatus();
-        consecutiveNetworkErrors = 0; // reset on successful poll
-
-        if (res?.status === 'idle') {
-          consecutiveIdleCount += 1;
-          // If server reports idle repeatedly, the provisioning process is not running
-          if (consecutiveIdleCount >= 3) {
-            setIsConnecting(false);
-            return;
-          }
-          setCurrentPhase('CONNECTING');
-        } else {
-          consecutiveIdleCount = 0;
-
-          if (res?.status === 'success') {
-            setConnectProgress(100);
-            setIsConnecting(false);
-            onCompleteRef.current();
-            return;
-          }
-
-          if (res?.status === 'failed') {
-            setIsConnecting(false);
-            return;
-          }
-
-          if (res?.status === 'verifying_internet') {
-            setCurrentPhase('VERIFYING_INTERNET');
-          } else if (res?.status === 'starting_tunnel' || res?.status === 'verifying_tunnel') {
-            setCurrentPhase('STARTING_TUNNEL');
-          } else {
-            setCurrentPhase('CONNECTING');
-          }
-        }
-      } catch (err) {
-        // Network drop during Wi-Fi switch is expected behavior
-        consecutiveNetworkErrors += 1;
-        setCurrentPhase('TRANSITION');
-
-        // Adaptive exponential backoff schedule: 2s, 4s, 6s, 8s, max 10s
-        nextInterval = Math.min(10000, 2000 + consecutiveNetworkErrors * 2000);
-
-        if (secondsElapsed >= MAX_POLLING_DURATION) {
-          setIsConnecting(false);
-          return;
-        }
-      }
-
-      if (isMounted) {
-        pollTimeoutId = setTimeout(poll, nextInterval);
-      }
-    };
-
-    pollTimeoutId = setTimeout(poll, 1500);
-
-    return () => {
-      isMounted = false;
-      if (pollTimeoutId) clearTimeout(pollTimeoutId);
-    };
-  }, [isConnecting]);
 
   const renderSignalGauge = (signal: number) => {
     const blocks = Math.min(4, Math.max(1, Math.ceil(signal / 25)));
     const filled = '█ '.repeat(blocks);
     const empty = '░ '.repeat(4 - blocks);
     return `[ ${filled}${empty}] ${signal}%`;
-  };
-
-  const renderProgressBlocks = (progress: number) => {
-    const filled = Math.min(10, Math.max(0, Math.round((progress / 100) * 10)));
-    const empty = 10 - filled;
-    return `[ ${'█ '.repeat(filled)}${'░ '.repeat(empty)}]`;
   };
 
   const activeNetworks = networks.filter(n => n.isActive);
@@ -345,7 +225,7 @@ export function Step2WifiSetup({ shopName, adminPin, onComplete }: Step2WifiSetu
           <Button
             variant="ghost"
             onClick={handleSkipWifi}
-            disabled={isSubmitting || isConnecting}
+            disabled={isSubmitting || isDispatched}
             style={{
               width: '100%',
               height: '44px',
@@ -365,29 +245,40 @@ export function Step2WifiSetup({ shopName, adminPin, onComplete }: Step2WifiSetu
         )}
       </div>
 
-      {/* Fullscreen Phased Provisioning Hazard Overlay */}
-      {isConnecting && (
+      {/* Dispatched Confirmation Modal Card */}
+      {isDispatched && (
         <div className="hazard-overlay-backdrop">
-          <div className="hazard-overlay-card">
-            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '4px' }}>
-              <span className={`led-diode ${currentPhase === 'TRANSITION' ? 'amber' : currentPhase === 'STARTING_TUNNEL' ? 'green' : 'amber'}`} style={{ width: '16px', height: '16px' }} />
-              <h3 style={{ fontFamily: 'var(--font-mono)', fontSize: '14px', fontWeight: 700, color: 'var(--text-primary)', margin: 0 }}>
-                {currentPhase === 'CONNECTING' && '[ APPLYING_NETWORK_CREDENTIALS ]'}
-                {currentPhase === 'VERIFYING_INTERNET' && '[ VERIFYING_WAN_CONNECTIVITY ]'}
-                {currentPhase === 'STARTING_TUNNEL' && '[ ESTABLISHING_REMOTE_TUNNEL ]'}
-                {currentPhase === 'TRANSITION' && '[ NETWORK_TRANSITION_IN_PROGRESS ]'}
+          <div className="hazard-overlay-card" style={{ maxWidth: '500px', padding: '28px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '12px' }}>
+              <span className="led-diode green" style={{ width: '14px', height: '14px' }} />
+              <h3 style={{ fontFamily: 'var(--font-mono)', fontSize: '15px', fontWeight: 700, color: 'var(--text-primary)', margin: 0 }}>
+                [ CONFIGURATION_DISPATCHED ]
               </h3>
             </div>
 
-            <p style={{ fontFamily: 'var(--font-body)', fontSize: '13px', color: 'var(--text-secondary)', margin: 0, lineHeight: 1.5 }}>
-              {currentPhase === 'CONNECTING' && `The kiosk terminal is cycling its wireless radio to join [${selectedSsid}]. Please wait while authentication completes.`}
-              {currentPhase === 'VERIFYING_INTERNET' && `Wi-Fi association confirmed. Validating DNS resolution and secure gateway communication.`}
-              {currentPhase === 'STARTING_TUNNEL' && `Provisioning encrypted Cloudflare Quick Tunnel for customer and remote dashboard access.`}
-              {currentPhase === 'TRANSITION' && `The terminal is switching network interfaces. If disconnected from the temporary hotspot, reconnect to your local Wi-Fi. Please keep this screen open.`}
+            <p style={{ fontFamily: 'var(--font-body)', fontSize: '14px', color: 'var(--text-secondary)', margin: '0 0 16px 0', lineHeight: 1.6 }}>
+              The kiosk terminal has received your shop identity and network credentials for <strong>[{selectedSsid || 'TARGET_NETWORK'}]</strong>.
             </p>
 
-            <div style={{ fontFamily: 'var(--font-mono)', fontSize: '12px', fontWeight: 700, color: 'var(--accent-primary)', marginTop: '8px', letterSpacing: '0.05em' }}>
-              {renderProgressBlocks(connectProgress)} {connectProgress}%
+            <div
+              style={{
+                background: 'var(--bg-primary)',
+                border: '2px solid var(--status-idle)',
+                borderRadius: 'var(--radius-sm)',
+                padding: '16px',
+                marginBottom: '16px',
+              }}
+            >
+              <div style={{ fontFamily: 'var(--font-mono)', fontSize: '12px', fontWeight: 700, color: 'var(--status-idle)', marginBottom: '6px' }}>
+                👉 WATCH THE 5-INCH TERMINAL DISPLAY
+              </div>
+              <div style={{ fontFamily: 'var(--font-body)', fontSize: '13px', color: 'var(--text-primary)', lineHeight: 1.5 }}>
+                Real-time 4-phase telemetry is streaming directly on the kiosk chassis screen. Once complete, your live shop QR code will be displayed for you and your customers to scan.
+              </div>
+            </div>
+
+            <div style={{ fontFamily: 'var(--font-mono)', fontSize: '11px', color: 'var(--text-secondary)', textAlign: 'center' }}>
+              You may now disconnect from the setup hotspot or close this window.
             </div>
           </div>
         </div>
@@ -395,4 +286,3 @@ export function Step2WifiSetup({ shopName, adminPin, onComplete }: Step2WifiSetu
     </div>
   );
 }
-
