@@ -129,8 +129,14 @@ export function KioskTerminalHub() {
         transform: `translate(${burnInOffset.x}px, ${burnInOffset.y}px)`,
         transition: 'transform 1s ease-in-out',
         userSelect: 'none',
+        cursor: 'none',
       }}
     >
+      <style>{`
+        *, *::before, *::after, html, body {
+          cursor: none !important;
+        }
+      `}</style>
       {/* Top Telemetry Header Bar */}
       <div
         style={{
