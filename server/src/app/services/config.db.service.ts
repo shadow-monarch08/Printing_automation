@@ -9,6 +9,8 @@ export function getSystemConfig() {
     shopName: globalSystemConfig.shop_name,
     adminPinHash: globalSystemConfig.admin_pin_hash,
     provisioningState: globalSystemConfig.provisioning_state || (globalSystemConfig.is_onboarded ? 'READY' : 'FIRST_BOOT'),
+    nmsDeviceId: globalSystemConfig.nms_device_id || null,
+    nmsDeviceSecret: globalSystemConfig.nms_device_secret || null,
     updatedAt: globalSystemConfig.updated_at
   };
 }
@@ -19,13 +21,17 @@ export function updateSystemConfig(data: {
   shopName?: string;
   adminPinHash?: string | null;
   provisioningState?: string;
+  nmsDeviceId?: string | null;
+  nmsDeviceSecret?: string | null;
 }) {
   const current = getSystemConfig() || {
     isOnboarded: false,
     cloudflareUrl: null,
     shopName: 'Modern Press',
     adminPinHash: null,
-    provisioningState: 'FIRST_BOOT'
+    provisioningState: 'FIRST_BOOT',
+    nmsDeviceId: null,
+    nmsDeviceSecret: null
   };
 
   const isOnboarded = data.isOnboarded !== undefined ? data.isOnboarded : current.isOnboarded;
@@ -33,16 +39,20 @@ export function updateSystemConfig(data: {
   const shopName = data.shopName !== undefined ? data.shopName : current.shopName;
   const adminPinHash = data.adminPinHash !== undefined ? data.adminPinHash : current.adminPinHash;
   const provisioningState = data.provisioningState !== undefined ? data.provisioningState : current.provisioningState;
+  const nmsDeviceId = data.nmsDeviceId !== undefined ? data.nmsDeviceId : current.nmsDeviceId;
+  const nmsDeviceSecret = data.nmsDeviceSecret !== undefined ? data.nmsDeviceSecret : current.nmsDeviceSecret;
 
   const stmt = db.prepare(`
-    INSERT INTO system_config (id, is_onboarded, cloudflare_url, shop_name, admin_pin_hash, provisioning_state, updated_at)
-    VALUES (1, ?, ?, ?, ?, ?, datetime('now'))
+    INSERT INTO system_config (id, is_onboarded, cloudflare_url, shop_name, admin_pin_hash, provisioning_state, nms_device_id, nms_device_secret, updated_at)
+    VALUES (1, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
     ON CONFLICT(id) DO UPDATE SET
       is_onboarded = excluded.is_onboarded,
       cloudflare_url = excluded.cloudflare_url,
       shop_name = excluded.shop_name,
       admin_pin_hash = excluded.admin_pin_hash,
       provisioning_state = excluded.provisioning_state,
+      nms_device_id = excluded.nms_device_id,
+      nms_device_secret = excluded.nms_device_secret,
       updated_at = excluded.updated_at
   `);
 
@@ -51,7 +61,9 @@ export function updateSystemConfig(data: {
     cloudflareUrl,
     shopName,
     adminPinHash,
-    provisioningState
+    provisioningState,
+    nmsDeviceId,
+    nmsDeviceSecret
   );
 
   const newRow = db.prepare(`SELECT * FROM system_config WHERE id = 1`).get() as SystemConfigRow | undefined;

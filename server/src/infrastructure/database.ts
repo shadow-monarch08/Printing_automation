@@ -29,6 +29,8 @@ CREATE TABLE IF NOT EXISTS system_config (
   shop_name TEXT DEFAULT 'Modern Press',
   admin_pin_hash TEXT,
   provisioning_state TEXT NOT NULL DEFAULT 'FIRST_BOOT',
+  nms_device_id TEXT,
+  nms_device_secret TEXT,
   updated_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
@@ -48,7 +50,7 @@ CREATE TABLE IF NOT EXISTS pricing_config (
   updated_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
-INSERT OR IGNORE INTO system_config (id, is_onboarded, provisioning_state, shop_name) VALUES (1, 0, 'FIRST_BOOT', 'Modern Press');
+INSERT OR IGNORE INTO system_config (id, is_onboarded, shop_name) VALUES (1, 0, 'Modern Press');
 INSERT OR IGNORE INTO pricing_config (id, base_price_bw, base_price_color, duplex_discount_percent) VALUES (1, 200, 1000, 0);
 
 CREATE TABLE IF NOT EXISTS print_jobs (
@@ -97,6 +99,18 @@ try {
 
 try {
   db.exec(`ALTER TABLE system_config ADD COLUMN provisioning_state TEXT NOT NULL DEFAULT 'FIRST_BOOT'`);
+} catch (e) {
+  // Column already exists
+}
+
+try {
+  db.exec(`ALTER TABLE system_config ADD COLUMN nms_device_id TEXT`);
+} catch (e) {
+  // Column already exists
+}
+
+try {
+  db.exec(`ALTER TABLE system_config ADD COLUMN nms_device_secret TEXT`);
 } catch (e) {
   // Column already exists
 }

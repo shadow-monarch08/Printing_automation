@@ -11,6 +11,8 @@ export interface SystemConfigRow {
   shop_name: string;
   admin_pin_hash: string | null;
   provisioning_state: string;
+  nms_device_id: string | null;
+  nms_device_secret: string | null;
   updated_at: string;
 }
 

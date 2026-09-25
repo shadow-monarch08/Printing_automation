@@ -7,6 +7,7 @@ import { startMetricsPolling } from "./app/services/metrics.service";
 import { startQuickTunnel } from "./app/services/tunnel.service";
 import { startRecoveryMonitoring } from "./app/services/networkRecovery.service";
 import { hydrateSystem } from "./infrastructure/boot";
+import { startCloudSync } from "./app/services/cloudSync.service";
 
 const PORT = parseInt(process.env.PORT || "3000", 10);
 
@@ -43,6 +44,9 @@ async function startServer() {
 
     // Launch continuous Network Recovery Daemon (guarded: operates only when provisioningState === 'READY')
     startRecoveryMonitoring();
+
+    // Launch Central NMS CloudSync Daemon (Channel 1 Telemetry, Channel 2 Alerts, Channel 3 EOD Audit)
+    startCloudSync();
   });
 }
 

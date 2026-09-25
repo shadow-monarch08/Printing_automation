@@ -14,6 +14,7 @@ import {
   getActiveConnectionProfile,
   getLocalIpAddress,
 } from "../utils/network.utils";
+import { ensureEnrolled, sendTelemetryHeartbeat } from "./cloudSync.service";
 
 export interface ProvisionOnboardingPayload {
   adminPin?: string;
@@ -35,6 +36,7 @@ export function getSetupStatus() {
     provisioningState,
     isOnboarded,
     shopName,
+    nmsDeviceId: config?.nmsDeviceId || null,
   };
 }
 
@@ -167,6 +169,21 @@ async function executeProvisioningPipeline(
   }
   updateSystemConfig(updates);
 
+  // 6. Central NMS Fleet Registration Hook
+  let nmsDeviceId: string | null = null;
+  try {
+    console.log(`[Onboarding Service] Phase 5: Enrolling device with Central NMS for shop "${effectiveShopName}"...`);
+    const nmsCreds = await ensureEnrolled();
+    if (nmsCreds) {
+      nmsDeviceId = nmsCreds.deviceId;
+      console.log(`[Onboarding Service] ✅ Central NMS enrollment successful. Node ID: ${nmsDeviceId}`);
+      // Immediately push first telemetry heartbeat
+      sendTelemetryHeartbeat().catch(() => {});
+    }
+  } catch (nmsErr: any) {
+    console.warn(`[Onboarding Service] ⚠️ Central NMS registration warning (non-blocking):`, nmsErr?.message || nmsErr);
+  }
+
   // Persist URL file for local headless display read
   const dataDir = path.join(process.cwd(), "data");
   if (!fs.existsSync(dataDir)) {
@@ -177,7 +194,7 @@ async function executeProvisioningPipeline(
     `${liveTunnelUrl}\n# Kiosk Quick Tunnel Online`
   );
 
-  // 6. Publish Final Success Status to Redis
+  // 7. Publish Final Success Status to Redis
   const localIp = getLocalIpAddress();
   const localAccessUrl = localIp ? `http://${localIp}:${port}` : null;
 
@@ -187,21 +204,25 @@ async function executeProvisioningPipeline(
     step: 4,
     totalSteps: 4,
     progressPercent: 100,
-    message: "Hardware provisioning and edge tunnel initialization complete.",
+    message: nmsDeviceId
+      ? `Hardware provisioning complete. Connected to Central NMS [${nmsDeviceId}].`
+      : "Hardware provisioning and edge tunnel initialization complete.",
     ssid: targetNetwork,
     shopName: effectiveShopName,
     cloudflareUrl: liveTunnelUrl,
     localAccessUrl,
     printerCount,
+    nmsDeviceId,
     timestamp: Date.now(),
   });
 
   return {
     success: true,
-    message: "Onboarding completed successfully with verified Cloudflare Quick Tunnel.",
+    message: "Onboarding completed successfully with verified Cloudflare Quick Tunnel and Central NMS registration.",
     cloudflareUrl: liveTunnelUrl,
     localAccessUrl,
     printerCount,
+    nmsDeviceId,
   };
 }
 

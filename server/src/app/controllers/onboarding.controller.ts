@@ -175,6 +175,7 @@ export async function getKioskSummary(_req: Request, res: Response) {
     isOnboarded: Boolean(config?.isOnboarded),
     provisioningState: config?.provisioningState || (config?.isOnboarded ? "READY" : "FIRST_BOOT"),
     shopName: config?.shopName || "Modern Press",
+    nmsDeviceId: config?.nmsDeviceId || null,
     hotspotSsid: "Kiosk-Hotspot",
     setupUrl: `http://192.168.4.1:${port}/setup`,
     localAccessUrl: localIp ? `http://${localIp}:${port}` : null,

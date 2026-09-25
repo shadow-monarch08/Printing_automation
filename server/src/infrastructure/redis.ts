@@ -12,7 +12,21 @@ export const redisPublisher = new Redis(redisConfig);
 export const redisSubscriber = new Redis(redisConfig);
 
 redisConnection.on("error", (err) => {
-  console.error("[Redis Error]", err);
+  if ((err as any).code !== "ECONNREFUSED") {
+    console.error("[Redis Error]", err);
+  }
+});
+
+redisPublisher.on("error", (err) => {
+  if ((err as any).code !== "ECONNREFUSED") {
+    console.error("[Redis Publisher Error]", err);
+  }
+});
+
+redisSubscriber.on("error", (err) => {
+  if ((err as any).code !== "ECONNREFUSED") {
+    console.error("[Redis Subscriber Error]", err);
+  }
 });
 
 redisConnection.on("ready", () => {

@@ -10,6 +10,7 @@ export interface ProvisioningTelemetryPayload {
   cloudflareUrl?: string | null;
   localAccessUrl?: string | null;
   printerCount?: number;
+  nmsDeviceId?: string | null;
   code?: string;
   error?: string;
   rollbackActive?: boolean;
