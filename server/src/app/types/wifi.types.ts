@@ -11,4 +11,7 @@ export interface WiFiNetwork {
   isActive?: boolean;
   isSaved?: boolean;
   profileName?: string;
+  isSecured?: boolean;
+  securityType?: string;
 }
+

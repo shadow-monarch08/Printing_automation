@@ -113,8 +113,15 @@ async function executeProvisioningPipeline(
 
   // 3. Verify Internet Readiness (Poll DNS + HTTP Trace up to 20s)
   console.log(`[Onboarding Service] Phase 2: Verifying WAN / Internet connectivity...`);
-  await verifyInternetReadiness(10, 2000);
-  console.log(`[Onboarding Service] Phase 2 complete: Internet access confirmed.`);
+  try {
+    await verifyInternetReadiness(10, 2000);
+    console.log(`[Onboarding Service] Phase 2 complete: Internet access confirmed.`);
+  } catch (netErr: any) {
+    throw new HardwareError(
+      "NO_INTERNET",
+      "Wi-Fi connected successfully, but no Internet access was detected on this network."
+    );
+  }
 
   // Publish Phase 3 (03/04): Spawning Cloudflare Quick Tunnel
   await emitProvisioningStatus({
@@ -131,8 +138,16 @@ async function executeProvisioningPipeline(
 
   // 4. Cloudflare Quick Tunnel Provisioning & Verification
   console.log(`[Onboarding Service] Phase 3: Spawning and verifying Cloudflare Quick Tunnel...`);
-  const liveTunnelUrl = await waitForTunnelPromise(port, 25000);
-  console.log(`[Onboarding Service] Phase 3 complete: Live Cloudflare URL: ${liveTunnelUrl}`);
+  let liveTunnelUrl: string;
+  try {
+    liveTunnelUrl = await waitForTunnelPromise(port, 25000);
+    console.log(`[Onboarding Service] Phase 3 complete: Live Cloudflare URL: ${liveTunnelUrl}`);
+  } catch (tunnelErr: any) {
+    throw new HardwareError(
+      "TUNNEL_FAILED",
+      tunnelErr?.message || "Internet access verified, but Cloudflare edge tunnel failed to initialize."
+    );
+  }
 
   // Publish Phase 4 (04/04): Verifying CUPS Daemons & Committing State
   let printerCount = 0;
@@ -271,19 +286,16 @@ export async function provisionOnboarding(payload: ProvisionOnboardingPayload) {
 
     // 2. Differentiated Mode Recovery
     if (provisioningState === "FIRST_BOOT") {
-      // First boot: Fallback to Kiosk-Hotspot
-      try {
-        console.log(`[Onboarding Service] Mode A (FIRST_BOOT): Restoring Kiosk-Hotspot Access Point...`);
-        await runSecureCommand("sudo", ["nmcli", "connection", "up", "Kiosk-Hotspot"]);
-      } catch (e) {
-        console.warn("[Onboarding Service] Hotspot fallback trigger warning:", e);
-      }
+      // Direct-on-screen onboarding: wlan0 remains in station mode.
+      // Do NOT start a hotspot. The screen remains on the onboarding interface for instant retry.
+      console.log(`[Onboarding Service] Mode A (FIRST_BOOT): Maintained station mode for direct retry on chassis display.`);
     } else {
-      // Recovery mode: Do NOT enable hotspot. If available, restore previous profile
-      if (payload.profileName) {
+      // Recovery mode: If available, restore prior working profile
+      const priorProfile = payload.profileName;
+      if (priorProfile) {
         try {
-          console.log(`[Onboarding Service] Mode B (RECOVERY): Attempting to restore prior profile...`);
-          await runSecureCommand("sudo", ["nmcli", "connection", "up", payload.profileName]);
+          console.log(`[Onboarding Service] Mode B (RECOVERY): Attempting to restore prior profile "${priorProfile}"...`);
+          await runSecureCommand("sudo", ["nmcli", "connection", "up", priorProfile], { timeout: 30000 });
         } catch (restoreErr) {
           console.warn("[Onboarding Service] Mode B prior profile restoration warning:", restoreErr);
         }

@@ -6,15 +6,15 @@ export const systemCommands = {
   },
 
   getWifiStatus: async () => {
-    return runSecureCommand('nmcli', ['-t', '-f', 'IN-USE,SSID,SIGNAL', 'dev', 'wifi']);
+    return runSecureCommand('nmcli', ['-t', '-f', 'IN-USE,SSID,BSSID,SIGNAL,SECURITY', 'dev', 'wifi', 'list'], { timeout: 15000 });
   },
 
   getSavedNetworks: async () => {
-    return runSecureCommand('nmcli', ['-t', '-f', 'NAME', 'connection', 'show']);
+    return runSecureCommand('nmcli', ['-t', '-f', 'NAME', 'connection', 'show'], { timeout: 10000 });
   },
 
   rescanWifi: async () => {
-    return runSecureCommand('sudo', ['wpa_cli', '-i', 'wlan0', 'scan']); 
+    return runSecureCommand('sudo', ['nmcli', 'device', 'wifi', 'rescan'], { timeout: 15000 }); 
   },
 
   snmpWalk: async (ip: string, oid: string) => {
