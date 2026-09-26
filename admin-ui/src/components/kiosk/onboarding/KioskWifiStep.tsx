@@ -382,22 +382,22 @@ export const KioskWifiStep: React.FC = () => {
                           {renderSignalGauge(net.signal)}
                         </span>
 
-                        <span
+                        <Button
+                          variant="mechanical"
                           style={{
-                            fontFamily: 'var(--font-mono, monospace)',
-                            fontSize: '12px',
+                            height: '34px',
+                            padding: '0 12px',
+                            fontSize: '11px',
                             fontWeight: 700,
-                            color: '#FFFFFF',
-                            background: '#2E3339',
-                            border: '1.5px solid rgba(255, 255, 255, 0.22)',
-                            borderRadius: '6px',
-                            padding: '8px 14px',
-                            display: 'inline-flex',
-                            alignItems: 'center',
+                            fontFamily: 'var(--font-mono, monospace)',
+                          }}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleSelectNetwork(net);
                           }}
                         >
                           [ CONNECT ➔ ]
-                        </span>
+                        </Button>
                       </div>
                     </div>
                   );

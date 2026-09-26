@@ -126,18 +126,21 @@ export const KioskIdentityStep: React.FC = () => {
             </div>
           </div>
 
-          <div
+          <Button
+            variant="ghost"
             style={{
-              padding: '8px 14px',
-              background: 'rgba(255, 255, 255, 0.08)',
-              borderRadius: '6px',
+              height: '36px',
+              padding: '0 14px',
               fontSize: '12px',
               fontWeight: 600,
-              color: '#FFFFFF',
+            }}
+            onClick={(e) => {
+              e.stopPropagation();
+              handleEditShopName();
             }}
           >
             Change
-          </div>
+          </Button>
         </div>
 
         {/* Card 2: Admin Master PIN */}
@@ -199,28 +202,24 @@ export const KioskIdentityStep: React.FC = () => {
             </div>
           </div>
 
-          <div
+          <Button
+            variant={adminPin ? 'mechanical' : 'ghost'}
+            leftIcon={adminPin ? <Check size={14} /> : undefined}
             style={{
-              padding: '8px 14px',
-              background: adminPin ? 'rgba(16, 185, 129, 0.15)' : 'rgba(255, 255, 255, 0.08)',
-              borderRadius: '6px',
+              height: '36px',
+              padding: '0 14px',
               fontSize: '12px',
               fontWeight: 600,
               color: adminPin ? '#10B981' : '#FFFFFF',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '4px',
+              borderColor: adminPin ? 'rgba(16, 185, 129, 0.4)' : undefined,
+            }}
+            onClick={(e) => {
+              e.stopPropagation();
+              handleEditPin();
             }}
           >
-            {adminPin ? (
-              <>
-                <Check size={14} />
-                <span>Configured</span>
-              </>
-            ) : (
-              <span>Set PIN</span>
-            )}
-          </div>
+            {adminPin ? 'Configured' : 'Set PIN'}
+          </Button>
         </div>
       </div>
 
