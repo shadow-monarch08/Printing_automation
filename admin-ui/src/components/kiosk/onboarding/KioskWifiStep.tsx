@@ -3,7 +3,7 @@ import React, { useEffect, useState } from 'react';
 import { useKioskStore } from '../../../stores/useKioskStore';
 import { RefreshCw, ChevronLeft, Wifi } from 'lucide-react';
 import { PaperTable } from '../../shared/PaperTable';
-import { TouchKey } from '../keyboard/TouchKey';
+import { Button } from '../../shared/Button';
 import type { WifiNetwork } from '../../../types';
 
 export const KioskWifiStep: React.FC = () => {
@@ -99,28 +99,20 @@ export const KioskWifiStep: React.FC = () => {
         }}
       >
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-          <button
-            type="button"
+          <Button
+            variant="ghost"
+            leftIcon={<ChevronLeft size={16} />}
             onClick={() => setStep('IDENTITY')}
             style={{
               height: '38px',
               padding: '0 14px',
-              background: '#24282D',
-              border: '1.5px solid rgba(255, 255, 255, 0.18)',
-              borderRadius: '6px',
-              color: '#FFFFFF',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '6px',
               fontSize: '12px',
               fontWeight: 700,
-              cursor: 'none',
               fontFamily: 'var(--font-mono, monospace)',
             }}
           >
-            <ChevronLeft size={16} />
-            <span>[ BACK ]</span>
-          </button>
+            [ BACK ]
+          </Button>
 
           <span
             style={{
@@ -135,30 +127,21 @@ export const KioskWifiStep: React.FC = () => {
           </span>
         </div>
 
-        <button
-          type="button"
+        <Button
+          variant="ghost"
+          isLoading={isScanning}
+          leftIcon={<RefreshCw size={14} className={isScanning ? 'spin' : ''} />}
           onClick={scanNetworks}
-          disabled={isScanning}
           style={{
             height: '38px',
             padding: '0 16px',
-            background: '#24282D',
-            border: '1.5px solid rgba(255, 255, 255, 0.18)',
-            borderRadius: '6px',
-            color: '#FFFFFF',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '8px',
             fontSize: '12px',
             fontWeight: 700,
-            cursor: 'none',
             fontFamily: 'var(--font-mono, monospace)',
-            opacity: isScanning ? 0.6 : 1,
           }}
         >
-          <RefreshCw size={14} className={isScanning ? 'spin' : ''} />
-          <span>{isScanning ? '[ SWEEPING... ]' : '[ REFRESH SCAN ]'}</span>
-        </button>
+          {isScanning ? '[ SWEEPING... ]' : '[ REFRESH SCAN ]'}
+        </Button>
       </div>
 
       {/* 2. CURRENTLY CONNECTED ACTIVE LINK PLATE (One-Tap Continuation) */}
@@ -230,34 +213,22 @@ export const KioskWifiStep: React.FC = () => {
               [ONLINE]
             </span>
 
-            <button
-              type="button"
+            <Button
+              variant="primary"
               onClick={skipWifiAndProvision}
               style={{
                 height: '38px',
                 padding: '0 16px',
                 background: '#10B981',
-                border: 'none',
-                borderRadius: '6px',
                 color: '#000000',
                 fontFamily: 'var(--font-mono, monospace)',
                 fontSize: '12px',
                 fontWeight: 800,
-                cursor: 'none',
                 letterSpacing: '0.04em',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '6px',
-              }}
-              onPointerDown={(e) => {
-                e.currentTarget.style.transform = 'scale(0.97)';
-              }}
-              onPointerUp={(e) => {
-                e.currentTarget.style.transform = 'scale(1)';
               }}
             >
-              <span>[ USE ACTIVE CONNECTION ➔ ]</span>
-            </button>
+              [ USE ACTIVE CONNECTION ➔ ]
+            </Button>
           </div>
         </div>
       )}
@@ -437,8 +408,8 @@ export const KioskWifiStep: React.FC = () => {
         />
 
         {activeNetworks.length === 0 && kioskSummary?.provisioningState === 'RECOVERY' && (
-          <button
-            type="button"
+          <Button
+            variant="ghost"
             onClick={skipWifiAndProvision}
             style={{
               width: '100%',
@@ -449,15 +420,12 @@ export const KioskWifiStep: React.FC = () => {
               letterSpacing: '0.04em',
               marginTop: '6px',
               border: '1px dashed rgba(255, 255, 255, 0.25)',
-              background: 'transparent',
               color: 'rgba(255, 255, 255, 0.7)',
-              borderRadius: '6px',
-              cursor: 'none',
               flexShrink: 0,
             }}
           >
             [ PROCEED WITH CURRENT ACTIVE NETWORK (SKIP WI-FI SETUP) ➔ ]
-          </button>
+          </Button>
         )}
       </div>
 
@@ -508,22 +476,20 @@ export const KioskWifiStep: React.FC = () => {
             </p>
 
             <div style={{ display: 'flex', gap: '10px', marginTop: '8px' }}>
-              <TouchKey
-                label="Connect with Saved Key ➔"
-                variant="action"
-                height="48px"
-                flex={2.5}
+              <Button
+                variant="primary"
+                style={{ flex: 2.5, height: '46px', fontSize: '13px', fontWeight: 700 }}
                 onClick={() => {
                   setSavedChoiceModalNetwork(null);
                   setWifiPassword('');
                   submitProvisioning({ isSaved: true, password: '' });
                 }}
-              />
-              <TouchKey
-                label="Enter New Password"
-                variant="secondary"
-                height="48px"
-                flex={2}
+              >
+                Connect with Saved Key ➔
+              </Button>
+              <Button
+                variant="ghost"
+                style={{ flex: 2, height: '46px', fontSize: '13px', fontWeight: 700 }}
                 onClick={() => {
                   const net = savedChoiceModalNetwork;
                   setSavedChoiceModalNetwork(null);
@@ -538,14 +504,16 @@ export const KioskWifiStep: React.FC = () => {
                     },
                   });
                 }}
-              />
-              <TouchKey
-                label="Cancel"
+              >
+                Enter New Password
+              </Button>
+              <Button
                 variant="danger"
-                height="48px"
-                flex={1}
+                style={{ flex: 1, height: '46px', fontSize: '13px', fontWeight: 700 }}
                 onClick={() => setSavedChoiceModalNetwork(null)}
-              />
+              >
+                Cancel
+              </Button>
             </div>
           </div>
         </div>

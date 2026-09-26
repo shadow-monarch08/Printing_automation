@@ -1,6 +1,7 @@
 // src/components/kiosk/keyboard/TouchKeyboard.tsx
 import React, { useState } from 'react';
 import { TouchKey } from './TouchKey';
+import { Button } from '../../shared/Button';
 import { Eye, EyeOff, Delete, X, Check, Trash2 } from 'lucide-react';
 
 interface TouchKeyboardProps {
@@ -149,8 +150,9 @@ export const TouchKeyboard: React.FC<TouchKeyboardProps> = ({
 
         {/* Password Visibility Toggle (Only if password field) */}
         {isPassword && (
-          <button
-            type="button"
+          <Button
+            variant="ghost"
+            leftIcon={showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
             onPointerDown={(e) => {
               e.preventDefault();
               setShowPassword((prev) => !prev);
@@ -158,22 +160,13 @@ export const TouchKeyboard: React.FC<TouchKeyboardProps> = ({
             style={{
               height: '36px',
               padding: '0 12px',
-              background: '#2D3238',
-              border: '1px solid rgba(255, 255, 255, 0.15)',
-              borderRadius: '6px',
-              color: showPassword ? '#FF5500' : 'rgba(255, 255, 255, 0.7)',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '6px',
               fontSize: '12px',
               fontWeight: 700,
-              cursor: 'none',
-              touchAction: 'none',
+              color: showPassword ? '#FF5500' : 'rgba(255, 255, 255, 0.7)',
             }}
           >
-            {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
-            <span>{showPassword ? 'Hide' : 'Show'}</span>
-          </button>
+            {showPassword ? 'Hide' : 'Show'}
+          </Button>
         )}
       </div>
 

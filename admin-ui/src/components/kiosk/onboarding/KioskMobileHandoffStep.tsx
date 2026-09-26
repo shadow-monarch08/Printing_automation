@@ -3,7 +3,7 @@ import React from 'react';
 import { useKioskStore } from '../../../stores/useKioskStore';
 import { QRCodeSVG } from 'qrcode.react';
 import { ArrowLeft, Wifi, ExternalLink } from 'lucide-react';
-import { TouchKey } from '../keyboard/TouchKey';
+import { Button } from '../../shared/Button';
 
 export const KioskMobileHandoffStep: React.FC = () => {
   const { cancelMobileMode, startScreenMode, errorMessage } = useKioskStore();
@@ -258,24 +258,22 @@ export const KioskMobileHandoffStep: React.FC = () => {
         </div>
 
         <div style={{ display: 'flex', gap: '8px' }}>
-          <TouchKey
-            label={
-              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px' }}>
-                <ArrowLeft size={14} />
-                <span>Back to Mode Choice</span>
-              </div>
-            }
-            variant="secondary"
-            height="38px"
+          <Button
+            variant="ghost"
+            leftIcon={<ArrowLeft size={14} />}
             onClick={cancelMobileMode}
-          />
+            style={{ height: '38px', padding: '0 14px', fontSize: '12px', fontWeight: 600 }}
+          >
+            Back to Mode Choice
+          </Button>
 
-          <TouchKey
-            label="Switch to On-Screen Setup ➔"
-            variant="action"
-            height="38px"
+          <Button
+            variant="primary"
             onClick={startScreenMode}
-          />
+            style={{ height: '38px', padding: '0 16px', fontSize: '12px', fontWeight: 700 }}
+          >
+            Switch to On-Screen Setup ➔
+          </Button>
         </div>
       </div>
     </div>

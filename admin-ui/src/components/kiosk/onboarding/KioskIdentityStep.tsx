@@ -2,7 +2,7 @@
 import React from 'react';
 import { useKioskStore } from '../../../stores/useKioskStore';
 import { Store, Lock, ArrowRight, Check } from 'lucide-react';
-import { TouchKey } from '../keyboard/TouchKey';
+import { Button } from '../../shared/Button';
 
 export const KioskIdentityStep: React.FC = () => {
   const { shopName, adminPin, setShopName, setAdminPin, setStep, openKeyboard } = useKioskStore();
@@ -226,18 +226,15 @@ export const KioskIdentityStep: React.FC = () => {
 
       {/* 3. Bottom Action Button */}
       <div>
-        <TouchKey
-          label={
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', fontSize: '15px' }}>
-              <span>Next: Connect to Wi-Fi</span>
-              <ArrowRight size={18} />
-            </div>
-          }
-          variant="action"
-          height="52px"
+        <Button
+          variant="primary"
           disabled={!isValid}
+          rightIcon={<ArrowRight size={18} />}
           onClick={() => setStep('WIFI_SCAN')}
-        />
+          style={{ width: '100%', height: '50px', fontSize: '15px', fontWeight: 700 }}
+        >
+          Next: Connect to Wi-Fi
+        </Button>
       </div>
     </div>
   );

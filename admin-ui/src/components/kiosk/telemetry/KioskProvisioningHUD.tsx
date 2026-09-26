@@ -3,7 +3,7 @@ import React, { useEffect } from 'react';
 import { useKioskStore } from '../../../stores/useKioskStore';
 import { api } from '../../../services/api';
 import { AlertCircle, RefreshCw, ChevronLeft } from 'lucide-react';
-import { TouchKey } from '../keyboard/TouchKey';
+import { Button } from '../../shared/Button';
 
 export const KioskProvisioningHUD: React.FC = () => {
   const {
@@ -244,54 +244,42 @@ export const KioskProvisioningHUD: React.FC = () => {
         <div style={{ display: 'flex', gap: '12px' }}>
           {isMobileMode ? (
             <>
-              <TouchKey
-                label={
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', fontSize: '14px' }}>
-                    <ChevronLeft size={18} />
-                    <span>Return to QR Code Now</span>
-                  </div>
-                }
-                variant="secondary"
-                height="50px"
-                flex={1.2}
+              <Button
+                variant="ghost"
+                leftIcon={<ChevronLeft size={18} />}
+                style={{ flex: 1.2, height: '48px', fontSize: '13px', fontWeight: 600 }}
                 onClick={() => setStep('MOBILE_HANDOFF')}
-              />
+              >
+                Return to QR Code Now
+              </Button>
 
-              <TouchKey
-                label="Switch to On-Screen Setup ➔"
-                variant="action"
-                height="50px"
-                flex={1.5}
+              <Button
+                variant="primary"
+                style={{ flex: 1.5, height: '48px', fontSize: '13px', fontWeight: 700 }}
                 onClick={startScreenMode}
-              />
+              >
+                Switch to On-Screen Setup ➔
+              </Button>
             </>
           ) : (
             <>
-              <TouchKey
-                label={
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', fontSize: '14px' }}>
-                    <ChevronLeft size={18} />
-                    <span>Choose Another Network</span>
-                  </div>
-                }
-                variant="secondary"
-                height="50px"
-                flex={1.2}
+              <Button
+                variant="ghost"
+                leftIcon={<ChevronLeft size={18} />}
+                style={{ flex: 1.2, height: '48px', fontSize: '13px', fontWeight: 600 }}
                 onClick={() => setStep('WIFI_SCAN')}
-              />
+              >
+                Choose Another Network
+              </Button>
 
-              <TouchKey
-                label={
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', fontSize: '14px' }}>
-                    <RefreshCw size={18} />
-                    <span>Try Again</span>
-                  </div>
-                }
-                variant="action"
-                height="50px"
-                flex={1.5}
-                onClick={submitProvisioning}
-              />
+              <Button
+                variant="primary"
+                leftIcon={<RefreshCw size={18} />}
+                style={{ flex: 1.5, height: '48px', fontSize: '13px', fontWeight: 700 }}
+                onClick={() => submitProvisioning()}
+              >
+                Try Again
+              </Button>
             </>
           )}
         </div>

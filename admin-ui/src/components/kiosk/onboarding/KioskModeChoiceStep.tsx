@@ -1,10 +1,11 @@
 // src/components/kiosk/onboarding/KioskModeChoiceStep.tsx
 import React from 'react';
 import { useKioskStore } from '../../../stores/useKioskStore';
-import { Smartphone, Monitor, Sparkles, Touchpad, Loader2 } from 'lucide-react';
+import { Smartphone, Monitor, Sparkles, Touchpad, ArrowRight } from 'lucide-react';
+import { Button } from '../../shared/Button';
 
 export const KioskModeChoiceStep: React.FC = () => {
-  const { startMobileMode, startScreenMode, isHotspotStarting, errorMessage } = useKioskStore();
+  const { startMobileMode, startScreenMode, isHotspotStarting, errorMessage, setErrorMessage } = useKioskStore();
 
   return (
     <div
@@ -76,13 +77,20 @@ export const KioskModeChoiceStep: React.FC = () => {
             background: 'rgba(239, 68, 68, 0.15)',
             border: '1px solid #EF4444',
             borderRadius: '6px',
-            padding: '8px 12px',
+            padding: '8px 14px',
             color: '#FCA5A5',
             fontSize: '12px',
             fontFamily: 'var(--font-mono, monospace)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: '8px',
           }}
         >
-          ⚠️ {errorMessage}
+          <span>⚠️ {errorMessage}</span>
+          <Button variant="ghost" onClick={() => setErrorMessage(null)} style={{ height: '28px', fontSize: '11px', padding: '0 8px' }}>
+            DISMISS
+          </Button>
         </div>
       )}
 
@@ -100,12 +108,9 @@ export const KioskModeChoiceStep: React.FC = () => {
         }}
       >
         {/* Card A: Phone / Laptop */}
-        <button
-          type="button"
+        <div
           onClick={startMobileMode}
-          disabled={isHotspotStarting}
           style={{
-            all: 'unset',
             boxSizing: 'border-box',
             display: 'flex',
             flexDirection: 'column',
@@ -114,7 +119,7 @@ export const KioskModeChoiceStep: React.FC = () => {
             border: '2px solid rgba(56, 189, 248, 0.4)',
             borderRadius: '10px',
             padding: '16px 18px',
-            cursor: 'pointer',
+            cursor: 'none',
             position: 'relative',
             boxShadow: '0 4px 14px rgba(0, 0, 0, 0.3)',
             transition: 'transform 0.15s ease, border-color 0.15s ease',
@@ -169,42 +174,25 @@ export const KioskModeChoiceStep: React.FC = () => {
             </div>
           </div>
 
-          {/* Action Button Footer */}
-          <div
-            style={{
-              width: '100%',
-              background: '#0284C7',
-              color: '#FFFFFF',
-              fontFamily: 'var(--font-mono, monospace)',
-              fontSize: '12px',
-              fontWeight: 700,
-              padding: '10px 0',
-              borderRadius: '6px',
-              textAlign: 'center',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: '6px',
-              boxShadow: '0 2px 8px rgba(2, 132, 199, 0.4)',
+          {/* Action Button using Primitive Component */}
+          <Button
+            variant="primary"
+            isLoading={isHotspotStarting}
+            rightIcon={<ArrowRight size={14} />}
+            style={{ width: '100%', height: '44px', fontSize: '12px' }}
+            onClick={(e) => {
+              e.stopPropagation();
+              startMobileMode();
             }}
           >
-            {isHotspotStarting ? (
-              <>
-                <Loader2 size={14} className="animate-spin" /> STARTING HOTSPOT...
-              </>
-            ) : (
-              'USE PHONE / LAPTOP ➔'
-            )}
-          </div>
-        </button>
+            USE PHONE / LAPTOP
+          </Button>
+        </div>
 
         {/* Card B: On-Screen Touch */}
-        <button
-          type="button"
+        <div
           onClick={startScreenMode}
-          disabled={isHotspotStarting}
           style={{
-            all: 'unset',
             boxSizing: 'border-box',
             display: 'flex',
             flexDirection: 'column',
@@ -213,7 +201,7 @@ export const KioskModeChoiceStep: React.FC = () => {
             border: '2px solid rgba(16, 185, 129, 0.4)',
             borderRadius: '10px',
             padding: '16px 18px',
-            cursor: 'pointer',
+            cursor: 'none',
             position: 'relative',
             boxShadow: '0 4px 14px rgba(0, 0, 0, 0.3)',
             transition: 'transform 0.15s ease, border-color 0.15s ease',
@@ -268,27 +256,19 @@ export const KioskModeChoiceStep: React.FC = () => {
             </div>
           </div>
 
-          {/* Action Button Footer */}
-          <div
-            style={{
-              width: '100%',
-              background: '#059669',
-              color: '#FFFFFF',
-              fontFamily: 'var(--font-mono, monospace)',
-              fontSize: '12px',
-              fontWeight: 700,
-              padding: '10px 0',
-              borderRadius: '6px',
-              textAlign: 'center',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              boxShadow: '0 2px 8px rgba(5, 150, 105, 0.4)',
+          {/* Action Button using Primitive Component */}
+          <Button
+            variant="mechanical"
+            rightIcon={<ArrowRight size={14} />}
+            style={{ width: '100%', height: '44px', fontSize: '12px' }}
+            onClick={(e) => {
+              e.stopPropagation();
+              startScreenMode();
             }}
           >
-            CONFIGURE ON SCREEN ➔
-          </div>
-        </button>
+            CONFIGURE ON SCREEN
+          </Button>
+        </div>
       </div>
 
       {/* 3. Footer Telemetry Note */}

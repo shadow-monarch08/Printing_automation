@@ -2,6 +2,7 @@
 import React from 'react';
 import { QRCodeSVG } from 'qrcode.react';
 import { Globe, Wifi, Printer, Shield, RefreshCw } from 'lucide-react';
+import { Button } from '../../shared/Button';
 import type { KioskSummaryData } from '../../../types';
 
 interface KioskOperationalHUDProps {
@@ -221,28 +222,20 @@ export const KioskOperationalHUD: React.FC<KioskOperationalHUDProps> = ({ summar
             <span>LOCAL IP: {summary?.localAccessUrl?.replace('http://', '') || '127.0.0.1:3000'}</span>
           </div>
 
-          <button
-            type="button"
+          <Button
+            variant="ghost"
+            leftIcon={<RefreshCw size={12} />}
             onClick={onRefresh}
             style={{
               height: '32px',
               padding: '0 12px',
-              background: 'var(--bg-primary, #1A1D20)',
-              border: '1px solid var(--border-default, #3A4047)',
-              borderRadius: '2px',
-              color: 'var(--text-secondary)',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '6px',
               fontSize: '11px',
               fontWeight: 700,
               fontFamily: 'var(--font-mono)',
-              cursor: 'none',
             }}
           >
-            <RefreshCw size={12} />
-            <span>SYNC</span>
-          </button>
+            SYNC
+          </Button>
         </div>
       </div>
     </div>
