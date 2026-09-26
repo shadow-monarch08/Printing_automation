@@ -9,6 +9,12 @@ interface KioskLayoutProps {
   children: React.ReactNode;
 }
 
+interface TouchPoint {
+  id: number;
+  x: number;
+  y: number;
+}
+
 export const KioskLayout: React.FC<KioskLayoutProps> = ({ children }) => {
   const {
     shopName,
@@ -19,6 +25,7 @@ export const KioskLayout: React.FC<KioskLayoutProps> = ({ children }) => {
   } = useKioskStore();
 
   const [burnInOffset, setBurnInOffset] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
+  const [touchPoints, setTouchPoints] = useState<TouchPoint[]>([]);
 
   // 1. LCD Burn-in Protection: Subtle 2px pixel shift every 15 minutes
   useEffect(() => {
@@ -39,6 +46,15 @@ export const KioskLayout: React.FC<KioskLayoutProps> = ({ children }) => {
     return () => clearInterval(interval);
   }, []);
 
+  // 2. Global Touch Indicator: Shows a subtle dot where touch landed for instant feedback
+  const handlePointerDown = (e: React.PointerEvent) => {
+    const id = Date.now();
+    setTouchPoints((prev) => [...prev.slice(-4), { id, x: e.clientX, y: e.clientY }]);
+    setTimeout(() => {
+      setTouchPoints((prev) => prev.filter((p) => p.id !== id));
+    }, 220);
+  };
+
   const isOnboarded = kioskSummary?.isOnboarded || step === 'OPERATIONAL';
   const isProvisioning = step === 'PROVISIONING';
 
@@ -58,6 +74,7 @@ export const KioskLayout: React.FC<KioskLayoutProps> = ({ children }) => {
 
   return (
     <div
+      onPointerDown={handlePointerDown}
       style={{
         width: '100vw',
         height: '100vh',
@@ -73,6 +90,7 @@ export const KioskLayout: React.FC<KioskLayoutProps> = ({ children }) => {
         userSelect: 'none',
         WebkitUserSelect: 'none',
         cursor: 'none',
+        position: 'relative',
       }}
     >
       <style>{`
@@ -92,7 +110,32 @@ export const KioskLayout: React.FC<KioskLayoutProps> = ({ children }) => {
           from { transform: rotate(0deg); }
           to { transform: rotate(360deg); }
         }
+        @keyframes touchRipple {
+          0% { transform: translate(-50%, -50%) scale(0.6); opacity: 0.9; }
+          100% { transform: translate(-50%, -50%) scale(1.6); opacity: 0; }
+        }
       `}</style>
+
+      {/* Global Touch Feedback Dots */}
+      {touchPoints.map((tp) => (
+        <div
+          key={tp.id}
+          style={{
+            position: 'fixed',
+            left: tp.x,
+            top: tp.y,
+            width: '24px',
+            height: '24px',
+            borderRadius: '50%',
+            background: 'rgba(255, 85, 0, 0.4)',
+            border: '2px solid #FF5500',
+            boxShadow: '0 0 10px rgba(255, 85, 0, 0.8)',
+            pointerEvents: 'none',
+            zIndex: 9999,
+            animation: 'touchRipple 0.22s ease-out forwards',
+          }}
+        />
+      ))}
 
       {/* 1. Persistent Hardware Header (40px) */}
       <KioskHeader

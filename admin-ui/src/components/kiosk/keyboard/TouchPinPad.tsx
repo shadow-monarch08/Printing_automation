@@ -1,7 +1,7 @@
 // src/components/kiosk/keyboard/TouchPinPad.tsx
 import React, { useState } from 'react';
 import { TouchKey } from './TouchKey';
-import { Delete, X, Check, Lock } from 'lucide-react';
+import { Delete, X, Check, Lock, AlertCircle } from 'lucide-react';
 
 interface TouchPinPadProps {
   label: string;
@@ -17,24 +17,31 @@ export const TouchPinPad: React.FC<TouchPinPadProps> = ({
   onCancel,
 }) => {
   const [pin, setPin] = useState(initialValue || '');
+  const [validationError, setValidationError] = useState(false);
 
   const handleDigit = (digit: string) => {
+    if (validationError) setValidationError(false);
     if (pin.length < 4) {
       setPin((prev) => prev + digit);
     }
   };
 
   const handleBackspace = () => {
+    if (validationError) setValidationError(false);
     setPin((prev) => prev.slice(0, -1));
   };
 
   const handleClear = () => {
+    if (validationError) setValidationError(false);
     setPin('');
   };
 
   const handleConfirm = () => {
     if (pin.length === 4) {
       onSubmit(pin);
+    } else {
+      setValidationError(true);
+      setTimeout(() => setValidationError(false), 2000);
     }
   };
 
@@ -46,15 +53,15 @@ export const TouchPinPad: React.FC<TouchPinPadProps> = ({
         left: 0,
         width: '100%',
         height: '420px',
-        background: '#1A1D20',
+        background: '#16181B',
         borderTop: '2px solid #FF5500',
         boxShadow: '0 -10px 40px rgba(0,0,0,0.9)',
         zIndex: 1000,
         display: 'flex',
         flexDirection: 'column',
         boxSizing: 'border-box',
-        padding: '12px 24px',
-        gap: '12px',
+        padding: '10px 24px 28px 24px',
+        gap: '10px',
         userSelect: 'none',
         WebkitUserSelect: 'none',
         touchAction: 'none',
@@ -63,45 +70,57 @@ export const TouchPinPad: React.FC<TouchPinPadProps> = ({
       {/* 1. TOP HUD PREVIEW STRIP WITH 4 GLOWING PIN DOTS */}
       <div
         style={{
-          height: '52px',
-          background: '#24282D',
-          border: '1.5px solid rgba(255, 255, 255, 0.12)',
-          borderRadius: '6px',
+          height: '48px',
+          background: validationError ? 'rgba(239, 68, 68, 0.15)' : '#22262B',
+          border: validationError ? '1.5px solid #EF4444' : '1.5px solid rgba(255, 255, 255, 0.12)',
+          borderRadius: '8px',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
           padding: '0 20px',
           boxSizing: 'border-box',
+          transition: 'all 0.15s ease',
         }}
       >
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-          <Lock size={18} color="#FF5500" />
+          {validationError ? (
+            <AlertCircle size={20} color="#EF4444" />
+          ) : (
+            <Lock size={18} color="#FF5500" />
+          )}
           <span
             style={{
               fontSize: '14px',
               fontWeight: 700,
-              color: '#FFFFFF',
+              color: validationError ? '#EF4444' : '#FFFFFF',
               fontFamily: 'var(--font-body, sans-serif)',
             }}
           >
-            {label}
+            {validationError ? 'Please enter all 4 digits' : label}
           </span>
         </div>
 
         {/* 4 Large Glowing PIN Dots */}
-        <div style={{ display: 'flex', gap: '18px', alignItems: 'center' }}>
+        <div style={{ display: 'flex', gap: '20px', alignItems: 'center' }}>
           {[0, 1, 2, 3].map((index) => {
             const isFilled = index < pin.length;
+            const dotColor = validationError ? '#EF4444' : '#FF5500';
             return (
               <div
                 key={index}
                 style={{
-                  width: '22px',
-                  height: '22px',
+                  width: '24px',
+                  height: '24px',
                   borderRadius: '50%',
-                  border: isFilled ? '2px solid #FF5500' : '2px solid rgba(255, 255, 255, 0.25)',
-                  background: isFilled ? '#FF5500' : 'transparent',
-                  boxShadow: isFilled ? '0 0 12px rgba(255, 85, 0, 0.8)' : 'none',
+                  border: isFilled
+                    ? `2px solid ${dotColor}`
+                    : validationError
+                    ? '2px solid rgba(239, 68, 68, 0.5)'
+                    : '2px solid rgba(255, 255, 255, 0.3)',
+                  background: isFilled ? dotColor : 'transparent',
+                  boxShadow: isFilled
+                    ? `0 0 14px ${dotColor}`
+                    : 'none',
                   transition: 'all 0.12s ease-in-out',
                 }}
               />
@@ -109,42 +128,55 @@ export const TouchPinPad: React.FC<TouchPinPadProps> = ({
           })}
         </div>
 
-        <div style={{ fontSize: '13px', fontWeight: 600, color: 'rgba(255, 255, 255, 0.6)' }}>
-          {pin.length} of 4 digits
+        <div
+          style={{
+            fontSize: '13px',
+            fontWeight: 700,
+            color: validationError ? '#EF4444' : 'rgba(255, 255, 255, 0.65)',
+            fontFamily: 'var(--font-mono, monospace)',
+          }}
+        >
+          {pin.length}/4
         </div>
       </div>
 
       {/* 2. MASSIVE NUMERIC 3x4 GRID + ACTIONS */}
-      <div style={{ flex: 1, display: 'flex', gap: '16px' }}>
-        {/* Numpad Column */}
-        <div style={{ flex: 3, display: 'flex', flexDirection: 'column', gap: '10px' }}>
+      <div style={{ flex: 1, display: 'flex', gap: '14px', minHeight: 0 }}>
+        {/* Numpad Column (Flex 3) */}
+        <div style={{ flex: 3, display: 'flex', flexDirection: 'column', gap: '8px' }}>
           {/* Row 1 */}
-          <div style={{ display: 'flex', gap: '10px', flex: 1 }}>
-            <TouchKey label="1" height="100%" onClick={() => handleDigit('1')} />
-            <TouchKey label="2" height="100%" onClick={() => handleDigit('2')} />
-            <TouchKey label="3" height="100%" onClick={() => handleDigit('3')} />
+          <div style={{ display: 'flex', gap: '8px', flex: 1 }}>
+            <TouchKey label="1" height="100%" onClick={() => handleDigit('1')} style={{ fontSize: '24px' }} />
+            <TouchKey label="2" height="100%" onClick={() => handleDigit('2')} style={{ fontSize: '24px' }} />
+            <TouchKey label="3" height="100%" onClick={() => handleDigit('3')} style={{ fontSize: '24px' }} />
           </div>
 
           {/* Row 2 */}
-          <div style={{ display: 'flex', gap: '10px', flex: 1 }}>
-            <TouchKey label="4" height="100%" onClick={() => handleDigit('4')} />
-            <TouchKey label="5" height="100%" onClick={() => handleDigit('5')} />
-            <TouchKey label="6" height="100%" onClick={() => handleDigit('6')} />
+          <div style={{ display: 'flex', gap: '8px', flex: 1 }}>
+            <TouchKey label="4" height="100%" onClick={() => handleDigit('4')} style={{ fontSize: '24px' }} />
+            <TouchKey label="5" height="100%" onClick={() => handleDigit('5')} style={{ fontSize: '24px' }} />
+            <TouchKey label="6" height="100%" onClick={() => handleDigit('6')} style={{ fontSize: '24px' }} />
           </div>
 
           {/* Row 3 */}
-          <div style={{ display: 'flex', gap: '10px', flex: 1 }}>
-            <TouchKey label="7" height="100%" onClick={() => handleDigit('7')} />
-            <TouchKey label="8" height="100%" onClick={() => handleDigit('8')} />
-            <TouchKey label="9" height="100%" onClick={() => handleDigit('9')} />
+          <div style={{ display: 'flex', gap: '8px', flex: 1 }}>
+            <TouchKey label="7" height="100%" onClick={() => handleDigit('7')} style={{ fontSize: '24px' }} />
+            <TouchKey label="8" height="100%" onClick={() => handleDigit('8')} style={{ fontSize: '24px' }} />
+            <TouchKey label="9" height="100%" onClick={() => handleDigit('9')} style={{ fontSize: '24px' }} />
           </div>
 
           {/* Row 4 */}
-          <div style={{ display: 'flex', gap: '10px', flex: 1 }}>
-            <TouchKey label="CLR" variant="danger" height="100%" onClick={handleClear} />
-            <TouchKey label="0" height="100%" onClick={() => handleDigit('0')} />
+          <div style={{ display: 'flex', gap: '8px', flex: 1 }}>
             <TouchKey
-              label={<Delete size={22} />}
+              label="CLR"
+              variant="danger"
+              height="100%"
+              onClick={handleClear}
+              style={{ fontSize: '16px' }}
+            />
+            <TouchKey label="0" height="100%" onClick={() => handleDigit('0')} style={{ fontSize: '24px' }} />
+            <TouchKey
+              label={<Delete size={24} />}
               variant="secondary"
               height="100%"
               onClick={handleBackspace}
@@ -152,32 +184,31 @@ export const TouchPinPad: React.FC<TouchPinPadProps> = ({
           </div>
         </div>
 
-        {/* Action Column */}
-        <div style={{ flex: 1.2, display: 'flex', flexDirection: 'column', gap: '10px' }}>
+        {/* Action Column (Flex 1.2) */}
+        <div style={{ flex: 1.2, display: 'flex', flexDirection: 'column', gap: '8px' }}>
           {onCancel && (
             <TouchKey
               label={
-                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '15px' }}>
-                  <X size={20} />
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '16px' }}>
+                  <X size={22} />
                   <span>Cancel</span>
                 </div>
               }
-              variant="danger"
-              height="120px"
+              variant="secondary"
+              height="110px"
               onClick={onCancel}
             />
           )}
 
           <TouchKey
             label={
-              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px', fontSize: '16px' }}>
-                <Check size={28} />
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px', fontSize: '18px' }}>
+                <Check size={32} />
                 <span>Confirm</span>
               </div>
             }
             variant="action"
-            height={onCancel ? '200px' : '330px'}
-            disabled={pin.length !== 4}
+            height={onCancel ? '180px' : '300px'}
             onClick={handleConfirm}
           />
         </div>
