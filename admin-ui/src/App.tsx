@@ -73,11 +73,12 @@ function App() {
 
   if (loading) return null;
 
+  // 1. Dedicated Hardware Screen Route (Restricted to 5-inch screen, ZERO web toasts/modals)
+  if (window.location.pathname === '/terminal') {
+    return <KioskTerminalHub />;
+  }
+
   const renderMainContent = () => {
-    // 1. Dedicated Hardware Screen Route (Restricted to 5-inch physical screen)
-    if (window.location.pathname === '/terminal') {
-      return <KioskTerminalHub />;
-    }
 
     // 2. Unprovisioned Setup Wizard (Admin Smartphone on Hotspot)
     if (!isOnboarded) {

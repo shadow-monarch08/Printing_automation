@@ -94,6 +94,8 @@ export interface WifiNetwork {
   isActive?: boolean;
   isSaved?: boolean;
   profileName?: string | null;
+  isSecured?: boolean;
+  securityType?: string;
 }
 
 export interface ConnectPayload {
