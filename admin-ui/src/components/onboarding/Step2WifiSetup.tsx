@@ -1,4 +1,4 @@
-﻿import { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { Button } from '../shared/Button';
 import { PaperTable } from '../shared/PaperTable';
 import { useModal } from '../../context/ModalContext';
@@ -13,13 +13,14 @@ interface Step2WifiSetupProps {
   onComplete: () => void;
 }
 
-export function Step2WifiSetup({ shopName, adminPin }: Step2WifiSetupProps) {
+export function Step2WifiSetup({ shopName, adminPin, onComplete }: Step2WifiSetupProps) {
   const provisioningState = useAdminStore((s) => s.provisioningState);
   const [networks, setNetworks] = useState<WifiNetwork[]>([]);
   const [isScanning, setIsScanning] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isDispatched, setIsDispatched] = useState(false);
   const [selectedSsid, setSelectedSsid] = useState('');
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   const { openModal, closeModal } = useModal();
 
@@ -39,6 +40,31 @@ export function Step2WifiSetup({ shopName, adminPin }: Step2WifiSetupProps) {
     fetchNetworks();
   }, []);
 
+  // Poll for provisioning outcome while mobile is awaiting result
+  useEffect(() => {
+    if (!isDispatched) return;
+
+    const interval = setInterval(async () => {
+      try {
+        const tel = await api.getProvisionStatus();
+        if (tel && tel.status) {
+          if (tel.status === 'failed') {
+            setIsDispatched(false);
+            setErrorMessage(tel.error || 'Wi-Fi connection failed. Please check your credentials and retry.');
+            fetchNetworks(); // re-scan available networks
+          } else if (tel.status === 'success') {
+            setIsDispatched(false);
+            onComplete();
+          }
+        }
+      } catch (err) {
+        /* wait for hotspot reconnection */
+      }
+    }, 2000);
+
+    return () => clearInterval(interval);
+  }, [isDispatched, onComplete]);
+
   const handleNetworkSelect = (network: WifiNetwork) => {
     setSelectedSsid(network.ssid);
     openModal({
@@ -56,6 +82,7 @@ export function Step2WifiSetup({ shopName, adminPin }: Step2WifiSetupProps) {
 
   const handleConnectSubmit = async (ssid: string, password?: string, isSaved?: boolean, profileName?: string) => {
     setIsSubmitting(true);
+    setErrorMessage(null);
 
     try {
       await api.provisionSetup({
@@ -65,6 +92,8 @@ export function Step2WifiSetup({ shopName, adminPin }: Step2WifiSetupProps) {
         isSaved,
         adminPin,
         shopName,
+        mode: 'MOBILE',
+        source: 'mobile',
       });
 
       setIsSubmitting(false);
@@ -72,11 +101,13 @@ export function Step2WifiSetup({ shopName, adminPin }: Step2WifiSetupProps) {
     } catch (err: any) {
       setIsSubmitting(false);
       setIsDispatched(false);
+      setErrorMessage(err?.response?.data?.error || err.message || 'Failed to dispatch configuration.');
     }
   };
 
   const handleSkipWifi = async () => {
     setIsSubmitting(true);
+    setErrorMessage(null);
 
     try {
       await api.skipWifiSetup({ adminPin, shopName });
@@ -86,6 +117,7 @@ export function Step2WifiSetup({ shopName, adminPin }: Step2WifiSetupProps) {
     } catch (err: any) {
       setIsSubmitting(false);
       setIsDispatched(false);
+      setErrorMessage(err?.response?.data?.error || err.message || 'Failed to proceed with active network.');
     }
   };
 
@@ -101,6 +133,37 @@ export function Step2WifiSetup({ shopName, adminPin }: Step2WifiSetupProps) {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+      {/* Failure Recovery Error Banner */}
+      {errorMessage && (
+        <div
+          style={{
+            background: 'rgba(239, 68, 68, 0.1)',
+            border: '1.5px solid #EF4444',
+            borderRadius: 'var(--radius-sm, 6px)',
+            padding: '14px 18px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: '12px',
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <span style={{ fontSize: '18px' }}>⚠️</span>
+            <div>
+              <div style={{ fontFamily: 'var(--font-mono)', fontSize: '12px', fontWeight: 700, color: '#EF4444' }}>
+                SETUP_FAILED // HOTSPOT_RECONNECTED
+              </div>
+              <div style={{ fontSize: '13px', color: 'var(--text-primary)', marginTop: '2px' }}>
+                {errorMessage}
+              </div>
+            </div>
+          </div>
+          <Button variant="ghost" onClick={() => setErrorMessage(null)} style={{ height: '32px', fontSize: '11px' }}>
+            DISMISS
+          </Button>
+        </div>
+      )}
+
       {/* Top Telemetry Header */}
       <div
         style={{

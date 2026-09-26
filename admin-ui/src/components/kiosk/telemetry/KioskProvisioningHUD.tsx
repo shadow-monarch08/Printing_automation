@@ -11,6 +11,8 @@ export const KioskProvisioningHUD: React.FC = () => {
     errorMessage,
     errorCode,
     selectedNetwork,
+    onboardingMode,
+    startScreenMode,
     setTelemetry,
     setErrorMessage,
     setStep,
@@ -77,6 +79,21 @@ export const KioskProvisioningHUD: React.FC = () => {
     Boolean(errorMessage) ||
     provisioningTelemetry?.status === 'failed' ||
     Boolean(errorCode);
+
+  const isMobileMode =
+    provisioningTelemetry?.retryMode === 'MOBILE' ||
+    provisioningTelemetry?.onboardingMode === 'MOBILE' ||
+    onboardingMode === 'MOBILE';
+
+  // Auto-revert back to MOBILE_HANDOFF if provisioning in mobile mode failed
+  useEffect(() => {
+    if (isFailed && isMobileMode) {
+      const timer = setTimeout(() => {
+        setStep('MOBILE_HANDOFF');
+      }, 3500);
+      return () => clearTimeout(timer);
+    }
+  }, [isFailed, isMobileMode, setStep]);
 
   const getHumanFriendlyError = () => {
     const code = errorCode || provisioningTelemetry?.code;
@@ -201,6 +218,23 @@ export const KioskProvisioningHUD: React.FC = () => {
             <div style={{ fontSize: '14px', color: '#FFFFFF', lineHeight: '1.5' }}>
               {getHumanFriendlyError()}
             </div>
+
+            {isMobileMode && (
+              <div
+                style={{
+                  marginTop: '4px',
+                  padding: '8px 12px',
+                  background: 'rgba(56, 189, 248, 0.15)',
+                  border: '1px solid rgba(56, 189, 248, 0.3)',
+                  borderRadius: '6px',
+                  color: '#38BDF8',
+                  fontSize: '12px',
+                  fontFamily: 'var(--font-mono, monospace)',
+                }}
+              >
+                📶 Hotspot re-enabled. Returning to QR Code screen in 3 seconds...
+              </div>
+            )}
           </div>
         )}
       </div>
@@ -208,31 +242,58 @@ export const KioskProvisioningHUD: React.FC = () => {
       {/* 3. Action Buttons on Error */}
       {isFailed && (
         <div style={{ display: 'flex', gap: '12px' }}>
-          <TouchKey
-            label={
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', fontSize: '14px' }}>
-                <ChevronLeft size={18} />
-                <span>Choose Another Network</span>
-              </div>
-            }
-            variant="secondary"
-            height="50px"
-            flex={1.2}
-            onClick={() => setStep('WIFI_SCAN')}
-          />
+          {isMobileMode ? (
+            <>
+              <TouchKey
+                label={
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', fontSize: '14px' }}>
+                    <ChevronLeft size={18} />
+                    <span>Return to QR Code Now</span>
+                  </div>
+                }
+                variant="secondary"
+                height="50px"
+                flex={1.2}
+                onClick={() => setStep('MOBILE_HANDOFF')}
+              />
 
-          <TouchKey
-            label={
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', fontSize: '14px' }}>
-                <RefreshCw size={18} />
-                <span>Try Again</span>
-              </div>
-            }
-            variant="action"
-            height="50px"
-            flex={1.5}
-            onClick={submitProvisioning}
-          />
+              <TouchKey
+                label="Switch to On-Screen Setup ➔"
+                variant="action"
+                height="50px"
+                flex={1.5}
+                onClick={startScreenMode}
+              />
+            </>
+          ) : (
+            <>
+              <TouchKey
+                label={
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', fontSize: '14px' }}>
+                    <ChevronLeft size={18} />
+                    <span>Choose Another Network</span>
+                  </div>
+                }
+                variant="secondary"
+                height="50px"
+                flex={1.2}
+                onClick={() => setStep('WIFI_SCAN')}
+              />
+
+              <TouchKey
+                label={
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', fontSize: '14px' }}>
+                    <RefreshCw size={18} />
+                    <span>Try Again</span>
+                  </div>
+                }
+                variant="action"
+                height="50px"
+                flex={1.5}
+                onClick={submitProvisioning}
+              />
+            </>
+          )}
         </div>
       )}
     </div>

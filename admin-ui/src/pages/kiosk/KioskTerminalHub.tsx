@@ -2,6 +2,8 @@
 import React, { useEffect, useState } from 'react';
 import { useKioskStore } from '../../stores/useKioskStore';
 import { KioskLayout } from '../../layouts/KioskLayout';
+import { KioskModeChoiceStep } from '../../components/kiosk/onboarding/KioskModeChoiceStep';
+import { KioskMobileHandoffStep } from '../../components/kiosk/onboarding/KioskMobileHandoffStep';
 import { KioskIdentityStep } from '../../components/kiosk/onboarding/KioskIdentityStep';
 import { KioskWifiStep } from '../../components/kiosk/onboarding/KioskWifiStep';
 import { KioskProvisioningHUD } from '../../components/kiosk/telemetry/KioskProvisioningHUD';
@@ -48,6 +50,10 @@ export const KioskTerminalHub: React.FC = () => {
   // 2. Step Router for 800x480 Physical Screen
   const renderCurrentStep = () => {
     switch (step) {
+      case 'CHOICE':
+        return <KioskModeChoiceStep />;
+      case 'MOBILE_HANDOFF':
+        return <KioskMobileHandoffStep />;
       case 'IDENTITY':
         return <KioskIdentityStep />;
       case 'WIFI_SCAN':

@@ -3,7 +3,7 @@ import { create } from 'zustand';
 import { api } from '../services/api';
 import type { WifiNetwork, ProvisioningTelemetry, KioskSummaryData } from '../types';
 
-export type KioskStep = 'IDENTITY' | 'WIFI_SCAN' | 'PROVISIONING' | 'OPERATIONAL';
+export type KioskStep = 'CHOICE' | 'IDENTITY' | 'WIFI_SCAN' | 'MOBILE_HANDOFF' | 'PROVISIONING' | 'OPERATIONAL';
 
 export interface KeyboardConfig {
   isOpen: boolean;
@@ -18,6 +18,8 @@ export interface KeyboardConfig {
 
 export interface KioskStoreState {
   step: KioskStep;
+  onboardingMode: 'SCREEN' | 'MOBILE' | 'NONE';
+  isHotspotStarting: boolean;
   shopName: string;
   adminPin: string;
   selectedNetwork: WifiNetwork | null;
@@ -39,6 +41,7 @@ export interface KioskStoreState {
 
   // Actions
   setStep: (step: KioskStep) => void;
+  setOnboardingMode: (mode: 'SCREEN' | 'MOBILE' | 'NONE') => void;
   setShopName: (name: string) => void;
   setAdminPin: (pin: string) => void;
   setSelectedNetwork: (network: WifiNetwork | null) => void;
@@ -49,6 +52,11 @@ export interface KioskStoreState {
 
   openKeyboard: (config: Omit<KeyboardConfig, 'isOpen'>) => void;
   closeKeyboard: () => void;
+
+  startMobileMode: () => Promise<void>;
+  cancelMobileMode: () => Promise<void>;
+  startScreenMode: () => Promise<void>;
+  resetToChoice: () => void;
 
   scanNetworks: () => Promise<void>;
   submitProvisioning: (options?: { isSaved?: boolean; password?: string }) => Promise<void>;
@@ -69,7 +77,9 @@ const DEFAULT_KEYBOARD: KeyboardConfig = {
 };
 
 export const useKioskStore = create<KioskStoreState>((set, get) => ({
-  step: 'IDENTITY',
+  step: 'CHOICE',
+  onboardingMode: 'NONE',
+  isHotspotStarting: false,
   shopName: 'Modern Press',
   adminPin: '',
   selectedNetwork: null,
@@ -87,6 +97,7 @@ export const useKioskStore = create<KioskStoreState>((set, get) => ({
   keyboard: DEFAULT_KEYBOARD,
 
   setStep: (step) => set({ step }),
+  setOnboardingMode: (onboardingMode) => set({ onboardingMode }),
   setShopName: (shopName) => set({ shopName }),
   setAdminPin: (adminPin) => set({ adminPin }),
   setSelectedNetwork: (selectedNetwork) => set({ selectedNetwork }),
@@ -107,6 +118,62 @@ export const useKioskStore = create<KioskStoreState>((set, get) => ({
     set((state) => ({
       keyboard: { ...state.keyboard, isOpen: false },
     })),
+
+  startMobileMode: async () => {
+    set({ isHotspotStarting: true, errorMessage: null });
+    try {
+      await api.startHotspot();
+      set({
+        step: 'MOBILE_HANDOFF',
+        onboardingMode: 'MOBILE',
+        isHotspotStarting: false,
+      });
+    } catch (err: any) {
+      console.error('[KioskStore] Failed to activate hotspot:', err);
+      set({
+        errorMessage: 'Could not activate hotspot AP. Please configure on screen instead.',
+        isHotspotStarting: false,
+      });
+    }
+  },
+
+  cancelMobileMode: async () => {
+    try {
+      await api.stopHotspot();
+    } catch (err) {
+      console.warn('[KioskStore] Warning stopping hotspot:', err);
+    }
+    set({
+      step: 'CHOICE',
+      onboardingMode: 'NONE',
+      errorMessage: null,
+      errorCode: null,
+    });
+  },
+
+  startScreenMode: async () => {
+    try {
+      await api.setOnboardingMode('SCREEN');
+    } catch (err) {
+      /* non-fatal */
+    }
+    set({
+      step: 'IDENTITY',
+      onboardingMode: 'SCREEN',
+      errorMessage: null,
+      errorCode: null,
+    });
+  },
+
+  resetToChoice: () => {
+    set({
+      step: 'CHOICE',
+      errorMessage: null,
+      errorCode: null,
+      isSubmitting: false,
+      provisioningTelemetry: null,
+    });
+  },
 
   scanNetworks: async () => {
     set({ isScanning: true, errorMessage: null });
@@ -136,6 +203,8 @@ export const useKioskStore = create<KioskStoreState>((set, get) => ({
         wifiPassword: finalPassword || undefined,
         isSaved: finalIsSaved,
         profileName: selectedNetwork?.profileName || undefined,
+        mode: get().onboardingMode === 'MOBILE' ? 'MOBILE' : 'SCREEN',
+        source: get().onboardingMode === 'MOBILE' ? 'mobile' : 'kiosk',
       });
       // Provisioning dispatched successfully. Telemetry updates will arrive via SSE / polling
     } catch (err: any) {
@@ -189,6 +258,10 @@ export const useKioskStore = create<KioskStoreState>((set, get) => ({
           step: 'PROVISIONING',
           provisioningTelemetry: summary.provisioning,
         });
+      } else if (summary.hotspotActive || summary.onboardingMode === 'MOBILE') {
+        if (get().step !== 'PROVISIONING' && get().step !== 'OPERATIONAL') {
+          set({ step: 'MOBILE_HANDOFF', onboardingMode: 'MOBILE' });
+        }
       }
     } catch (err) {
       console.warn('[KioskStore] Error fetching summary:', err);

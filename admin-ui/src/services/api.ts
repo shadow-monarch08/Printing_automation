@@ -1,4 +1,4 @@
-﻿// src/services/api.ts
+// src/services/api.ts
 import { apiClient } from './apiClient';
 import { pollingApiClient } from './pollingApiClient';
 import type { BackendPrinter, BackendJob, BackendMetrics, PricingConfig, WifiNetwork, ConnectPayload, HandoffData, NetworkStatus, KioskSummaryData, ProvisioningTelemetry } from '../types';
@@ -190,6 +190,8 @@ export const api = {
     isSaved?: boolean;
     skipWifi?: boolean;
     handoffToken?: string;
+    mode?: 'SCREEN' | 'MOBILE';
+    source?: string;
   }) => {
     return apiClient.post<{ success?: boolean; message: string; rebooting?: boolean; handoffToken?: string; cloudflareUrl?: string }>('/setup/provision', payload);
   },
@@ -204,6 +206,23 @@ export const api = {
 
   getNetworkStatus: async () => {
     return pollingApiClient.get<NetworkStatus>('/setup/network-status');
+  },
+
+  // On-demand Hotspot Management for Dual-Mode Setup
+  startHotspot: async () => {
+    return apiClient.post<{ success: boolean; message: string; ssid: string; ip: string }>('/setup/hotspot/start');
+  },
+
+  stopHotspot: async () => {
+    return apiClient.post<{ success: boolean; message: string }>('/setup/hotspot/stop');
+  },
+
+  getHotspotStatus: async () => {
+    return pollingApiClient.get<{ active: boolean; ssid: string; ip: string; mode: 'SCREEN' | 'MOBILE' | 'NONE' }>('/setup/hotspot/status');
+  },
+
+  setOnboardingMode: async (mode: 'SCREEN' | 'MOBILE' | 'NONE') => {
+    return apiClient.post<{ success: boolean; mode: string }>('/setup/mode', { mode });
   },
 
   // Analytics API

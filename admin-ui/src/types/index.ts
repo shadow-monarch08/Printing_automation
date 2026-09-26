@@ -143,6 +143,8 @@ export interface ProvisioningTelemetry {
   code?: string;
   error?: string;
   rollbackActive?: boolean;
+  onboardingMode?: 'MOBILE' | 'SCREEN';
+  retryMode?: 'MOBILE' | 'SCREEN';
   timestamp: number;
 }
 
@@ -157,6 +159,7 @@ export interface KioskSummaryData {
   internetOnline: boolean;
   activeProfile: string | null;
   hotspotActive: boolean;
+  onboardingMode?: 'MOBILE' | 'SCREEN' | 'NONE';
   printerCount: number;
   provisioning: ProvisioningTelemetry | null;
   timestamp: number;
