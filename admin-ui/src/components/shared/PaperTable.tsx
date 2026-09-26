@@ -28,12 +28,16 @@ export interface PaperTableProps<T = any> {
   // Display Customizations
   showRecordCount?: boolean;
   showPageSizeSelector?: boolean;
+  contentStyle?: React.CSSProperties;
+  paginationStyle?: React.CSSProperties;
 }
 
 export function PaperTable<T = any>({
   children,
   className = '',
   style,
+  contentStyle,
+  paginationStyle,
 
   data,
   renderData,
@@ -153,7 +157,7 @@ export function PaperTable<T = any>({
       />
 
       {/* Table Content Area */}
-      <div style={{ overflowX: 'auto', padding: '16px' }}>
+      <div style={{ overflowX: 'auto', padding: '16px', ...contentStyle }}>
         {renderData ? renderData(paginatedData) : children}
       </div>
 
@@ -172,6 +176,7 @@ export function PaperTable<T = any>({
             fontSize: '12px',
             gap: '12px',
             flexWrap: 'wrap',
+            ...paginationStyle,
           }}
         >
           {/* Record Count Stats */}

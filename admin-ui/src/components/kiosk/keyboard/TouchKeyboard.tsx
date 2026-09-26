@@ -1,7 +1,7 @@
 // src/components/kiosk/keyboard/TouchKeyboard.tsx
 import React, { useState } from 'react';
 import { TouchKey } from './TouchKey';
-import { Eye, EyeOff, Delete, X, Check } from 'lucide-react';
+import { Eye, EyeOff, Delete, X, Check, Trash2 } from 'lucide-react';
 
 interface TouchKeyboardProps {
   label: string;
@@ -81,7 +81,7 @@ export const TouchKeyboard: React.FC<TouchKeyboardProps> = ({
         touchAction: 'none',
       }}
     >
-      {/* 1. TOP HUD PREVIEW STRIP (Height: 46px) */}
+      {/* 1. TOP HUD PREVIEW STRIP (Cleaned: No redundant small DEL/CLR buttons) */}
       <div
         style={{
           height: '46px',
@@ -90,8 +90,8 @@ export const TouchKeyboard: React.FC<TouchKeyboardProps> = ({
           borderRadius: '8px',
           display: 'flex',
           alignItems: 'center',
-          padding: '0 10px',
-          gap: '10px',
+          padding: '0 12px',
+          gap: '12px',
           boxSizing: 'border-box',
         }}
       >
@@ -103,13 +103,13 @@ export const TouchKeyboard: React.FC<TouchKeyboardProps> = ({
             fontFamily: 'var(--font-body, sans-serif)',
             whiteSpace: 'nowrap',
             borderRight: '1px solid rgba(255, 255, 255, 0.15)',
-            paddingRight: '10px',
+            paddingRight: '12px',
           }}
         >
           {label}
         </span>
 
-        {/* Live Input Preview Box */}
+        {/* Live Input Preview Box (Takes full remaining space) */}
         <div
           style={{
             flex: 1,
@@ -147,7 +147,7 @@ export const TouchKeyboard: React.FC<TouchKeyboardProps> = ({
           />
         </div>
 
-        {/* Password Visibility Toggle */}
+        {/* Password Visibility Toggle (Only if password field) */}
         {isPassword && (
           <button
             type="button"
@@ -157,7 +157,7 @@ export const TouchKeyboard: React.FC<TouchKeyboardProps> = ({
             }}
             style={{
               height: '36px',
-              padding: '0 10px',
+              padding: '0 12px',
               background: '#2D3238',
               border: '1px solid rgba(255, 255, 255, 0.15)',
               borderRadius: '6px',
@@ -171,62 +171,10 @@ export const TouchKeyboard: React.FC<TouchKeyboardProps> = ({
               touchAction: 'none',
             }}
           >
-            {showPassword ? <EyeOff size={15} /> : <Eye size={15} />}
+            {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
             <span>{showPassword ? 'Hide' : 'Show'}</span>
           </button>
         )}
-
-        {/* Clear Button */}
-        <button
-          type="button"
-          onPointerDown={(e) => {
-            e.preventDefault();
-            handleClear();
-          }}
-          disabled={value.length === 0}
-          style={{
-            height: '36px',
-            padding: '0 12px',
-            background: '#2D3238',
-            border: '1px solid rgba(255, 255, 255, 0.15)',
-            borderRadius: '6px',
-            color: value.length > 0 ? '#EF4444' : 'rgba(255, 255, 255, 0.3)',
-            fontSize: '12px',
-            fontWeight: 700,
-            cursor: 'none',
-            touchAction: 'none',
-          }}
-        >
-          CLR
-        </button>
-
-        {/* Backspace Button on HUD Strip */}
-        <button
-          type="button"
-          onPointerDown={(e) => {
-            e.preventDefault();
-            handleBackspace();
-          }}
-          disabled={value.length === 0}
-          style={{
-            height: '36px',
-            padding: '0 12px',
-            background: '#2D3238',
-            border: '1px solid rgba(255, 255, 255, 0.15)',
-            borderRadius: '6px',
-            color: value.length > 0 ? '#FFFFFF' : 'rgba(255, 255, 255, 0.3)',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '4px',
-            fontSize: '12px',
-            fontWeight: 700,
-            cursor: 'none',
-            touchAction: 'none',
-          }}
-        >
-          <Delete size={15} />
-          <span>⌫</span>
-        </button>
       </div>
 
       {/* 2. DEDICATED PERMANENT NUMBER ROW (1 2 3 4 5 6 7 8 9 0) */}
@@ -289,8 +237,8 @@ export const TouchKeyboard: React.FC<TouchKeyboardProps> = ({
         ))}
         <TouchKey
           label={
-            <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-              <Delete size={18} />
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <Delete size={20} />
               <span>DEL</span>
             </div>
           }
@@ -302,7 +250,7 @@ export const TouchKeyboard: React.FC<TouchKeyboardProps> = ({
         />
       </div>
 
-      {/* 6. BOTTOM ROW (CANCEL, SYMBOL TOGGLE, SPACE, CONFIRM) */}
+      {/* 6. BOTTOM ROW (CANCEL, SYMBOL TOGGLE, SPACE, BIG CLR, CONFIRM) */}
       <div style={{ display: 'flex', gap: '8px', flex: 1.1, minHeight: 0 }}>
         {onCancel && (
           <TouchKey
@@ -313,7 +261,7 @@ export const TouchKeyboard: React.FC<TouchKeyboardProps> = ({
               </div>
             }
             variant="secondary"
-            flex={1.8}
+            flex={1.6}
             height="100%"
             onClick={onCancel}
             style={{ fontSize: '15px' }}
@@ -323,7 +271,7 @@ export const TouchKeyboard: React.FC<TouchKeyboardProps> = ({
         <TouchKey
           label={isSymbols ? 'ABC' : '?123'}
           variant={isSymbols ? 'accent' : 'secondary'}
-          flex={1.5}
+          flex={1.4}
           height="100%"
           onClick={() => setIsSymbols((prev) => !prev)}
           style={{ fontSize: '15px' }}
@@ -332,10 +280,25 @@ export const TouchKeyboard: React.FC<TouchKeyboardProps> = ({
         <TouchKey
           label="SPACE"
           variant="default"
-          flex={3.8}
+          flex={3.0}
           height="100%"
           onClick={() => handleKeyPress(' ')}
           style={{ fontSize: '15px', letterSpacing: '0.1em' }}
+        />
+
+        {/* Large Ergonomic CLR Button without affecting other key sizes */}
+        <TouchKey
+          label={
+            <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+              <Trash2 size={16} />
+              <span>CLR</span>
+            </div>
+          }
+          variant="danger"
+          flex={1.3}
+          height="100%"
+          onClick={handleClear}
+          style={{ fontSize: '14px' }}
         />
 
         <TouchKey
@@ -346,7 +309,7 @@ export const TouchKeyboard: React.FC<TouchKeyboardProps> = ({
             </div>
           }
           variant="action"
-          flex={2.5}
+          flex={2.2}
           height="100%"
           onClick={handleConfirm}
         />

@@ -51,7 +51,7 @@ export interface KioskStoreState {
   closeKeyboard: () => void;
 
   scanNetworks: () => Promise<void>;
-  submitProvisioning: () => Promise<void>;
+  submitProvisioning: (options?: { isSaved?: boolean; password?: string }) => Promise<void>;
   skipWifiAndProvision: () => Promise<void>;
   resetToIdentity: () => void;
   fetchSummary: () => Promise<void>;
@@ -121,8 +121,11 @@ export const useKioskStore = create<KioskStoreState>((set, get) => ({
     }
   },
 
-  submitProvisioning: async () => {
-    const { shopName, adminPin, selectedNetwork, wifiPassword } = get();
+  submitProvisioning: async (options?: { isSaved?: boolean; password?: string }) => {
+    const { shopName, adminPin, selectedNetwork } = get();
+    const finalPassword = options?.password !== undefined ? options.password : get().wifiPassword;
+    const finalIsSaved = options?.isSaved !== undefined ? options.isSaved : selectedNetwork?.isSaved;
+
     set({ isSubmitting: true, step: 'PROVISIONING', errorMessage: null, errorCode: null });
 
     try {
@@ -130,8 +133,8 @@ export const useKioskStore = create<KioskStoreState>((set, get) => ({
         shopName,
         adminPin,
         wifiSsid: selectedNetwork?.ssid,
-        wifiPassword: wifiPassword || undefined,
-        isSaved: selectedNetwork?.isSaved,
+        wifiPassword: finalPassword || undefined,
+        isSaved: finalIsSaved,
         profileName: selectedNetwork?.profileName || undefined,
       });
       // Provisioning dispatched successfully. Telemetry updates will arrive via SSE / polling
