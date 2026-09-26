@@ -117,18 +117,18 @@ export const KioskLayout: React.FC<KioskLayoutProps> = ({ children }) => {
       {/* 3. Docked Touch Keyboard Overlay (>50% Screen) */}
       {keyboard.isOpen && (
         <>
-          {/* Dimmed backdrop over upper portion of the screen */}
+          {/* Dimmed non-dismissible backdrop over upper margin */}
           <div
-            onClick={closeKeyboard}
             style={{
               position: 'fixed',
               top: 0,
               left: 0,
               width: '100%',
-              height: 'calc(100% - 280px)',
-              background: 'rgba(0, 0, 0, 0.45)',
+              height: 'calc(100% - 420px)',
+              background: 'rgba(0, 0, 0, 0.6)',
               zIndex: 999,
               cursor: 'none',
+              touchAction: 'none',
             }}
           />
 

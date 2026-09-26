@@ -1,5 +1,5 @@
 // src/components/kiosk/keyboard/TouchKey.tsx
-import React from 'react';
+import React, { useRef } from 'react';
 
 interface TouchKeyProps {
   label: React.ReactNode;
@@ -18,15 +18,30 @@ export const TouchKey: React.FC<TouchKeyProps> = ({
   variant = 'default',
   flex = 1,
   minWidth = '48px',
-  height = '48px',
+  height = '56px',
   disabled = false,
   style = {},
 }) => {
+  const lastFiredRef = useRef<number>(0);
+
+  const triggerAction = (e: React.SyntheticEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (disabled) return;
+
+    // Debounce 120ms to prevent double-fires from resistive touch micro-bounces
+    const now = Date.now();
+    if (now - lastFiredRef.current < 120) return;
+    lastFiredRef.current = now;
+
+    onClick();
+  };
+
   const getColors = () => {
     switch (variant) {
       case 'accent':
         return {
-          bg: 'var(--accent-primary, #FF5500)',
+          bg: '#FF5500',
           color: '#1A1D20',
           border: '#E04B00',
           shadow: '0 3px 0 #000000',
@@ -47,17 +62,17 @@ export const TouchKey: React.FC<TouchKeyProps> = ({
         };
       case 'secondary':
         return {
-          bg: '#202327',
-          color: 'var(--text-secondary, #9098A2)',
-          border: 'var(--border-default, #3A4047)',
+          bg: '#24282D',
+          color: '#E6E8EA',
+          border: 'rgba(255, 255, 255, 0.15)',
           shadow: '0 3px 0 #000000',
         };
       case 'default':
       default:
         return {
-          bg: 'var(--bg-surface, #24282D)',
-          color: 'var(--text-primary, #E6E8EA)',
-          border: 'var(--border-default, #3A4047)',
+          bg: '#2D3238',
+          color: '#FFFFFF',
+          border: 'rgba(255, 255, 255, 0.12)',
           shadow: '0 3px 0 #000000',
         };
     }
@@ -68,11 +83,7 @@ export const TouchKey: React.FC<TouchKeyProps> = ({
   return (
     <button
       type="button"
-      onClick={(e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        if (!disabled) onClick();
-      }}
+      onPointerDown={triggerAction}
       disabled={disabled}
       style={{
         flex,
@@ -84,34 +95,22 @@ export const TouchKey: React.FC<TouchKeyProps> = ({
         background: colors.bg,
         color: colors.color,
         border: `1.5px solid ${colors.border}`,
-        borderRadius: 'var(--radius-sm, 4px)',
+        borderRadius: '6px',
         boxShadow: colors.shadow,
-        fontSize: '16px',
+        fontSize: '18px',
         fontWeight: 700,
-        fontFamily: 'var(--font-mono, "IBM Plex Mono", monospace)',
+        fontFamily: 'var(--font-mono, monospace)',
         cursor: 'none',
         userSelect: 'none',
         WebkitUserSelect: 'none',
-        touchAction: 'manipulation',
-        opacity: disabled ? 0.4 : 1,
-        transition: 'transform 0.06s ease, filter 0.06s ease',
+        touchAction: 'none',
+        opacity: disabled ? 0.35 : 1,
         boxSizing: 'border-box',
         padding: '0 4px',
         ...style,
       }}
-      onPointerDown={(e) => {
-        if (!disabled) {
-          e.currentTarget.style.transform = 'translateY(2px)';
-          e.currentTarget.style.filter = 'brightness(1.15)';
-        }
-      }}
       onPointerUp={(e) => {
         e.currentTarget.style.transform = 'none';
-        e.currentTarget.style.filter = 'none';
-      }}
-      onPointerLeave={(e) => {
-        e.currentTarget.style.transform = 'none';
-        e.currentTarget.style.filter = 'none';
       }}
     >
       {label}

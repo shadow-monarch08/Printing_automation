@@ -12,8 +12,6 @@ interface TouchKeyboardProps {
   onCancel?: () => void;
 }
 
-const NUMBER_ROW = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '0'];
-
 const ALPHA_ROWS = [
   ['q', 'w', 'e', 'r', 't', 'y', 'u', 'i', 'o', 'p'],
   ['a', 's', 'd', 'f', 'g', 'h', 'j', 'k', 'l'],
@@ -21,9 +19,9 @@ const ALPHA_ROWS = [
 ];
 
 const SYMBOL_ROWS = [
-  ['!', '@', '#', '$', '%', '^', '&', '*', '(', ')'],
-  ['-', '_', '+', '=', '{', '}', '[', ']', '\\', '|'],
-  [':', ';', '"', "'", '<', '>', ',', '.', '?', '/'],
+  ['1', '2', '3', '4', '5', '6', '7', '8', '9', '0'],
+  ['!', '@', '#', '$', '%', '&', '*', '(', ')'],
+  ['-', '_', '+', '=', '/', '\\', ':', ';', '.'],
 ];
 
 export const TouchKeyboard: React.FC<TouchKeyboardProps> = ({
@@ -66,43 +64,44 @@ export const TouchKeyboard: React.FC<TouchKeyboardProps> = ({
         bottom: 0,
         left: 0,
         width: '100%',
-        height: '280px',
-        background: 'var(--bg-primary, #1A1D20)',
-        borderTop: '2px solid var(--accent-primary, #FF5500)',
-        boxShadow: '0 -10px 30px rgba(0,0,0,0.8)',
+        height: '420px',
+        background: '#1A1D20',
+        borderTop: '2px solid #FF5500',
+        boxShadow: '0 -10px 40px rgba(0,0,0,0.9)',
         zIndex: 1000,
         display: 'flex',
         flexDirection: 'column',
         boxSizing: 'border-box',
-        padding: '8px 12px 10px 12px',
-        gap: '6px',
+        padding: '10px 14px 12px 14px',
+        gap: '8px',
         userSelect: 'none',
         WebkitUserSelect: 'none',
+        touchAction: 'none',
       }}
     >
-      {/* 1. TOP HUD PREVIEW STRIP (Height: ~46px) */}
+      {/* 1. TOP HUD PREVIEW STRIP (Height: 52px) */}
       <div
         style={{
-          height: '46px',
-          background: 'var(--bg-surface, #24282D)',
-          border: '1.5px solid var(--border-default, #3A4047)',
-          borderRadius: 'var(--radius-sm, 4px)',
+          height: '52px',
+          background: '#24282D',
+          border: '1.5px solid rgba(255, 255, 255, 0.12)',
+          borderRadius: '6px',
           display: 'flex',
           alignItems: 'center',
-          padding: '0 8px',
-          gap: '8px',
+          padding: '0 10px',
+          gap: '10px',
           boxSizing: 'border-box',
         }}
       >
         <span
           style={{
-            fontSize: '11px',
+            fontSize: '13px',
             fontWeight: 700,
-            color: 'var(--accent-primary, #FF5500)',
-            fontFamily: 'var(--font-mono, monospace)',
+            color: '#FF5500',
+            fontFamily: 'var(--font-body, sans-serif)',
             whiteSpace: 'nowrap',
-            borderRight: '1px solid var(--border-default, #3A4047)',
-            paddingRight: '8px',
+            borderRight: '1px solid rgba(255, 255, 255, 0.15)',
+            paddingRight: '10px',
           }}
         >
           {label}
@@ -112,15 +111,15 @@ export const TouchKeyboard: React.FC<TouchKeyboardProps> = ({
         <div
           style={{
             flex: 1,
-            height: '34px',
+            height: '40px',
             background: '#111315',
-            border: '1px solid var(--border-default, #3A4047)',
-            borderRadius: '2px',
+            border: '1px solid rgba(255, 255, 255, 0.15)',
+            borderRadius: '4px',
             display: 'flex',
             alignItems: 'center',
-            padding: '0 10px',
+            padding: '0 12px',
             fontFamily: 'var(--font-mono, monospace)',
-            fontSize: '15px',
+            fontSize: '18px',
             fontWeight: 700,
             color: '#FFFFFF',
             overflow: 'hidden',
@@ -129,7 +128,7 @@ export const TouchKeyboard: React.FC<TouchKeyboardProps> = ({
           }}
         >
           {value.length === 0 ? (
-            <span style={{ color: 'var(--text-muted, #626A72)', fontWeight: 400 }}>Type here...</span>
+            <span style={{ color: 'rgba(255, 255, 255, 0.3)', fontWeight: 400 }}>Type here...</span>
           ) : isPassword && !showPassword ? (
             '•'.repeat(value.length)
           ) : (
@@ -138,11 +137,10 @@ export const TouchKeyboard: React.FC<TouchKeyboardProps> = ({
           <span
             style={{
               display: 'inline-block',
-              width: '8px',
-              height: '18px',
-              background: 'var(--accent-primary, #FF5500)',
+              width: '10px',
+              height: '22px',
+              background: '#FF5500',
               marginLeft: '4px',
-              animation: 'pulseLed 1s infinite alternate',
             }}
           />
         </div>
@@ -151,46 +149,50 @@ export const TouchKeyboard: React.FC<TouchKeyboardProps> = ({
         {isPassword && (
           <button
             type="button"
-            onClick={() => setShowPassword((prev) => !prev)}
+            onPointerDown={(e) => {
+              e.preventDefault();
+              setShowPassword((prev) => !prev);
+            }}
             style={{
-              height: '34px',
-              padding: '0 8px',
-              background: 'var(--bg-surface-alt, #202327)',
-              border: '1px solid var(--border-default, #3A4047)',
-              borderRadius: '2px',
-              color: showPassword ? 'var(--accent-primary)' : 'var(--text-secondary)',
+              height: '40px',
+              padding: '0 12px',
+              background: '#2D3238',
+              border: '1px solid rgba(255, 255, 255, 0.15)',
+              borderRadius: '4px',
+              color: showPassword ? '#FF5500' : 'rgba(255, 255, 255, 0.7)',
               display: 'flex',
               alignItems: 'center',
-              gap: '4px',
-              fontSize: '11px',
+              gap: '6px',
+              fontSize: '12px',
               fontWeight: 700,
-              fontFamily: 'var(--font-mono)',
               cursor: 'none',
+              touchAction: 'none',
             }}
           >
-            {showPassword ? <EyeOff size={14} /> : <Eye size={14} />}
-            <span>{showPassword ? 'HIDE' : 'SHOW'}</span>
+            {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+            <span>{showPassword ? 'Hide' : 'Show'}</span>
           </button>
         )}
 
-        {/* Quick Clear Button */}
+        {/* Clear Button */}
         <button
           type="button"
-          onClick={handleClear}
+          onPointerDown={(e) => {
+            e.preventDefault();
+            handleClear();
+          }}
           disabled={value.length === 0}
           style={{
-            height: '34px',
-            padding: '0 10px',
-            background: 'var(--bg-surface-alt, #202327)',
-            border: '1px solid var(--border-default, #3A4047)',
-            borderRadius: '2px',
-            color: value.length > 0 ? '#EF4444' : 'var(--text-muted)',
-            display: 'flex',
-            alignItems: 'center',
-            fontSize: '11px',
+            height: '40px',
+            padding: '0 14px',
+            background: '#2D3238',
+            border: '1px solid rgba(255, 255, 255, 0.15)',
+            borderRadius: '4px',
+            color: value.length > 0 ? '#EF4444' : 'rgba(255, 255, 255, 0.3)',
+            fontSize: '13px',
             fontWeight: 700,
-            fontFamily: 'var(--font-mono)',
             cursor: 'none',
+            touchAction: 'none',
           }}
         >
           CLR
@@ -199,99 +201,100 @@ export const TouchKeyboard: React.FC<TouchKeyboardProps> = ({
         {/* Backspace Button */}
         <button
           type="button"
-          onClick={handleBackspace}
+          onPointerDown={(e) => {
+            e.preventDefault();
+            handleBackspace();
+          }}
           disabled={value.length === 0}
           style={{
-            height: '34px',
-            padding: '0 10px',
-            background: 'var(--bg-surface-alt, #202327)',
-            border: '1px solid var(--border-default, #3A4047)',
-            borderRadius: '2px',
-            color: value.length > 0 ? 'var(--text-primary)' : 'var(--text-muted)',
+            height: '40px',
+            padding: '0 14px',
+            background: '#2D3238',
+            border: '1px solid rgba(255, 255, 255, 0.15)',
+            borderRadius: '4px',
+            color: value.length > 0 ? '#FFFFFF' : 'rgba(255, 255, 255, 0.3)',
             display: 'flex',
             alignItems: 'center',
-            gap: '4px',
-            fontSize: '11px',
+            gap: '6px',
+            fontSize: '13px',
             fontWeight: 700,
-            fontFamily: 'var(--font-mono)',
             cursor: 'none',
+            touchAction: 'none',
           }}
         >
-          <Delete size={14} />
+          <Delete size={16} />
           <span>⌫</span>
         </button>
       </div>
 
-      {/* 2. NUMBER ROW */}
-      <div style={{ display: 'flex', gap: '5px', height: '40px' }}>
-        {NUMBER_ROW.map((num) => (
-          <TouchKey key={num} label={num} height="40px" onClick={() => handleKeyPress(num)} />
-        ))}
-      </div>
-
-      {/* 3. ROW 2 (QWERTY / SYMBOLS ROW 1) */}
-      <div style={{ display: 'flex', gap: '5px', height: '40px' }}>
+      {/* 2. ROW 1 (QWERTY / NUMBERS) - Height ~70px */}
+      <div style={{ display: 'flex', gap: '8px', flex: 1 }}>
         {currentRows[0].map((char) => (
           <TouchKey
             key={char}
             label={isCaps && !isSymbols ? char.toUpperCase() : char}
-            height="40px"
+            height="100%"
             onClick={() => handleKeyPress(char)}
           />
         ))}
       </div>
 
-      {/* 4. ROW 3 (ASDF / SYMBOLS ROW 2) */}
-      <div style={{ display: 'flex', gap: '5px', height: '40px', padding: '0 16px' }}>
+      {/* 3. ROW 2 (ASDF / SYMBOLS) - Height ~70px */}
+      <div style={{ display: 'flex', gap: '8px', flex: 1, padding: '0 24px' }}>
         {currentRows[1].map((char) => (
           <TouchKey
             key={char}
             label={isCaps && !isSymbols ? char.toUpperCase() : char}
-            height="40px"
+            height="100%"
             onClick={() => handleKeyPress(char)}
           />
         ))}
       </div>
 
-      {/* 5. ROW 4 (ZXCV / SYMBOLS ROW 3 + CAPS & BACKSPACE) */}
-      <div style={{ display: 'flex', gap: '5px', height: '40px' }}>
+      {/* 4. ROW 3 (ZXCV + CAPS & BACKSPACE) - Height ~70px */}
+      <div style={{ display: 'flex', gap: '8px', flex: 1 }}>
         <TouchKey
           label={isCaps ? 'CAPS [ON]' : 'CAPS'}
           variant={isCaps ? 'accent' : 'secondary'}
           flex={1.5}
-          height="40px"
+          height="100%"
           onClick={() => setIsCaps((prev) => !prev)}
         />
         {currentRows[2].map((char) => (
           <TouchKey
             key={char}
             label={isCaps && !isSymbols ? char.toUpperCase() : char}
-            height="40px"
+            height="100%"
             onClick={() => handleKeyPress(char)}
           />
         ))}
         <TouchKey
-          label={<Delete size={18} />}
+          label={
+            <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+              <Delete size={20} />
+              <span>DEL</span>
+            </div>
+          }
           variant="secondary"
           flex={1.5}
-          height="40px"
+          height="100%"
           onClick={handleBackspace}
         />
       </div>
 
-      {/* 6. BOTTOM ROW (CANCEL, SYMBOL TOGGLE, SPACEBAR, CONFIRM) */}
-      <div style={{ display: 'flex', gap: '6px', height: '42px' }}>
+      {/* 5. BOTTOM ROW (CANCEL, SYMBOL TOGGLE, SPACE, CONFIRM) - Height ~72px */}
+      <div style={{ display: 'flex', gap: '10px', height: '72px' }}>
         {onCancel && (
           <TouchKey
             label={
-              <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                <X size={16} />
-                <span>CANCEL</span>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <X size={18} />
+                <span>Cancel</span>
               </div>
             }
             variant="danger"
             flex={1.8}
-            height="42px"
+            height="100%"
             onClick={onCancel}
           />
         )}
@@ -299,29 +302,29 @@ export const TouchKeyboard: React.FC<TouchKeyboardProps> = ({
         <TouchKey
           label={isSymbols ? 'ABC' : '?123'}
           variant={isSymbols ? 'accent' : 'secondary'}
-          flex={1.5}
-          height="42px"
+          flex={1.6}
+          height="100%"
           onClick={() => setIsSymbols((prev) => !prev)}
         />
 
         <TouchKey
           label="SPACE"
           variant="default"
-          flex={4}
-          height="42px"
+          flex={4.5}
+          height="100%"
           onClick={() => handleKeyPress(' ')}
         />
 
         <TouchKey
           label={
-            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-              <Check size={18} />
-              <span>CONFIRM</span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '17px' }}>
+              <Check size={22} />
+              <span>Confirm</span>
             </div>
           }
           variant="action"
           flex={2.5}
-          height="42px"
+          height="100%"
           onClick={handleConfirm}
         />
       </div>
