@@ -1,5 +1,6 @@
 import { Request, Response } from "express";
 import * as onboardingService from "../services/onboarding.service";
+import * as hotspotService from "../services/hotspot.service";
 import { redisConnection } from "../../infrastructure/redis";
 import { REDIS_KEYS, ProvisioningTelemetryPayload } from "../../infrastructure/redisKeys";
 import db from "../../infrastructure/database";
@@ -13,9 +14,10 @@ export async function getSetupStatus(_req: Request, res: Response) {
 }
 
 export async function provisionSetup(req: Request, res: Response) {
-  const { adminPin, shopName, wifiSsid, wifiPassword, profileName, isSaved, skipWifi } = req.body;
+  const { adminPin, shopName, wifiSsid, wifiPassword, profileName, isSaved, skipWifi, mode, source } = req.body;
   const effectiveShopName = shopName?.trim() || "Modern Press";
   const targetNetwork = wifiSsid || profileName || "Selected Network";
+  const effectiveMode = (mode || (source === "mobile" ? "MOBILE" : undefined)) as ("MOBILE" | "SCREEN" | undefined);
 
   // Synchronously initialize Stage 1 Redis status so loopback 127.0.0.1 immediately switches to hazard overlay
   await onboardingService.emitProvisioningStatus({
@@ -27,6 +29,7 @@ export async function provisionSetup(req: Request, res: Response) {
     message: `Initializing hardware radio association with [${targetNetwork}]...`,
     ssid: targetNetwork,
     shopName: effectiveShopName,
+    onboardingMode: effectiveMode,
     timestamp: Date.now(),
   });
 
@@ -45,6 +48,8 @@ export async function provisionSetup(req: Request, res: Response) {
         profileName,
         isSaved,
         skipWifi,
+        mode: effectiveMode,
+        source,
       });
     } catch (err: any) {
       console.error("[Onboarding Controller] Background provisioning failed:", err.message || err);
@@ -159,6 +164,8 @@ export async function getKioskSummary(_req: Request, res: Response) {
   const isOnline = await checkInternetConnectivity();
   const localIp = getLocalIpAddress();
   const port = parseInt(process.env.PORT || "3000", 10);
+  const isHotspot = await hotspotService.isHotspotActive();
+  const onboardingMode = await hotspotService.getOnboardingMode();
 
   let printerCount = 0;
   try {
@@ -176,13 +183,14 @@ export async function getKioskSummary(_req: Request, res: Response) {
     provisioningState: config?.provisioningState || (config?.isOnboarded ? "READY" : "FIRST_BOOT"),
     shopName: config?.shopName || "Modern Press",
     nmsDeviceId: config?.nmsDeviceId || null,
-    hotspotSsid: "Kiosk-Hotspot",
+    hotspotSsid: hotspotService.HOTSPOT_CONFIG.SSID,
     setupUrl: `http://192.168.4.1:${port}/setup`,
     localAccessUrl: localIp ? `http://${localIp}:${port}` : null,
     cloudflareUrl: config?.cloudflareUrl || null,
     internetOnline: isOnline,
     activeProfile,
-    hotspotActive: recoveryStatus.hotspotActive,
+    hotspotActive: isHotspot || recoveryStatus.hotspotActive,
+    onboardingMode,
     printerCount,
     provisioning,
     timestamp: Date.now(),
@@ -196,15 +204,50 @@ export async function getNetworkStatus(_req: Request, res: Response) {
   const isOnline = await checkInternetConnectivity();
   const localIp = getLocalIpAddress();
   const port = parseInt(process.env.PORT || "3000", 10);
+  const isHotspot = await hotspotService.isHotspotActive();
 
   res.json({
     internetOnline: isOnline,
     recoveryState: recoveryStatus.state,
-    hotspotActive: recoveryStatus.hotspotActive,
+    hotspotActive: isHotspot || recoveryStatus.hotspotActive,
     activeProfile,
     cloudflareUrl: config?.cloudflareUrl || null,
     localAccessUrl: localIp ? `http://${localIp}:${port}` : null,
   });
+}
+
+export async function startHotspot(_req: Request, res: Response) {
+  await hotspotService.activateHotspot();
+  res.json({
+    success: true,
+    message: "Hotspot activated successfully",
+    ssid: hotspotService.HOTSPOT_CONFIG.SSID,
+    ip: hotspotService.HOTSPOT_CONFIG.IP,
+  });
+}
+
+export async function stopHotspot(_req: Request, res: Response) {
+  await hotspotService.deactivateHotspot();
+  await hotspotService.setOnboardingMode("SCREEN");
+  res.json({
+    success: true,
+    message: "Hotspot deactivated successfully",
+  });
+}
+
+export async function getHotspotStatus(_req: Request, res: Response) {
+  const status = await hotspotService.getHotspotStatus();
+  res.json(status);
+}
+
+export async function setOnboardingMode(req: Request, res: Response) {
+  const { mode } = req.body;
+  if (mode !== "SCREEN" && mode !== "MOBILE" && mode !== "NONE") {
+    res.status(400).json({ error: "Invalid mode. Must be 'SCREEN', 'MOBILE', or 'NONE'." });
+    return;
+  }
+  await hotspotService.setOnboardingMode(mode);
+  res.json({ success: true, mode });
 }
 
 

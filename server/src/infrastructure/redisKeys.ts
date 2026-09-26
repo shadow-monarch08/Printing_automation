@@ -14,6 +14,8 @@ export interface ProvisioningTelemetryPayload {
   code?: string;
   error?: string;
   rollbackActive?: boolean;
+  onboardingMode?: "MOBILE" | "SCREEN";
+  retryMode?: "MOBILE" | "SCREEN";
   timestamp: number;
 }
 
@@ -28,6 +30,7 @@ export const REDIS_KEYS = {
   blacklist: (token: string) => `blacklist:${token}`,
   wifiConnectionStatus: "wifi:connection:status",
   networkRecoveryState: "network:recovery:state",
+  onboardingMode: "onboarding:mode",
 } as const;
 
 export const REDIS_TTLS = {

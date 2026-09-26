@@ -15,6 +15,7 @@ import {
   getLocalIpAddress,
 } from "../utils/network.utils";
 import { ensureEnrolled, sendTelemetryHeartbeat } from "./cloudSync.service";
+import * as hotspotService from "./hotspot.service";
 
 export interface ProvisionOnboardingPayload {
   adminPin?: string;
@@ -24,6 +25,8 @@ export interface ProvisionOnboardingPayload {
   profileName?: string;
   isSaved?: boolean;
   skipWifi?: boolean;
+  mode?: "MOBILE" | "SCREEN";
+  source?: string;
 }
 
 export function getSetupStatus() {
@@ -91,6 +94,19 @@ async function executeProvisioningPipeline(
     if (!wifiSsid && !profileName) {
       throw new ValidationError("VALIDATION_SSID_REQUIRED", "Wi-Fi SSID is required.");
     }
+
+    // Cleanly tear down setup hotspot if active so wlan0 can switch to station mode
+    try {
+      const isHotspot = await hotspotService.isHotspotActive();
+      if (isHotspot) {
+        console.log(`[Onboarding Service] 📶 Deactivating Kiosk-Hotspot to switch radio to station mode for association...`);
+        await hotspotService.deactivateHotspot();
+        await new Promise((resolve) => setTimeout(resolve, 500));
+      }
+    } catch (hotspotErr) {
+      console.warn("[Onboarding Service] Warning deactivating hotspot before station association:", hotspotErr);
+    }
+
     console.log(`[Onboarding Service] Phase 1: Connecting to Wi-Fi "${targetNetwork}" (Saved: ${Boolean(isSaved)})...`);
     await wifiService.connectToWifi(wifiSsid, wifiPassword, profileName, isSaved);
     console.log(`[Onboarding Service] Phase 1 complete: Wi-Fi radio association successful.`);
@@ -231,6 +247,14 @@ async function executeProvisioningPipeline(
     timestamp: Date.now(),
   });
 
+  // Reset onboarding mode & ensure hotspot is cleanly deactivated
+  try {
+    await hotspotService.setOnboardingMode("NONE");
+    await hotspotService.deactivateHotspot();
+  } catch (err) {
+    /* non-fatal */
+  }
+
   return {
     success: true,
     message: "Onboarding completed successfully with verified Cloudflare Quick Tunnel and Central NMS registration.",
@@ -251,6 +275,10 @@ export async function provisionOnboarding(payload: ProvisionOnboardingPayload) {
       "Skipping Wi-Fi setup is not permitted during Initial First Boot Provisioning."
     );
   }
+
+  const modeFromPayload = payload.mode || (payload.source === "mobile" ? "MOBILE" : undefined);
+  const currentMode = modeFromPayload || (await hotspotService.getOnboardingMode());
+  console.log(`[Onboarding Service] 🚀 Initiating provisioning pipeline in [${currentMode}] mode...`);
 
   const OVERALL_DEADLINE_MS = 90000; // 90 seconds overall deadline
 
@@ -281,14 +309,23 @@ export async function provisionOnboarding(payload: ProvisionOnboardingPayload) {
       error: errorMsg,
       message: `Provisioning failed: ${errorMsg}`,
       rollbackActive: true,
+      onboardingMode: currentMode === "MOBILE" ? "MOBILE" : "SCREEN",
+      retryMode: currentMode === "MOBILE" ? "MOBILE" : "SCREEN",
       timestamp: Date.now(),
     });
 
     // 2. Differentiated Mode Recovery
-    if (provisioningState === "FIRST_BOOT") {
+    if (currentMode === "MOBILE") {
+      console.log(`[Onboarding Service] 📱 Mobile mode provisioning error detected. Auto-restoring hotspot AP for mobile retry...`);
+      try {
+        await hotspotService.restoreHotspotAfterFailure();
+      } catch (restoreErr) {
+        console.error("[Onboarding Service] Failed to auto-restore hotspot on error:", restoreErr);
+      }
+    } else if (provisioningState === "FIRST_BOOT") {
       // Direct-on-screen onboarding: wlan0 remains in station mode.
       // Do NOT start a hotspot. The screen remains on the onboarding interface for instant retry.
-      console.log(`[Onboarding Service] Mode A (FIRST_BOOT): Maintained station mode for direct retry on chassis display.`);
+      console.log(`[Onboarding Service] Mode A (FIRST_BOOT / SCREEN): Maintained station mode for direct retry on chassis display.`);
     } else {
       // Recovery mode: If available, restore prior working profile
       const priorProfile = payload.profileName;
@@ -304,5 +341,20 @@ export async function provisionOnboarding(payload: ProvisionOnboardingPayload) {
 
     throw error instanceof AppError ? error : new HardwareError(code, errorMsg);
   }
+}
+
+export async function startMobileOnboarding(): Promise<{ success: boolean; ssid: string; ip: string }> {
+  await hotspotService.activateHotspot();
+  return {
+    success: true,
+    ssid: hotspotService.HOTSPOT_CONFIG.SSID,
+    ip: hotspotService.HOTSPOT_CONFIG.IP,
+  };
+}
+
+export async function cancelMobileOnboarding(): Promise<{ success: boolean }> {
+  await hotspotService.deactivateHotspot();
+  await hotspotService.setOnboardingMode("SCREEN");
+  return { success: true };
 }
 
