@@ -2,7 +2,7 @@
 import React, { useEffect } from 'react';
 import { useKioskStore } from '../../../stores/useKioskStore';
 import { api } from '../../../services/api';
-import { AlertTriangle, RefreshCw, ChevronLeft } from 'lucide-react';
+import { AlertCircle, RefreshCw, ChevronLeft } from 'lucide-react';
 import { TouchKey } from '../keyboard/TouchKey';
 
 export const KioskProvisioningHUD: React.FC = () => {
@@ -32,7 +32,7 @@ export const KioskProvisioningHUD: React.FC = () => {
             if (parsed.status === 'success') {
               fetchSummary();
             } else if (parsed.status === 'failed') {
-              setErrorMessage(parsed.error || 'Provisioning sequence failed', parsed.code || 'HARDWARE_FAULT');
+              setErrorMessage(parsed.error || 'Connection failed', parsed.code || 'HARDWARE_FAULT');
             }
           }
         } catch {
@@ -52,7 +52,7 @@ export const KioskProvisioningHUD: React.FC = () => {
     };
   }, [setTelemetry, setErrorMessage, fetchSummary]);
 
-  // 2. Polling Fallback if SSE is delayed or blocked
+  // 2. Polling Fallback
   useEffect(() => {
     const interval = setInterval(async () => {
       try {
@@ -62,7 +62,7 @@ export const KioskProvisioningHUD: React.FC = () => {
           if (tel.status === 'success') {
             fetchSummary();
           } else if (tel.status === 'failed') {
-            setErrorMessage(tel.error || 'Provisioning sequence failed', tel.code || 'HARDWARE_FAULT');
+            setErrorMessage(tel.error || 'Connection failed', tel.code || 'HARDWARE_FAULT');
           }
         }
       } catch (err) {
@@ -78,15 +78,31 @@ export const KioskProvisioningHUD: React.FC = () => {
     provisioningTelemetry?.status === 'failed' ||
     Boolean(errorCode);
 
-  const displayError =
-    errorMessage || provisioningTelemetry?.error || 'Connection timed out or router rejected key.';
-  const displayCode =
-    errorCode || provisioningTelemetry?.code || 'AUTHENTICATION_FAILURE';
+  const getHumanFriendlyError = () => {
+    const code = errorCode || provisioningTelemetry?.code;
+    if (code === 'WIFI_AUTH_FAILED') return 'Incorrect Wi-Fi password. Please check your password and try again.';
+    if (code === 'WIFI_NOT_FOUND') return 'Wi-Fi network was not found. Please ensure the router is turned on.';
+    if (code === 'WIFI_TIMEOUT') return 'Wi-Fi connection timed out. The router took too long to respond.';
+    if (code === 'NO_INTERNET') return 'Connected to Wi-Fi, but no internet access was detected.';
+    return errorMessage || provisioningTelemetry?.error || 'Could not connect to the network. Please try again.';
+  };
 
-  const stepNumber = provisioningTelemetry?.step || 1;
-  const progressPercent = Math.min(100, Math.max(10, provisioningTelemetry?.progressPercent || 25));
-  const activeMessage =
-    provisioningTelemetry?.message || 'Executing edge hardware initialization...';
+  const getHumanFriendlyStepMessage = () => {
+    const step = provisioningTelemetry?.step || 1;
+    switch (step) {
+      case 1:
+        return `Connecting to "${selectedNetwork?.ssid || 'Wi-Fi'}"...`;
+      case 2:
+        return 'Verifying internet connection...';
+      case 3:
+        return 'Connecting to cloud printing network...';
+      case 4:
+      default:
+        return 'Finishing kiosk configuration...';
+    }
+  };
+
+  const progressPercent = Math.min(100, Math.max(15, provisioningTelemetry?.progressPercent || 25));
 
   return (
     <div
@@ -95,70 +111,61 @@ export const KioskProvisioningHUD: React.FC = () => {
         display: 'flex',
         flexDirection: 'column',
         justifyContent: 'space-between',
-        padding: '20px 24px',
+        padding: '28px 36px',
         boxSizing: 'border-box',
         overflow: 'hidden',
+        fontFamily: 'var(--font-body, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif)',
       }}
     >
-      {/* 1. Header Status */}
+      {/* 1. Header */}
       <div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '8px' }}>
-          <span
-            className={`led-diode ${isFailed ? 'red' : 'amber'}`}
-            style={{ width: '12px', height: '12px', borderRadius: '50%' }}
-          />
-          <span
-            style={{
-              fontSize: '15px',
-              fontWeight: 700,
-              fontFamily: 'var(--font-mono, monospace)',
-              color: isFailed ? '#EF4444' : 'var(--accent-primary, #FF5500)',
-              letterSpacing: '0.04em',
-            }}
-          >
-            {isFailed
-              ? '[ PROVISIONING_FAILED // ATTENTION REQUIRED ]'
-              : `[ PROVISIONING_IN_PROGRESS // STEP 0${stepNumber}/04 ]`}
-          </span>
-        </div>
-
-        {/* Target Network Tag */}
-        {selectedNetwork?.ssid && (
-          <div
-            style={{
-              fontSize: '11px',
-              fontFamily: 'var(--font-mono)',
-              color: 'var(--text-secondary)',
-              marginBottom: '12px',
-            }}
-          >
-            TARGET_AP: <strong style={{ color: 'var(--text-primary)' }}>[{selectedNetwork.ssid}]</strong>
-          </div>
-        )}
+        <h2
+          style={{
+            fontSize: '22px',
+            fontWeight: 700,
+            color: isFailed ? '#EF4444' : '#FFFFFF',
+            margin: '0 0 4px 0',
+          }}
+        >
+          {isFailed ? 'Connection Issue' : 'Setting up your Kiosk'}
+        </h2>
+        <p style={{ fontSize: '13px', color: 'rgba(255, 255, 255, 0.6)', margin: 0 }}>
+          {isFailed
+            ? 'We encountered an issue while connecting your kiosk.'
+            : 'Please wait a moment while we configure your printer kiosk.'}
+        </p>
       </div>
 
-      {/* 2. Middle Body: Progress Bar vs. Error Diagnosis */}
+      {/* 2. Main Status Card */}
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
         {!isFailed ? (
           <div
             style={{
-              background: 'var(--bg-surface, #24282D)',
-              border: '2px solid var(--border-default, #3A4047)',
-              borderRadius: 'var(--radius-md, 6px)',
-              padding: '24px',
+              background: '#24282D',
+              border: '1.5px solid rgba(255, 255, 255, 0.1)',
+              borderRadius: '8px',
+              padding: '28px',
               display: 'flex',
               flexDirection: 'column',
-              gap: '16px',
+              gap: '20px',
             }}
           >
-            {/* Progress Bar */}
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <div style={{ fontSize: '16px', fontWeight: 600, color: '#FFFFFF' }}>
+                {getHumanFriendlyStepMessage()}
+              </div>
+              <div style={{ fontSize: '14px', fontWeight: 700, color: '#FF5500' }}>
+                {progressPercent}%
+              </div>
+            </div>
+
+            {/* Smooth Progress Bar */}
             <div
               style={{
                 width: '100%',
-                height: '16px',
-                background: '#111315',
-                border: '1px solid var(--border-default)',
-                borderRadius: '3px',
+                height: '12px',
+                background: '#1A1D20',
+                borderRadius: '6px',
                 overflow: 'hidden',
               }}
             >
@@ -166,102 +173,46 @@ export const KioskProvisioningHUD: React.FC = () => {
                 style={{
                   height: '100%',
                   width: `${progressPercent}%`,
-                  background: 'var(--status-idle, #10B981)',
+                  background: '#10B981',
                   transition: 'width 0.4s ease-in-out',
                 }}
               />
             </div>
-
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-              <div
-                style={{
-                  fontSize: '13px',
-                  fontWeight: 700,
-                  color: 'var(--text-primary)',
-                  fontFamily: 'var(--font-mono)',
-                }}
-              >
-                {activeMessage}
-              </div>
-              <div
-                style={{
-                  fontSize: '12px',
-                  fontWeight: 700,
-                  color: 'var(--accent-secondary, #00A396)',
-                  fontFamily: 'var(--font-mono)',
-                }}
-              >
-                {progressPercent}%
-              </div>
-            </div>
-
-            <div
-              style={{
-                fontSize: '11px',
-                color: 'var(--text-secondary)',
-                fontFamily: 'var(--font-mono)',
-                borderTop: '1px dashed var(--border-default)',
-                paddingTop: '8px',
-              }}
-            >
-              Station interface associating without interrupting local background daemons.
-            </div>
           </div>
         ) : (
-          /* Error Diagnosis Card */
           <div
             style={{
-              background: '#2A1717',
-              border: '2px solid #EF4444',
-              borderRadius: 'var(--radius-md, 6px)',
-              padding: '20px 24px',
+              background: 'rgba(239, 68, 68, 0.1)',
+              border: '1.5px solid #EF4444',
+              borderRadius: '8px',
+              padding: '24px',
               display: 'flex',
               flexDirection: 'column',
-              gap: '10px',
-              boxShadow: '0 4px 14px rgba(239, 68, 68, 0.25)',
+              gap: '12px',
             }}
           >
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#EF4444' }}>
-              <AlertTriangle size={20} />
-              <span style={{ fontSize: '14px', fontWeight: 700, fontFamily: 'var(--font-mono)' }}>
-                HARDWARE_COMMUNICATION_FAULT // [{displayCode}]
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', color: '#EF4444' }}>
+              <AlertCircle size={22} />
+              <span style={{ fontSize: '16px', fontWeight: 700 }}>
+                Unable to Connect
               </span>
             </div>
 
-            <div
-              style={{
-                fontSize: '13px',
-                color: '#FFFFFF',
-                fontFamily: 'var(--font-mono)',
-                lineHeight: '1.5',
-              }}
-            >
-              {displayError}
-            </div>
-
-            <div
-              style={{
-                fontSize: '11px',
-                color: '#FFAAAA',
-                fontFamily: 'var(--font-mono)',
-                borderTop: '1px dashed rgba(239, 68, 68, 0.4)',
-                paddingTop: '8px',
-              }}
-            >
-              Station mode maintained on wlan0. You may re-enter your Wi-Fi password or select another network.
+            <div style={{ fontSize: '14px', color: '#FFFFFF', lineHeight: '1.5' }}>
+              {getHumanFriendlyError()}
             </div>
           </div>
         )}
       </div>
 
-      {/* 3. Bottom Action Controls (Shown on Error) */}
+      {/* 3. Action Buttons on Error */}
       {isFailed && (
-        <div style={{ display: 'flex', gap: '12px', marginTop: '16px' }}>
+        <div style={{ display: 'flex', gap: '12px' }}>
           <TouchKey
             label={
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', fontSize: '14px' }}>
                 <ChevronLeft size={18} />
-                <span>PICK ANOTHER NETWORK</span>
+                <span>Choose Another Network</span>
               </div>
             }
             variant="secondary"
@@ -272,9 +223,9 @@ export const KioskProvisioningHUD: React.FC = () => {
 
           <TouchKey
             label={
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', fontSize: '14px' }}>
                 <RefreshCw size={18} />
-                <span>RETRY CONNECTION</span>
+                <span>Try Again</span>
               </div>
             }
             variant="action"

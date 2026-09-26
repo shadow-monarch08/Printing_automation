@@ -1,7 +1,7 @@
 // src/components/kiosk/onboarding/KioskIdentityStep.tsx
 import React from 'react';
 import { useKioskStore } from '../../../stores/useKioskStore';
-import { Store, Lock, ArrowRight, ShieldCheck } from 'lucide-react';
+import { Store, Lock, ArrowRight, Check } from 'lucide-react';
 import { TouchKey } from '../keyboard/TouchKey';
 
 export const KioskIdentityStep: React.FC = () => {
@@ -10,7 +10,7 @@ export const KioskIdentityStep: React.FC = () => {
   const handleEditShopName = () => {
     openKeyboard({
       mode: 'alpha',
-      label: 'ENTER SHOP NAME',
+      label: 'Enter Shop Name',
       initialValue: shopName,
       maxLength: 32,
       onSubmit: (val) => {
@@ -24,7 +24,7 @@ export const KioskIdentityStep: React.FC = () => {
   const handleEditPin = () => {
     openKeyboard({
       mode: 'pin',
-      label: 'SET 4-DIGIT ADMIN PIN',
+      label: 'Create 4-Digit Admin PIN',
       initialValue: adminPin,
       onSubmit: (val) => {
         if (val.length === 4) {
@@ -43,204 +43,198 @@ export const KioskIdentityStep: React.FC = () => {
         display: 'flex',
         flexDirection: 'column',
         justifyContent: 'space-between',
-        padding: '20px 24px',
+        padding: '24px 32px',
         boxSizing: 'border-box',
         overflow: 'hidden',
+        fontFamily: 'var(--font-body, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif)',
       }}
     >
-      {/* 1. Header Title & Step Context */}
+      {/* 1. Welcoming Title */}
       <div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
-          <ShieldCheck size={18} color="var(--accent-primary, #FF5500)" />
-          <span
-            style={{
-              fontSize: '15px',
-              fontWeight: 700,
-              letterSpacing: '0.05em',
-              fontFamily: 'var(--font-mono, monospace)',
-              color: 'var(--text-primary, #E6E8EA)',
-            }}
-          >
-            STEP 01/02 // IDENTITY & ACCESS SECURITY
-          </span>
-        </div>
-        <p
+        <h1
           style={{
-            fontSize: '12px',
-            color: 'var(--text-secondary, #9098A2)',
-            margin: '0 0 16px 0',
-            fontFamily: 'var(--font-mono, monospace)',
+            fontSize: '22px',
+            fontWeight: 700,
+            color: '#FFFFFF',
+            margin: '0 0 6px 0',
           }}
         >
-          Configure the terminal identity for receipt banners and establish your master admin PIN.
+          Shop Setup
+        </h1>
+        <p
+          style={{
+            fontSize: '13px',
+            color: 'rgba(255, 255, 255, 0.65)',
+            margin: 0,
+            lineHeight: '1.4',
+          }}
+        >
+          Set your business name and a 4-digit PIN to protect your settings.
         </p>
       </div>
 
-      {/* 2. Interactive Large Touch Tiles */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '14px', flex: 1, justifyContent: 'center' }}>
-        {/* Tile 1: Shop Name */}
+      {/* 2. Clean, Spacious Input Cards */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', flex: 1, justifyContent: 'center' }}>
+        {/* Card 1: Shop Name */}
         <div
           onClick={handleEditShopName}
           style={{
-            background: 'var(--bg-surface, #24282D)',
-            border: '2px solid var(--border-default, #3A4047)',
-            borderRadius: 'var(--radius-md, 6px)',
-            padding: '14px 18px',
+            background: '#24282D',
+            border: '1.5px solid rgba(255, 255, 255, 0.12)',
+            borderRadius: '8px',
+            padding: '16px 20px',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'space-between',
             cursor: 'none',
-            boxShadow: '0 4px 0 #000000',
-            transition: 'border-color 0.15s ease',
+            boxShadow: '0 4px 12px rgba(0, 0, 0, 0.2)',
+            transition: 'border-color 0.15s ease, transform 0.08s ease',
           }}
           onPointerDown={(e) => {
-            e.currentTarget.style.borderColor = 'var(--accent-primary, #FF5500)';
+            e.currentTarget.style.borderColor = '#FF5500';
             e.currentTarget.style.transform = 'translateY(1px)';
           }}
           onPointerUp={(e) => {
             e.currentTarget.style.transform = 'none';
           }}
           onPointerLeave={(e) => {
-            e.currentTarget.style.borderColor = 'var(--border-default, #3A4047)';
+            e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.12)';
             e.currentTarget.style.transform = 'none';
           }}
         >
-          <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
             <div
               style={{
-                width: '42px',
-                height: '42px',
-                background: 'var(--bg-primary, #1A1D20)',
-                border: '1px solid var(--border-default, #3A4047)',
-                borderRadius: '4px',
+                width: '44px',
+                height: '44px',
+                borderRadius: '8px',
+                background: 'rgba(255, 85, 0, 0.12)',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
               }}
             >
-              <Store size={22} color="var(--accent-primary, #FF5500)" />
+              <Store size={22} color="#FF5500" />
             </div>
             <div>
-              <div style={{ fontSize: '11px', color: 'var(--text-secondary)', fontFamily: 'var(--font-mono)' }}>
-                SHOP / BUSINESS NAME
+              <div style={{ fontSize: '11px', color: 'rgba(255, 255, 255, 0.5)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                Shop Name
               </div>
-              <div
-                style={{
-                  fontSize: '18px',
-                  fontWeight: 700,
-                  color: 'var(--text-primary)',
-                  fontFamily: 'var(--font-mono)',
-                }}
-              >
-                {shopName || <span style={{ color: 'var(--text-muted)' }}>[ TAP TO ENTER NAME ]</span>}
+              <div style={{ fontSize: '18px', fontWeight: 600, color: '#FFFFFF', marginTop: '2px' }}>
+                {shopName || <span style={{ color: 'rgba(255, 255, 255, 0.3)' }}>Tap to enter name</span>}
               </div>
             </div>
           </div>
 
           <div
             style={{
-              padding: '6px 12px',
-              background: 'var(--bg-primary)',
-              border: '1px solid var(--border-default)',
-              borderRadius: '2px',
-              fontSize: '11px',
-              fontWeight: 700,
-              fontFamily: 'var(--font-mono)',
-              color: 'var(--accent-primary)',
+              padding: '8px 14px',
+              background: 'rgba(255, 255, 255, 0.08)',
+              borderRadius: '6px',
+              fontSize: '12px',
+              fontWeight: 600,
+              color: '#FFFFFF',
             }}
           >
-            EDIT NAME ✎
+            Change
           </div>
         </div>
 
-        {/* Tile 2: Admin Master PIN */}
+        {/* Card 2: Admin Master PIN */}
         <div
           onClick={handleEditPin}
           style={{
-            background: 'var(--bg-surface, #24282D)',
-            border: '2px solid var(--border-default, #3A4047)',
-            borderRadius: 'var(--radius-md, 6px)',
-            padding: '14px 18px',
+            background: '#24282D',
+            border: '1.5px solid rgba(255, 255, 255, 0.12)',
+            borderRadius: '8px',
+            padding: '16px 20px',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'space-between',
             cursor: 'none',
-            boxShadow: '0 4px 0 #000000',
-            transition: 'border-color 0.15s ease',
+            boxShadow: '0 4px 12px rgba(0, 0, 0, 0.2)',
+            transition: 'border-color 0.15s ease, transform 0.08s ease',
           }}
           onPointerDown={(e) => {
-            e.currentTarget.style.borderColor = 'var(--accent-primary, #FF5500)';
+            e.currentTarget.style.borderColor = '#FF5500';
             e.currentTarget.style.transform = 'translateY(1px)';
           }}
           onPointerUp={(e) => {
             e.currentTarget.style.transform = 'none';
           }}
           onPointerLeave={(e) => {
-            e.currentTarget.style.borderColor = 'var(--border-default, #3A4047)';
+            e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.12)';
             e.currentTarget.style.transform = 'none';
           }}
         >
-          <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
             <div
               style={{
-                width: '42px',
-                height: '42px',
-                background: 'var(--bg-primary, #1A1D20)',
-                border: '1px solid var(--border-default, #3A4047)',
-                borderRadius: '4px',
+                width: '44px',
+                height: '44px',
+                borderRadius: '8px',
+                background: 'rgba(255, 85, 0, 0.12)',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
               }}
             >
-              <Lock size={22} color="var(--accent-primary, #FF5500)" />
+              <Lock size={22} color="#FF5500" />
             </div>
             <div>
-              <div style={{ fontSize: '11px', color: 'var(--text-secondary)', fontFamily: 'var(--font-mono)' }}>
-                ADMIN MASTER PIN (4 DIGITS)
+              <div style={{ fontSize: '11px', color: 'rgba(255, 255, 255, 0.5)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                Admin PIN
               </div>
               <div
                 style={{
                   fontSize: '18px',
                   fontWeight: 700,
-                  color: adminPin ? 'var(--accent-primary)' : 'var(--text-muted)',
-                  fontFamily: 'var(--font-mono)',
+                  color: adminPin ? '#FF5500' : 'rgba(255, 255, 255, 0.3)',
+                  marginTop: '2px',
                   letterSpacing: adminPin ? '0.25em' : 'normal',
                 }}
               >
-                {adminPin ? '● ● ● ●' : '[ TAP TO SET 4-DIGIT PIN ]'}
+                {adminPin ? '● ● ● ●' : 'Tap to set 4-digit PIN'}
               </div>
             </div>
           </div>
 
           <div
             style={{
-              padding: '6px 12px',
-              background: 'var(--bg-primary)',
-              border: '1px solid var(--border-default)',
-              borderRadius: '2px',
-              fontSize: '11px',
-              fontWeight: 700,
-              fontFamily: 'var(--font-mono)',
-              color: adminPin ? '#10B981' : 'var(--text-secondary)',
+              padding: '8px 14px',
+              background: adminPin ? 'rgba(16, 185, 129, 0.15)' : 'rgba(255, 255, 255, 0.08)',
+              borderRadius: '6px',
+              fontSize: '12px',
+              fontWeight: 600,
+              color: adminPin ? '#10B981' : '#FFFFFF',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '4px',
             }}
           >
-            {adminPin ? 'PIN CONFIGURED ✓' : 'SET PIN 🔒'}
+            {adminPin ? (
+              <>
+                <Check size={14} />
+                <span>Configured</span>
+              </>
+            ) : (
+              <span>Set PIN</span>
+            )}
           </div>
         </div>
       </div>
 
-      {/* 3. Bottom Action Bar */}
-      <div style={{ marginTop: '16px' }}>
+      {/* 3. Bottom Action Button */}
+      <div>
         <TouchKey
           label={
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px' }}>
-              <span>CONTINUE TO WI-FI SETUP</span>
-              <ArrowRight size={20} />
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', fontSize: '15px' }}>
+              <span>Next: Connect to Wi-Fi</span>
+              <ArrowRight size={18} />
             </div>
           }
           variant="action"
-          height="54px"
+          height="52px"
           disabled={!isValid}
           onClick={() => setStep('WIFI_SCAN')}
         />

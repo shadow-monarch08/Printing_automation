@@ -41,17 +41,15 @@ export const KioskLayout: React.FC<KioskLayoutProps> = ({ children }) => {
 
   const isOnboarded = kioskSummary?.isOnboarded || step === 'OPERATIONAL';
   const isProvisioning = step === 'PROVISIONING';
-  const isOnline = kioskSummary?.internetOnline ?? false;
-  const ipAddress = kioskSummary?.localAccessUrl?.replace('http://', '') || null;
 
   const getStepIndicator = () => {
     switch (step) {
       case 'IDENTITY':
-        return 'STEP 01/02 // IDENTITY';
+        return 'Step 1 of 2';
       case 'WIFI_SCAN':
-        return 'STEP 02/02 // WI-FI SETUP';
+        return 'Step 2 of 2';
       case 'PROVISIONING':
-        return 'PROVISIONING TELEMETRY';
+        return 'Connecting...';
       case 'OPERATIONAL':
       default:
         return undefined;
@@ -101,9 +99,7 @@ export const KioskLayout: React.FC<KioskLayoutProps> = ({ children }) => {
         shopName={shopName}
         isOnboarded={isOnboarded}
         isProvisioning={isProvisioning}
-        isOnline={isOnline}
         stepIndicator={getStepIndicator()}
-        ipAddress={ipAddress}
       />
 
       {/* 2. Main Viewport Content (440px) */}
