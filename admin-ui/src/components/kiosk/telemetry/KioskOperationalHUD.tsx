@@ -1,17 +1,16 @@
 // src/components/kiosk/telemetry/KioskOperationalHUD.tsx
 import React from 'react';
 import { QRCodeSVG } from 'qrcode.react';
-import { Wifi, Printer, RefreshCw } from 'lucide-react';
-import { Button } from '../../shared/Button';
+import { Wifi, Printer } from 'lucide-react';
 import { SkeletonBox } from '../../shared/SkeletonPrimitives';
 import type { KioskSummaryData } from '../../../types';
 
 interface KioskOperationalHUDProps {
   summary: KioskSummaryData | null;
-  onRefresh: () => void;
+  onRefresh?: () => void;
 }
 
-export const KioskOperationalHUD: React.FC<KioskOperationalHUDProps> = ({ summary, onRefresh }) => {
+export const KioskOperationalHUD: React.FC<KioskOperationalHUDProps> = ({ summary }) => {
   const isOnline = summary?.internetOnline ?? false;
   const cloudflareUrl = summary?.cloudflareUrl;
   const localUrl = summary?.localAccessUrl || 'http://piprint.local:3000/';
@@ -27,7 +26,7 @@ export const KioskOperationalHUD: React.FC<KioskOperationalHUDProps> = ({ summar
         flexDirection: 'column',
         alignItems: 'center',
         justifyContent: 'space-between',
-        padding: '12px 16px',
+        padding: 0,
         boxSizing: 'border-box',
         overflow: 'hidden',
       }}
@@ -42,6 +41,8 @@ export const KioskOperationalHUD: React.FC<KioskOperationalHUDProps> = ({ summar
           alignItems: 'center',
           justifyContent: 'center',
           minHeight: 0,
+          padding: '16px',
+          boxSizing: 'border-box',
         }}
       >
         {!summary ? (
@@ -127,16 +128,15 @@ export const KioskOperationalHUD: React.FC<KioskOperationalHUDProps> = ({ summar
         )}
       </div>
 
-      {/* 2. BOTTOM CONTROL RAIL: COMPRESSED TELEMETRY & SYNC */}
+      {/* 2. DOCKED EDGE-TO-EDGE HARDWARE FOOTER: SPREAD TELEMETRY */}
       {!summary ? (
-        <div
+        <footer
           style={{
             width: '100%',
             height: '46px',
             background: 'var(--bg-surface)',
-            border: '1.5px solid var(--border-default)',
-            borderRadius: 'var(--radius-md, 6px)',
-            padding: '0 14px',
+            borderTop: '1.5px solid var(--border-default)',
+            padding: '0 24px',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'space-between',
@@ -152,34 +152,30 @@ export const KioskOperationalHUD: React.FC<KioskOperationalHUDProps> = ({ summar
             <SkeletonBox width="16px" height="16px" borderRadius="3px" />
             <SkeletonBox width="120px" height="16px" borderRadius="3px" />
           </div>
-          <SkeletonBox width="64px" height="30px" borderRadius="4px" />
-        </div>
+        </footer>
       ) : (
-        <div
+        <footer
           style={{
             width: '100%',
             height: '46px',
             background: 'var(--bg-surface)',
-            border: '1.5px solid var(--border-default)',
-            borderRadius: 'var(--radius-md, 6px)',
-            padding: '0 14px',
+            borderTop: '1.5px solid var(--border-default)',
+            padding: '0 24px',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'space-between',
             boxSizing: 'border-box',
-            boxShadow: 'var(--shadow-paper)',
             flexShrink: 0,
           }}
         >
-          {/* Compressed Telemetry: Network */}
+          {/* Compressed Telemetry Left: Network */}
           <div
             style={{
               display: 'flex',
               alignItems: 'center',
               gap: '8px',
               minWidth: 0,
-              flex: '1 1 auto',
-              maxWidth: '310px',
+              maxWidth: '380px',
             }}
           >
             <Wifi size={16} color="var(--accent-primary, #FF5500)" style={{ flexShrink: 0 }} />
@@ -210,18 +206,7 @@ export const KioskOperationalHUD: React.FC<KioskOperationalHUDProps> = ({ summar
             </span>
           </div>
 
-          {/* Divider */}
-          <div
-            style={{
-              width: '1px',
-              height: '20px',
-              background: 'var(--border-default)',
-              margin: '0 12px',
-              flexShrink: 0,
-            }}
-          />
-
-          {/* Compressed Telemetry: Fleet Printers */}
+          {/* Compressed Telemetry Right: Fleet Printers */}
           <div
             style={{
               display: 'flex',
@@ -243,37 +228,9 @@ export const KioskOperationalHUD: React.FC<KioskOperationalHUDProps> = ({ summar
               {summary.printerCount || 0} {summary.printerCount === 1 ? 'PRINTER' : 'PRINTERS'} READY
             </span>
           </div>
-
-          {/* Divider */}
-          <div
-            style={{
-              width: '1px',
-              height: '20px',
-              background: 'var(--border-default)',
-              margin: '0 12px',
-              flexShrink: 0,
-            }}
-          />
-
-          {/* Action: Fast Sync Button */}
-          <Button
-            variant="ghost"
-            onClick={onRefresh}
-            leftIcon={<RefreshCw size={14} />}
-            style={{
-              height: '32px',
-              padding: '0 12px',
-              fontSize: '11px',
-              fontWeight: 800,
-              fontFamily: 'var(--font-mono, monospace)',
-              letterSpacing: '0.04em',
-              flexShrink: 0,
-            }}
-          >
-            SYNC
-          </Button>
-        </div>
+        </footer>
       )}
     </div>
   );
 };
+
