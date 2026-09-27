@@ -21,9 +21,9 @@ export const KioskHeader: React.FC<KioskHeaderProps> = ({
   return (
     <header
       style={{
-        height: '42px',
+        height: '46px',
         background: 'var(--bg-surface)',
-        borderBottom: '1px solid var(--border-default)',
+        borderBottom: '1.5px solid var(--border-default)',
         padding: '0 20px',
         display: 'flex',
         alignItems: 'center',
@@ -38,20 +38,21 @@ export const KioskHeader: React.FC<KioskHeaderProps> = ({
       <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
         <span
           style={{
-            width: '9px',
-            height: '9px',
+            width: '10px',
+            height: '10px',
             borderRadius: '50%',
             background: isOnboarded ? 'var(--status-idle, #00FF88)' : 'var(--accent-primary, #FF5500)',
             boxShadow: isOnboarded
-              ? '0 0 8px var(--status-idle, #00FF88)'
-              : '0 0 8px var(--accent-primary, #FF5500)',
+              ? '0 0 10px var(--status-idle, #00FF88)'
+              : '0 0 10px var(--accent-primary, #FF5500)',
             display: 'inline-block',
+            flexShrink: 0,
           }}
         />
         <span
           style={{
             fontSize: '13px',
-            fontWeight: 700,
+            fontWeight: 800,
             color: 'var(--text-primary)',
             fontFamily: 'var(--font-mono, monospace)',
             letterSpacing: '0.04em',
@@ -62,18 +63,18 @@ export const KioskHeader: React.FC<KioskHeaderProps> = ({
         </span>
       </div>
 
-      {/* Right: Step Indicator + Decoupled Theme Switcher */}
+      {/* Right: Step Indicator + Prominent Ergonomic Theme Switcher */}
       <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
         {stepIndicator ? (
           <div
             style={{
               fontSize: '11px',
-              fontWeight: 700,
+              fontWeight: 800,
               color: 'var(--text-secondary)',
               fontFamily: 'var(--font-mono, monospace)',
               background: 'var(--bg-primary)',
-              border: '1px solid var(--border-default)',
-              padding: '3px 10px',
+              border: '1.5px solid var(--border-default)',
+              padding: '4px 10px',
               borderRadius: 'var(--radius-sm, 2px)',
               letterSpacing: '0.05em',
             }}
@@ -84,11 +85,11 @@ export const KioskHeader: React.FC<KioskHeaderProps> = ({
           <div
             style={{
               fontSize: '11px',
-              fontWeight: 700,
+              fontWeight: 800,
               color: 'var(--status-idle, #00FF88)',
               background: 'var(--bg-primary)',
-              border: '1px solid var(--border-default)',
-              padding: '3px 8px',
+              border: '1.5px solid var(--border-default)',
+              padding: '4px 10px',
               borderRadius: 'var(--radius-sm, 2px)',
               fontFamily: 'var(--font-mono, monospace)',
               letterSpacing: '0.05em',
@@ -98,18 +99,25 @@ export const KioskHeader: React.FC<KioskHeaderProps> = ({
           </div>
         )}
 
-        {/* Independent Kiosk Display Theme Switcher */}
+        {/* Large Tactile Theme Switcher (36px Touch Target, Big Visible Icon & Text) */}
         <Button
-          variant="ghost"
-          leftIcon={kioskTheme === 'dark' ? <Sun size={14} color="#FFAA00" /> : <Moon size={14} />}
+          variant="mechanical"
+          leftIcon={
+            kioskTheme === 'dark' ? (
+              <Sun size={17} color="#FFAA00" />
+            ) : (
+              <Moon size={17} color="var(--accent-primary)" />
+            )
+          }
           onClick={toggleKioskTheme}
           style={{
-            height: '28px',
-            padding: '0 8px',
-            fontSize: '10px',
-            fontWeight: 700,
+            height: '36px',
+            padding: '0 14px',
+            fontSize: '12px',
+            fontWeight: 800,
             fontFamily: 'var(--font-mono, monospace)',
-            letterSpacing: '0.04em',
+            letterSpacing: '0.06em',
+            borderRadius: 'var(--radius-md, 4px)',
           }}
           title={`Switch to ${kioskTheme === 'dark' ? 'Light' : 'Dark'} Mode`}
         >
