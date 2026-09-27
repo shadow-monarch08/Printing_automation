@@ -2,7 +2,7 @@
 import React from 'react';
 import { useKioskStore } from '../../../stores/useKioskStore';
 import { QRCodeSVG } from 'qrcode.react';
-import { ArrowLeft, Wifi, ExternalLink } from 'lucide-react';
+import { ArrowLeft, ArrowRight } from 'lucide-react';
 import { Button } from '../../shared/Button';
 
 export const KioskMobileHandoffStep: React.FC = () => {
@@ -18,93 +18,86 @@ export const KioskMobileHandoffStep: React.FC = () => {
         flexDirection: 'column',
         height: '100%',
         maxHeight: '440px',
-        padding: '12px 18px',
+        padding: '14px 20px',
         boxSizing: 'border-box',
         justifyContent: 'space-between',
         userSelect: 'none',
       }}
     >
-      {/* 1. Header Strip */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <span
-              style={{
-                width: '10px',
-                height: '10px',
-                borderRadius: '50%',
-                background: '#10B981',
-                boxShadow: '0 0 8px #10B981',
-                display: 'inline-block',
-                animation: 'pulse 1.5s infinite',
-              }}
-            />
-            <span
-              style={{
-                fontFamily: 'var(--font-mono, monospace)',
-                fontSize: '12px',
-                fontWeight: 700,
-                color: '#34D399',
-                letterSpacing: '0.05em',
-              }}
-            >
-              HOTSPOT_BROADCASTING // [Kiosk-Hotspot]
-            </span>
-          </div>
-
-          <div
+      {/* 1. Header Strip (No subtitles) */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+          <span
+            style={{
+              width: '10px',
+              height: '10px',
+              borderRadius: '50%',
+              background: 'var(--status-idle, #00FF88)',
+              boxShadow: '0 0 10px var(--status-idle, #00FF88)',
+              display: 'inline-block',
+            }}
+          />
+          <h1
             style={{
               fontFamily: 'var(--font-mono, monospace)',
-              fontSize: '11px',
-              color: '#38BDF8',
-              background: 'rgba(56, 189, 248, 0.12)',
-              padding: '2px 8px',
-              borderRadius: '4px',
-              border: '1px solid rgba(56, 189, 248, 0.3)',
+              fontSize: '22px',
+              fontWeight: 800,
+              color: 'var(--text-primary)',
+              margin: 0,
+              letterSpacing: '0.02em',
             }}
           >
-            PORTAL: 192.168.4.1:3000
-          </div>
+            CONNECT YOUR PHONE
+          </h1>
         </div>
 
-        {/* Error Notice from Previous Attempt if any */}
-        {errorMessage ? (
-          <div
-            style={{
-              background: 'rgba(239, 68, 68, 0.15)',
-              border: '1.5px solid #EF4444',
-              borderRadius: '6px',
-              padding: '6px 12px',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              gap: '8px',
-              marginTop: '2px',
-            }}
-          >
-            <div style={{ fontSize: '12px', color: '#FCA5A5', fontFamily: 'var(--font-mono, monospace)' }}>
-              ⚠️ SETUP FAILED: {errorMessage}
-            </div>
-            <span
-              style={{
-                fontSize: '10px',
-                color: '#34D399',
-                fontFamily: 'var(--font-mono, monospace)',
-                fontWeight: 700,
-                whiteSpace: 'nowrap',
-              }}
-            >
-              [HOTSPOT RESTORED]
-            </span>
-          </div>
-        ) : (
-          <div style={{ fontSize: '12px', color: 'var(--text-secondary, #94A3B8)', margin: '2px 0 0 0' }}>
-            Scan the QR codes with your smartphone or connect to <strong>Kiosk-Hotspot</strong> manually.
-          </div>
-        )}
+        <div
+          style={{
+            fontFamily: 'var(--font-mono, monospace)',
+            fontSize: '11px',
+            fontWeight: 700,
+            color: 'var(--accent-primary)',
+            background: 'var(--bg-surface)',
+            border: '1px solid var(--border-default)',
+            padding: '4px 10px',
+            borderRadius: 'var(--radius-sm, 2px)',
+          }}
+        >
+          HOTSPOT: Kiosk-Hotspot
+        </div>
       </div>
 
-      {/* 2. QR Codes Dual Columns */}
+      {/* Error Notice from Previous Attempt if any */}
+      {errorMessage && (
+        <div
+          style={{
+            background: 'rgba(255, 68, 68, 0.12)',
+            border: '1.5px solid var(--status-error, #FF4444)',
+            borderRadius: 'var(--radius-md, 4px)',
+            padding: '6px 12px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: '8px',
+          }}
+        >
+          <div style={{ fontSize: '12px', color: 'var(--status-error, #FF4444)', fontFamily: 'var(--font-mono, monospace)', fontWeight: 700 }}>
+            ⚠️ {errorMessage}
+          </div>
+          <span
+            style={{
+              fontSize: '10px',
+              color: 'var(--status-idle, #00FF88)',
+              fontFamily: 'var(--font-mono, monospace)',
+              fontWeight: 800,
+            }}
+          >
+            [HOTSPOT RESTORED]
+          </span>
+        </div>
+      )}
+
+      {/* 2. Dual Clean QR Columns (Zero Fluff, Max Contrast) */}
       <div
         style={{
           display: 'grid',
@@ -119,9 +112,9 @@ export const KioskMobileHandoffStep: React.FC = () => {
         {/* Step 1: Wi-Fi Auto-Connect */}
         <div
           style={{
-            background: 'linear-gradient(180deg, rgba(30, 41, 59, 0.6) 0%, rgba(15, 23, 42, 0.8) 100%)',
-            border: '1.5px solid var(--border-default, #334155)',
-            borderRadius: '8px',
+            background: 'var(--bg-surface)',
+            border: '1.5px solid var(--border-default)',
+            borderRadius: 'var(--radius-lg, 6px)',
             padding: '12px',
             display: 'flex',
             flexDirection: 'column',
@@ -130,52 +123,53 @@ export const KioskMobileHandoffStep: React.FC = () => {
             gap: '8px',
             height: '240px',
             boxSizing: 'border-box',
+            boxShadow: 'var(--shadow-paper)',
           }}
         >
           <div
             style={{
               fontFamily: 'var(--font-mono, monospace)',
-              fontSize: '11px',
-              fontWeight: 700,
-              color: '#38BDF8',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '6px',
+              fontSize: '13px',
+              fontWeight: 800,
+              color: 'var(--text-primary)',
+              letterSpacing: '0.04em',
             }}
           >
-            <Wifi size={14} /> 1. JOIN WI-FI HOTSPOT
+            1. SCAN TO JOIN WI-FI
           </div>
 
           <div
             style={{
               background: '#FFFFFF',
-              padding: '6px',
-              borderRadius: '6px',
+              padding: '10px',
+              borderRadius: '4px',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              boxShadow: '0 4px 10px rgba(0, 0, 0, 0.3)',
+              boxShadow: '0 2px 10px rgba(0,0,0,0.2)',
             }}
           >
-            <QRCodeSVG value={wifiQrPayload} size={118} level="M" />
+            <QRCodeSVG value={wifiQrPayload} size={135} level="M" />
           </div>
 
-          <div style={{ textAlign: 'center' }}>
-            <div style={{ fontFamily: 'var(--font-mono, monospace)', fontSize: '11px', fontWeight: 700, color: '#FFFFFF' }}>
-              SSID: [Kiosk-Hotspot]
-            </div>
-            <div style={{ fontSize: '10px', color: 'var(--text-secondary, #94A3B8)' }}>
-              (No password required)
-            </div>
+          <div
+            style={{
+              fontFamily: 'var(--font-mono, monospace)',
+              fontSize: '11px',
+              color: 'var(--text-secondary)',
+              fontWeight: 700,
+            }}
+          >
+            SSID: Kiosk-Hotspot (No Password)
           </div>
         </div>
 
         {/* Step 2: Open Portal */}
         <div
           style={{
-            background: 'linear-gradient(180deg, rgba(30, 41, 59, 0.6) 0%, rgba(15, 23, 42, 0.8) 100%)',
-            border: '1.5px solid var(--border-default, #334155)',
-            borderRadius: '8px',
+            background: 'var(--bg-surface)',
+            border: '1.5px solid var(--border-default)',
+            borderRadius: 'var(--radius-lg, 6px)',
             padding: '12px',
             display: 'flex',
             flexDirection: 'column',
@@ -184,97 +178,67 @@ export const KioskMobileHandoffStep: React.FC = () => {
             gap: '8px',
             height: '240px',
             boxSizing: 'border-box',
+            boxShadow: 'var(--shadow-paper)',
           }}
         >
           <div
             style={{
               fontFamily: 'var(--font-mono, monospace)',
-              fontSize: '11px',
-              fontWeight: 700,
-              color: '#34D399',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '6px',
+              fontSize: '13px',
+              fontWeight: 800,
+              color: 'var(--accent-primary)',
+              letterSpacing: '0.04em',
             }}
           >
-            <ExternalLink size={14} /> 2. OPEN SETUP PORTAL
+            2. SCAN TO OPEN SETUP
           </div>
 
           <div
             style={{
               background: '#FFFFFF',
-              padding: '6px',
-              borderRadius: '6px',
+              padding: '10px',
+              borderRadius: '4px',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              boxShadow: '0 4px 10px rgba(0, 0, 0, 0.3)',
+              boxShadow: '0 2px 10px rgba(0,0,0,0.2)',
             }}
           >
-            <QRCodeSVG value={portalUrl} size={118} level="M" />
+            <QRCodeSVG value={portalUrl} size={135} level="M" />
           </div>
 
-          <div style={{ textAlign: 'center' }}>
-            <div style={{ fontFamily: 'var(--font-mono, monospace)', fontSize: '11px', fontWeight: 700, color: '#FFFFFF' }}>
-              http://192.168.4.1:3000
-            </div>
-            <div style={{ fontSize: '10px', color: 'var(--text-secondary, #94A3B8)' }}>
-              Browser setup will guide you through Wi-Fi
-            </div>
+          <div
+            style={{
+              fontFamily: 'var(--font-mono, monospace)',
+              fontSize: '11px',
+              color: 'var(--text-secondary)',
+              fontWeight: 700,
+            }}
+          >
+            URL: 192.168.4.1:3000/setup
           </div>
         </div>
       </div>
 
-      {/* 3. Bottom Control Row */}
-      <div
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          gap: '12px',
-          paddingTop: '6px',
-          borderTop: '1px dashed var(--border-default, #334155)',
-        }}
-      >
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <div
-            style={{
-              width: '8px',
-              height: '8px',
-              borderRadius: '50%',
-              background: '#F59E0B',
-              animation: 'pulse 1.2s infinite',
-            }}
-          />
-          <span
-            style={{
-              fontFamily: 'var(--font-mono, monospace)',
-              fontSize: '11px',
-              color: 'var(--text-secondary, #94A3B8)',
-            }}
-          >
-            Awaiting phone connection...
-          </span>
-        </div>
+      {/* 3. Huge Navigation Buttons */}
+      <div style={{ display: 'flex', gap: '12px' }}>
+        <Button
+          variant="ghost"
+          leftIcon={<ArrowLeft size={18} />}
+          onClick={cancelMobileMode}
+          style={{ flex: 1, height: '48px', fontSize: '13px', fontWeight: 700 }}
+        >
+          [ BACK TO MODES ]
+        </Button>
 
-        <div style={{ display: 'flex', gap: '8px' }}>
-          <Button
-            variant="ghost"
-            leftIcon={<ArrowLeft size={14} />}
-            onClick={cancelMobileMode}
-            style={{ height: '38px', padding: '0 14px', fontSize: '12px', fontWeight: 600 }}
-          >
-            Back to Mode Choice
-          </Button>
-
-          <Button
-            variant="primary"
-            onClick={startScreenMode}
-            style={{ height: '38px', padding: '0 16px', fontSize: '12px', fontWeight: 700 }}
-          >
-            Switch to On-Screen Setup ➔
-          </Button>
-        </div>
+        <Button
+          variant="primary"
+          rightIcon={<ArrowRight size={18} />}
+          onClick={startScreenMode}
+          style={{ flex: 1.5, height: '48px', fontSize: '13px', fontWeight: 800 }}
+        >
+          USE TOUCHSCREEN INSTEAD ➔
+        </Button>
       </div>
     </div>
   );

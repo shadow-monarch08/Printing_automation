@@ -4,6 +4,7 @@ import { useKioskStore } from '../../../stores/useKioskStore';
 import { RefreshCw, ChevronLeft, Wifi } from 'lucide-react';
 import { PaperTable } from '../../shared/PaperTable';
 import { Button } from '../../shared/Button';
+import { SkeletonBox } from '../../shared/SkeletonPrimitives';
 import type { WifiNetwork } from '../../../types';
 
 export const KioskWifiStep: React.FC = () => {
@@ -80,20 +81,21 @@ export const KioskWifiStep: React.FC = () => {
         display: 'flex',
         flexDirection: 'column',
         justifyContent: 'flex-start',
-        padding: '8px 16px',
+        padding: '10px 18px',
         boxSizing: 'border-box',
         overflow: 'hidden',
         fontFamily: 'var(--font-mono, monospace)',
+        userSelect: 'none',
       }}
     >
-      {/* 1. TOP TELEMETRY HEADER BAR (Clean, spacious, unsquished) */}
+      {/* 1. TOP HEADER (Big title, clean controls, no subtitles) */}
       <div
         style={{
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
           paddingBottom: '8px',
-          borderBottom: '1px dashed var(--border-default, rgba(255, 255, 255, 0.15))',
+          borderBottom: '1px dashed var(--border-default)',
           flexShrink: 0,
           marginBottom: '6px',
         }}
@@ -105,7 +107,7 @@ export const KioskWifiStep: React.FC = () => {
             onClick={() => setStep('IDENTITY')}
             style={{
               height: '38px',
-              padding: '0 14px',
+              padding: '0 12px',
               fontSize: '12px',
               fontWeight: 700,
               fontFamily: 'var(--font-mono, monospace)',
@@ -114,17 +116,18 @@ export const KioskWifiStep: React.FC = () => {
             [ BACK ]
           </Button>
 
-          <span
+          <h1
             style={{
               fontFamily: 'var(--font-mono, monospace)',
-              fontSize: '13px',
-              fontWeight: 700,
-              color: 'var(--text-primary, #FFFFFF)',
-              letterSpacing: '0.04em',
+              fontSize: '20px',
+              fontWeight: 800,
+              color: 'var(--text-primary)',
+              margin: 0,
+              letterSpacing: '0.03em',
             }}
           >
-            WI-FI_RADIO_PROVISIONING
-          </span>
+            SELECT WI-FI NETWORK
+          </h1>
         </div>
 
         <Button
@@ -140,58 +143,57 @@ export const KioskWifiStep: React.FC = () => {
             fontFamily: 'var(--font-mono, monospace)',
           }}
         >
-          {isScanning ? '[ SWEEPING... ]' : '[ REFRESH SCAN ]'}
+          {isScanning ? '[ SWEEPING... ]' : '[ SCAN ]'}
         </Button>
       </div>
 
-      {/* 2. CURRENTLY CONNECTED ACTIVE LINK PLATE (One-Tap Continuation) */}
+      {/* 2. CURRENTLY CONNECTED ACTIVE LINK PLATE (One-Tap Fast Continuation) */}
       {activeNetworks.length > 0 && (
         <div
           style={{
-            background: 'rgba(0, 200, 83, 0.08)',
-            border: '2px solid var(--status-idle, #10B981)',
-            borderRadius: '8px',
+            background: 'var(--bg-surface)',
+            border: '2px solid var(--status-idle, #00FF88)',
+            borderRadius: 'var(--radius-lg, 6px)',
             padding: '10px 16px',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'space-between',
-            margin: '6px 0 8px 0',
+            marginBottom: '8px',
             flexShrink: 0,
-            boxSizing: 'border-box',
+            boxShadow: 'var(--shadow-paper)',
           }}
         >
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
             <span
               style={{
-                width: '12px',
-                height: '12px',
+                width: '10px',
+                height: '10px',
                 borderRadius: '50%',
-                background: '#10B981',
-                boxShadow: '0 0 10px #10B981',
-                display: 'inline-block',
+                background: 'var(--status-idle, #00FF88)',
+                boxShadow: '0 0 10px var(--status-idle, #00FF88)',
                 flexShrink: 0,
               }}
             />
             <div>
               <div
                 style={{
-                  fontFamily: 'var(--font-mono, monospace)',
-                  fontSize: '14px',
+                  fontSize: '11px',
                   fontWeight: 700,
-                  color: '#FFFFFF',
+                  color: 'var(--text-secondary)',
+                  letterSpacing: '0.04em',
                 }}
               >
-                {activeNetworks[0].ssid}
+                CURRENT ACTIVE CONNECTION
               </div>
               <div
                 style={{
-                  fontFamily: 'var(--font-mono, monospace)',
-                  fontSize: '11px',
-                  color: 'rgba(255, 255, 255, 0.7)',
-                  marginTop: '2px',
+                  fontSize: '16px',
+                  fontWeight: 800,
+                  color: 'var(--text-primary)',
+                  letterSpacing: '0.02em',
                 }}
               >
-                ACTIVE LINK // {renderSignalGauge(activeNetworks[0].signal)}
+                {activeNetworks[0].ssid}
               </div>
             </div>
           </div>
@@ -202,11 +204,11 @@ export const KioskWifiStep: React.FC = () => {
                 fontFamily: 'var(--font-mono, monospace)',
                 fontSize: '10px',
                 padding: '3px 8px',
-                background: 'rgba(0, 200, 83, 0.2)',
-                border: '1px solid #10B981',
-                color: '#10B981',
+                background: 'rgba(0, 255, 136, 0.12)',
+                border: '1px solid var(--status-idle, #00FF88)',
+                color: 'var(--status-idle, #00FF88)',
                 fontWeight: 800,
-                borderRadius: '3px',
+                borderRadius: 'var(--radius-sm, 2px)',
                 letterSpacing: '0.04em',
               }}
             >
@@ -219,11 +221,9 @@ export const KioskWifiStep: React.FC = () => {
               style={{
                 height: '38px',
                 padding: '0 16px',
-                background: '#10B981',
-                color: '#000000',
-                fontFamily: 'var(--font-mono, monospace)',
                 fontSize: '12px',
                 fontWeight: 800,
+                fontFamily: 'var(--font-mono, monospace)',
                 letterSpacing: '0.04em',
               }}
             >
@@ -233,43 +233,69 @@ export const KioskWifiStep: React.FC = () => {
         </div>
       )}
 
-      {/* 3. IN-HOUSE PAPERTABLE MATRIX (Spacious, Roomy, Zero-Scroll Viewport) */}
-      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0, overflow: 'hidden' }}>
-        <PaperTable
+      {/* 3. AVAILABLE ACCESS POINTS TABLE WITH TARGETED LOADING SKELETON */}
+      <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
+        <PaperTable<WifiNetwork>
           data={availableNetworks}
           itemsPerPage={itemsPerPage}
-          pagination={true}
-          showRecordCount={true}
+          showRecordCount={false}
           showPageSizeSelector={false}
-          contentStyle={{ padding: '6px 8px', overflowY: 'hidden' }}
-          paginationStyle={{ padding: '6px 14px', minHeight: '38px' }}
           style={{
-            margin: '4px 0',
-            borderTop: '1px dashed var(--border-default, rgba(255, 255, 255, 0.15))',
+            border: '1.5px solid var(--border-default)',
+            borderRadius: 'var(--radius-lg, 6px)',
+            background: 'var(--bg-primary)',
+            boxShadow: 'var(--shadow-paper)',
+          }}
+          paginationStyle={{
+            padding: '4px 14px',
+            borderTop: '1px solid var(--border-default)',
+            background: 'var(--bg-surface)',
           }}
           renderData={(paginatedData) => (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-              {isScanning && networks.length === 0 ? (
+            <div
+              style={{
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '8px',
+                padding: '8px',
+                boxSizing: 'border-box',
+              }}
+            >
+              {isScanning && availableNetworks.length === 0 ? (
+                /* Targeted Loading Skeletons: 2 Shimmering Rows */
+                [0, 1].map((idx) => (
+                  <div
+                    key={idx}
+                    style={{
+                      height: '62px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      padding: '0 16px',
+                      background: 'var(--bg-surface)',
+                      border: '1.5px solid var(--border-default)',
+                      borderRadius: 'var(--radius-lg, 6px)',
+                      boxSizing: 'border-box',
+                    }}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '14px', width: '55%' }}>
+                      <SkeletonBox width="10px" height="10px" borderRadius="50%" />
+                      <SkeletonBox width="70%" height="20px" borderRadius="4px" />
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+                      <SkeletonBox width="85px" height="18px" borderRadius="4px" />
+                      <SkeletonBox width="95px" height="38px" borderRadius="4px" />
+                    </div>
+                  </div>
+                ))
+              ) : availableNetworks.length === 0 ? (
                 <div
                   style={{
                     padding: '32px',
                     textAlign: 'center',
                     fontFamily: 'var(--font-mono, monospace)',
                     fontSize: '13px',
-                    color: 'rgba(255, 255, 255, 0.65)',
-                  }}
-                >
-                  <RefreshCw size={22} className="spin" style={{ margin: '0 auto 10px auto', display: 'block' }} />
-                  SWEEPING 2.4GHz / 5GHz FREQUENCIES...
-                </div>
-              ) : availableNetworks.length === 0 ? (
-                <div
-                  style={{
-                    padding: '28px',
-                    textAlign: 'center',
-                    fontFamily: 'var(--font-mono, monospace)',
-                    fontSize: '13px',
-                    color: 'rgba(255, 255, 255, 0.65)',
+                    color: 'var(--text-secondary)',
                   }}
                 >
                   NO ADDITIONAL ACCESS POINTS DETECTED.
@@ -282,36 +308,34 @@ export const KioskWifiStep: React.FC = () => {
                       key={net.ssid}
                       onClick={() => handleSelectNetwork(net)}
                       style={{
-                        height: '58px',
+                        height: '62px',
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'space-between',
                         padding: '0 16px',
-                        background: '#22262B',
-                        border: '1.5px solid rgba(255, 255, 255, 0.12)',
-                        borderRadius: '8px',
+                        background: 'var(--bg-surface)',
+                        border: '1.5px solid var(--border-default)',
+                        borderRadius: 'var(--radius-lg, 6px)',
                         cursor: 'none',
                         boxSizing: 'border-box',
-                        transition: 'background 0.15s ease, border-color 0.15s ease',
+                        transition: 'border-color 0.15s ease',
                       }}
                       onPointerDown={(e) => {
-                        e.currentTarget.style.borderColor = '#FF5500';
-                        e.currentTarget.style.background = '#2C3036';
+                        e.currentTarget.style.borderColor = 'var(--accent-primary)';
                       }}
                       onPointerUp={(e) => {
-                        e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.12)';
-                        e.currentTarget.style.background = '#22262B';
+                        e.currentTarget.style.borderColor = 'var(--border-default)';
                       }}
                     >
-                      {/* Left: Amber glowing diode + SSID + Saved profile badge */}
+                      {/* Left: Diode + SSID + Badges */}
                       <div style={{ display: 'flex', alignItems: 'center', gap: '12px', minWidth: 0 }}>
                         <span
                           style={{
                             width: '10px',
                             height: '10px',
                             borderRadius: '50%',
-                            background: '#F59E0B',
-                            boxShadow: '0 0 8px rgba(245, 158, 11, 0.7)',
+                            background: 'var(--accent-primary)',
+                            boxShadow: '0 0 8px var(--accent-primary)',
                             flexShrink: 0,
                           }}
                         />
@@ -319,9 +343,9 @@ export const KioskWifiStep: React.FC = () => {
                         <span
                           style={{
                             fontFamily: 'var(--font-mono, monospace)',
-                            fontSize: '15px',
-                            fontWeight: 700,
-                            color: '#FFFFFF',
+                            fontSize: '16px',
+                            fontWeight: 800,
+                            color: 'var(--text-primary)',
                             overflow: 'hidden',
                             textOverflow: 'ellipsis',
                             whiteSpace: 'nowrap',
@@ -335,17 +359,17 @@ export const KioskWifiStep: React.FC = () => {
                           <span
                             style={{
                               fontFamily: 'var(--font-mono, monospace)',
-                              fontSize: '11px',
-                              padding: '2px 8px',
-                              background: 'rgba(0, 200, 83, 0.15)',
-                              border: '1px solid #10B981',
-                              color: '#10B981',
-                              fontWeight: 700,
+                              fontSize: '10px',
+                              padding: '2px 6px',
+                              background: 'rgba(0, 255, 136, 0.12)',
+                              border: '1px solid var(--status-idle, #00FF88)',
+                              color: 'var(--status-idle, #00FF88)',
+                              fontWeight: 800,
                               flexShrink: 0,
-                              borderRadius: '4px',
+                              borderRadius: 'var(--radius-sm, 2px)',
                             }}
                           >
-                            [SAVED_PROFILE]
+                            [SAVED]
                           </span>
                         )}
 
@@ -353,14 +377,14 @@ export const KioskWifiStep: React.FC = () => {
                           <span
                             style={{
                               fontFamily: 'var(--font-mono, monospace)',
-                              fontSize: '11px',
-                              padding: '2px 8px',
-                              background: 'rgba(16, 185, 129, 0.15)',
-                              border: '1px solid #10B981',
-                              color: '#10B981',
-                              fontWeight: 700,
+                              fontSize: '10px',
+                              padding: '2px 6px',
+                              background: 'rgba(0, 255, 136, 0.12)',
+                              border: '1px solid var(--status-idle, #00FF88)',
+                              color: 'var(--status-idle, #00FF88)',
+                              fontWeight: 800,
                               flexShrink: 0,
-                              borderRadius: '4px',
+                              borderRadius: 'var(--radius-sm, 2px)',
                             }}
                           >
                             [OPEN]
@@ -368,14 +392,14 @@ export const KioskWifiStep: React.FC = () => {
                         )}
                       </div>
 
-                      {/* Right: Signal gauge + Select Action */}
+                      {/* Right: Signal gauge + Connect Button */}
                       <div style={{ display: 'flex', alignItems: 'center', gap: '16px', flexShrink: 0 }}>
                         <span
                           style={{
                             fontFamily: 'var(--font-mono, monospace)',
-                            fontSize: '13px',
-                            fontWeight: 600,
-                            color: 'var(--accent-secondary, #FF5500)',
+                            fontSize: '12px',
+                            fontWeight: 700,
+                            color: 'var(--accent-primary)',
                             letterSpacing: '0.04em',
                           }}
                         >
@@ -385,10 +409,10 @@ export const KioskWifiStep: React.FC = () => {
                         <Button
                           variant="mechanical"
                           style={{
-                            height: '34px',
-                            padding: '0 12px',
-                            fontSize: '11px',
-                            fontWeight: 700,
+                            height: '38px',
+                            padding: '0 16px',
+                            fontSize: '12px',
+                            fontWeight: 800,
                             fontFamily: 'var(--font-mono, monospace)',
                           }}
                           onClick={(e) => {
@@ -396,7 +420,7 @@ export const KioskWifiStep: React.FC = () => {
                             handleSelectNetwork(net);
                           }}
                         >
-                          [ CONNECT ➔ ]
+                          CONNECT ➔
                         </Button>
                       </div>
                     </div>
@@ -419,8 +443,8 @@ export const KioskWifiStep: React.FC = () => {
               fontWeight: 700,
               letterSpacing: '0.04em',
               marginTop: '6px',
-              border: '1px dashed rgba(255, 255, 255, 0.25)',
-              color: 'rgba(255, 255, 255, 0.7)',
+              border: '1px dashed var(--border-default)',
+              color: 'var(--text-secondary)',
               flexShrink: 0,
             }}
           >
@@ -435,7 +459,7 @@ export const KioskWifiStep: React.FC = () => {
           style={{
             position: 'fixed',
             inset: 0,
-            background: 'rgba(0, 0, 0, 0.75)',
+            background: 'var(--modal-backdrop, rgba(0, 0, 0, 0.75))',
             zIndex: 1100,
             display: 'flex',
             alignItems: 'center',
@@ -445,40 +469,40 @@ export const KioskWifiStep: React.FC = () => {
         >
           <div
             style={{
-              background: '#22262B',
-              border: '2px solid #FF5500',
-              borderRadius: '8px',
-              padding: '22px 24px',
+              background: 'var(--bg-surface)',
+              border: '2px solid var(--accent-primary)',
+              borderRadius: 'var(--radius-lg, 6px)',
+              padding: '20px 24px',
               width: '100%',
-              maxWidth: '560px',
+              maxWidth: '540px',
               display: 'flex',
               flexDirection: 'column',
               gap: '14px',
-              boxShadow: '0 10px 40px rgba(0, 0, 0, 0.8)',
+              boxShadow: 'var(--shadow-paper)',
             }}
           >
             <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-              <Wifi size={22} color="#FF5500" />
+              <Wifi size={22} color="var(--accent-primary)" />
               <span
                 style={{
                   fontFamily: 'var(--font-mono, monospace)',
-                  fontSize: '16px',
-                  fontWeight: 700,
-                  color: '#FFFFFF',
+                  fontSize: '17px',
+                  fontWeight: 800,
+                  color: 'var(--text-primary)',
                 }}
               >
                 SAVED_NETWORK: [{savedChoiceModalNetwork.ssid}]
               </span>
             </div>
 
-            <p style={{ fontSize: '13px', color: 'rgba(255, 255, 255, 0.75)', margin: 0, lineHeight: 1.5 }}>
+            <p style={{ fontSize: '13px', color: 'var(--text-secondary)', margin: 0, lineHeight: 1.4 }}>
               This network profile is saved in the system. Tap Connect to link immediately using saved credentials.
             </p>
 
-            <div style={{ display: 'flex', gap: '10px', marginTop: '8px' }}>
+            <div style={{ display: 'flex', gap: '10px', marginTop: '6px' }}>
               <Button
                 variant="primary"
-                style={{ flex: 2.5, height: '46px', fontSize: '13px', fontWeight: 700 }}
+                style={{ flex: 2.5, height: '46px', fontSize: '13px', fontWeight: 800 }}
                 onClick={() => {
                   setSavedChoiceModalNetwork(null);
                   setWifiPassword('');

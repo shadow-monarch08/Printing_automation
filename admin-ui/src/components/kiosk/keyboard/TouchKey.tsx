@@ -51,9 +51,9 @@ export const TouchKey: React.FC<TouchKeyProps> = ({
   const getColors = () => {
     if (isPressed) {
       return {
-        bg: '#FFFFFF',
-        color: '#000000',
-        border: '#FFFFFF',
+        bg: 'var(--text-primary, #FFFFFF)',
+        color: 'var(--bg-primary, #1A1D20)',
+        border: 'var(--text-primary, #FFFFFF)',
         shadow: 'none',
       };
     }
@@ -61,39 +61,39 @@ export const TouchKey: React.FC<TouchKeyProps> = ({
     switch (variant) {
       case 'accent':
         return {
-          bg: '#FF5500',
-          color: '#1A1D20',
-          border: '#FF7733',
-          shadow: '0 3px 0 #992200',
+          bg: 'var(--accent-primary, #FF5500)',
+          color: '#FFFFFF',
+          border: 'var(--accent-primary, #FF5500)',
+          shadow: '0 3px 0 var(--btn-shadow, rgba(0,0,0,0.5))',
         };
       case 'action':
         return {
-          bg: '#10B981',
-          color: '#0D1117',
-          border: '#34D399',
-          shadow: '0 3px 0 #065F46',
+          bg: 'var(--status-idle, #00FF88)',
+          color: '#1A1D20',
+          border: 'var(--status-idle, #00FF88)',
+          shadow: '0 3px 0 rgba(0, 0, 0, 0.4)',
         };
       case 'danger':
         return {
-          bg: '#EF4444',
+          bg: 'var(--status-error, #FF4444)',
           color: '#FFFFFF',
-          border: '#F87171',
-          shadow: '0 3px 0 #991B1B',
+          border: 'var(--status-error, #FF4444)',
+          shadow: '0 3px 0 rgba(0, 0, 0, 0.4)',
         };
       case 'secondary':
         return {
-          bg: '#2A2E34',
-          color: '#E6E8EA',
-          border: 'rgba(255, 255, 255, 0.22)',
-          shadow: '0 3px 0 #111315',
+          bg: 'var(--bg-surface-alt, #202327)',
+          color: 'var(--text-primary, #E6E8EA)',
+          border: 'var(--border-default, #3A4047)',
+          shadow: '0 3px 0 var(--border-default, #3A4047)',
         };
       case 'default':
       default:
         return {
-          bg: '#202428',
-          color: '#FFFFFF',
-          border: 'rgba(255, 255, 255, 0.16)',
-          shadow: '0 3px 0 #0E1012',
+          bg: 'var(--bg-surface, #24282D)',
+          color: 'var(--text-primary, #E6E8EA)',
+          border: 'var(--border-default, #3A4047)',
+          shadow: '0 3px 0 var(--border-default, #3A4047)',
         };
     }
   };

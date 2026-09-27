@@ -68,9 +68,9 @@ export const TouchKeyboard: React.FC<TouchKeyboardProps> = ({
         left: 0,
         width: '100%',
         height: '420px',
-        background: '#16181B',
-        borderTop: '2px solid #FF5500',
-        boxShadow: '0 -10px 40px rgba(0,0,0,0.9)',
+        background: 'var(--bg-primary, #1A1D20)',
+        borderTop: '2px solid var(--accent-primary, #FF5500)',
+        boxShadow: '0 -10px 40px rgba(0,0,0,0.6)',
         zIndex: 1000,
         display: 'flex',
         flexDirection: 'column',
@@ -86,8 +86,8 @@ export const TouchKeyboard: React.FC<TouchKeyboardProps> = ({
       <div
         style={{
           height: '46px',
-          background: '#22262B',
-          border: '1.5px solid rgba(255, 255, 255, 0.12)',
+          background: 'var(--bg-surface, #24282D)',
+          border: '1.5px solid var(--border-default, #3A4047)',
           borderRadius: '8px',
           display: 'flex',
           alignItems: 'center',
@@ -100,10 +100,10 @@ export const TouchKeyboard: React.FC<TouchKeyboardProps> = ({
           style={{
             fontSize: '13px',
             fontWeight: 700,
-            color: '#FF5500',
+            color: 'var(--accent-primary, #FF5500)',
             fontFamily: 'var(--font-body, sans-serif)',
             whiteSpace: 'nowrap',
-            borderRight: '1px solid rgba(255, 255, 255, 0.15)',
+            borderRight: '1px solid var(--border-default, #3A4047)',
             paddingRight: '12px',
           }}
         >
@@ -115,8 +115,8 @@ export const TouchKeyboard: React.FC<TouchKeyboardProps> = ({
           style={{
             flex: 1,
             height: '36px',
-            background: '#111315',
-            border: '1px solid rgba(255, 255, 255, 0.15)',
+            background: 'var(--bg-primary, #1A1D20)',
+            border: '1px solid var(--border-default, #3A4047)',
             borderRadius: '6px',
             display: 'flex',
             alignItems: 'center',
@@ -124,14 +124,14 @@ export const TouchKeyboard: React.FC<TouchKeyboardProps> = ({
             fontFamily: 'var(--font-mono, monospace)',
             fontSize: '17px',
             fontWeight: 700,
-            color: '#FFFFFF',
+            color: 'var(--text-primary, #E6E8EA)',
             overflow: 'hidden',
             textOverflow: 'ellipsis',
             whiteSpace: 'nowrap',
           }}
         >
           {value.length === 0 ? (
-            <span style={{ color: 'rgba(255, 255, 255, 0.3)', fontWeight: 400 }}>Type here...</span>
+            <span style={{ color: 'var(--text-muted, #626A72)', fontWeight: 400 }}>Type here...</span>
           ) : isPassword && !showPassword ? (
             '•'.repeat(value.length)
           ) : (
@@ -142,7 +142,7 @@ export const TouchKeyboard: React.FC<TouchKeyboardProps> = ({
               display: 'inline-block',
               width: '8px',
               height: '20px',
-              background: '#FF5500',
+              background: 'var(--accent-primary, #FF5500)',
               marginLeft: '4px',
             }}
           />
@@ -162,7 +162,7 @@ export const TouchKeyboard: React.FC<TouchKeyboardProps> = ({
               padding: '0 12px',
               fontSize: '12px',
               fontWeight: 700,
-              color: showPassword ? '#FF5500' : 'rgba(255, 255, 255, 0.7)',
+              color: showPassword ? 'var(--accent-primary)' : 'var(--text-secondary)',
             }}
           >
             {showPassword ? 'Hide' : 'Show'}

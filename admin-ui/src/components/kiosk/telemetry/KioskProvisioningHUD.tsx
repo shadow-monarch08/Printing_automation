@@ -2,7 +2,7 @@
 import React, { useEffect } from 'react';
 import { useKioskStore } from '../../../stores/useKioskStore';
 import { api } from '../../../services/api';
-import { AlertCircle, RefreshCw, ChevronLeft } from 'lucide-react';
+import { AlertTriangle, RefreshCw, ChevronLeft, ArrowRight } from 'lucide-react';
 import { Button } from '../../shared/Button';
 
 export const KioskProvisioningHUD: React.FC = () => {
@@ -10,7 +10,6 @@ export const KioskProvisioningHUD: React.FC = () => {
     provisioningTelemetry,
     errorMessage,
     errorCode,
-    selectedNetwork,
     onboardingMode,
     startScreenMode,
     setTelemetry,
@@ -97,29 +96,34 @@ export const KioskProvisioningHUD: React.FC = () => {
 
   const getHumanFriendlyError = () => {
     const code = errorCode || provisioningTelemetry?.code;
-    if (code === 'WIFI_AUTH_FAILED') return 'Incorrect Wi-Fi password. Please check your password and try again.';
-    if (code === 'WIFI_NOT_FOUND') return 'Wi-Fi network was not found. Please ensure the router is turned on.';
-    if (code === 'WIFI_TIMEOUT') return 'Wi-Fi connection timed out. The router took too long to respond.';
-    if (code === 'NO_INTERNET') return 'Connected to Wi-Fi, but no internet access was detected.';
-    return errorMessage || provisioningTelemetry?.error || 'Could not connect to the network. Please try again.';
+    if (code === 'WIFI_AUTH_FAILED') return 'Incorrect Wi-Fi password. Please check your credentials.';
+    if (code === 'SSID_NOT_FOUND') return 'Wi-Fi network signal lost. Ensure router is powered on.';
+    if (code === 'DHCP_TIMEOUT') return 'Could not obtain IP address from router (DHCP timeout).';
+    if (code === 'NO_INTERNET') return 'Connected to Wi-Fi, but no WAN internet connection detected.';
+    return errorMessage || provisioningTelemetry?.error || 'Hardware connection fault encountered.';
   };
 
-  const getHumanFriendlyStepMessage = () => {
-    const step = provisioningTelemetry?.step || 1;
-    switch (step) {
-      case 1:
-        return `Connecting to "${selectedNetwork?.ssid || 'Wi-Fi'}"...`;
-      case 2:
-        return 'Verifying internet connection...';
-      case 3:
-        return 'Connecting to cloud printing network...';
-      case 4:
-      default:
-        return 'Finishing kiosk configuration...';
-    }
+  const getPhasePill = () => {
+    const phase = provisioningTelemetry?.phase || 'CONNECTING';
+    return `[ ${phase} ]`;
   };
 
-  const progressPercent = Math.min(100, Math.max(15, provisioningTelemetry?.progressPercent || 25));
+  const progressPercent = Math.min(
+    100,
+    Math.max(
+      15,
+      provisioningTelemetry?.progressPercent ||
+        (provisioningTelemetry?.phase === 'CYCLING_RADIO_HARDWARE'
+          ? 25
+          : provisioningTelemetry?.phase === 'NEGOTIATING_WAN_DHCP_LEASE'
+          ? 55
+          : provisioningTelemetry?.phase === 'SPAWNING_CLOUDFLARE_EDGE_TUNNEL'
+          ? 85
+          : provisioningTelemetry?.status === 'success'
+          ? 100
+          : 30)
+    )
+  );
 
   return (
     <div
@@ -128,61 +132,89 @@ export const KioskProvisioningHUD: React.FC = () => {
         display: 'flex',
         flexDirection: 'column',
         justifyContent: 'space-between',
-        padding: '28px 36px',
+        padding: '20px 24px',
         boxSizing: 'border-box',
         overflow: 'hidden',
-        fontFamily: 'var(--font-body, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif)',
+        userSelect: 'none',
       }}
     >
-      {/* 1. Header */}
-      <div>
-        <h2
+      {/* 1. Big Punchy Header Strip (No subtitles) */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <h1
           style={{
+            fontFamily: 'var(--font-mono, monospace)',
             fontSize: '22px',
-            fontWeight: 700,
-            color: isFailed ? '#EF4444' : '#FFFFFF',
-            margin: '0 0 4px 0',
+            fontWeight: 800,
+            color: isFailed ? 'var(--status-error, #FF4444)' : 'var(--text-primary)',
+            margin: 0,
+            letterSpacing: '0.02em',
           }}
         >
-          {isFailed ? 'Connection Issue' : 'Setting up your Kiosk'}
-        </h2>
-        <p style={{ fontSize: '13px', color: 'rgba(255, 255, 255, 0.6)', margin: 0 }}>
-          {isFailed
-            ? 'We encountered an issue while connecting your kiosk.'
-            : 'Please wait a moment while we configure your printer kiosk.'}
-        </p>
+          {isFailed ? 'CONNECTION FAILED' : 'CONNECTING HARDWARE...'}
+        </h1>
+
+        <span
+          style={{
+            fontFamily: 'var(--font-mono, monospace)',
+            fontSize: '11px',
+            fontWeight: 700,
+            color: isFailed ? 'var(--status-error, #FF4444)' : 'var(--accent-primary)',
+            background: 'var(--bg-surface)',
+            border: '1px solid var(--border-default)',
+            padding: '4px 10px',
+            borderRadius: 'var(--radius-sm, 2px)',
+          }}
+        >
+          {isFailed ? '[FAULT_STATE]' : getPhasePill()}
+        </span>
       </div>
 
-      {/* 2. Main Status Card */}
-      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
+      {/* 2. Main Central Graphic Card */}
+      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center', margin: '8px 0' }}>
         {!isFailed ? (
           <div
             style={{
-              background: '#24282D',
-              border: '1.5px solid rgba(255, 255, 255, 0.1)',
-              borderRadius: '8px',
-              padding: '28px',
+              background: 'var(--bg-surface)',
+              border: '2px solid var(--border-default)',
+              borderRadius: 'var(--radius-lg, 6px)',
+              padding: '24px 28px',
               display: 'flex',
               flexDirection: 'column',
-              gap: '20px',
+              gap: '16px',
+              boxShadow: 'var(--shadow-paper)',
             }}
           >
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-              <div style={{ fontSize: '16px', fontWeight: 600, color: '#FFFFFF' }}>
-                {getHumanFriendlyStepMessage()}
+              <div
+                style={{
+                  fontSize: '17px',
+                  fontWeight: 800,
+                  color: 'var(--text-primary)',
+                  fontFamily: 'var(--font-body)',
+                }}
+              >
+                {provisioningTelemetry?.message || 'Configuring Wi-Fi radio and acquiring network lease...'}
               </div>
-              <div style={{ fontSize: '14px', fontWeight: 700, color: '#FF5500' }}>
+              <div
+                style={{
+                  fontSize: '22px',
+                  fontWeight: 800,
+                  color: 'var(--accent-primary)',
+                  fontFamily: 'var(--font-mono, monospace)',
+                }}
+              >
                 {progressPercent}%
               </div>
             </div>
 
-            {/* Smooth Progress Bar */}
+            {/* High-Contrast Industrial Progress Bar */}
             <div
               style={{
                 width: '100%',
-                height: '12px',
-                background: '#1A1D20',
-                borderRadius: '6px',
+                height: '14px',
+                background: 'var(--bg-primary)',
+                borderRadius: 'var(--radius-sm, 2px)',
+                border: '1px solid var(--border-default)',
                 overflow: 'hidden',
               }}
             >
@@ -190,7 +222,7 @@ export const KioskProvisioningHUD: React.FC = () => {
                 style={{
                   height: '100%',
                   width: `${progressPercent}%`,
-                  background: '#10B981',
+                  background: 'var(--accent-primary)',
                   transition: 'width 0.4s ease-in-out',
                 }}
               />
@@ -199,47 +231,56 @@ export const KioskProvisioningHUD: React.FC = () => {
         ) : (
           <div
             style={{
-              background: 'rgba(239, 68, 68, 0.1)',
-              border: '1.5px solid #EF4444',
-              borderRadius: '8px',
-              padding: '24px',
+              background: 'var(--bg-surface)',
+              border: '2px solid var(--status-error, #FF4444)',
+              borderRadius: 'var(--radius-lg, 6px)',
+              padding: '22px 26px',
               display: 'flex',
               flexDirection: 'column',
               gap: '12px',
+              boxShadow: 'var(--shadow-paper)',
             }}
           >
-            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', color: '#EF4444' }}>
-              <AlertCircle size={22} />
-              <span style={{ fontSize: '16px', fontWeight: 700 }}>
-                Unable to Connect
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', color: 'var(--status-error, #FF4444)' }}>
+              <AlertTriangle size={24} />
+              <span style={{ fontSize: '18px', fontWeight: 800, fontFamily: 'var(--font-mono, monospace)' }}>
+                DIAGNOSTIC ALERT
               </span>
             </div>
 
-            <div style={{ fontSize: '14px', color: '#FFFFFF', lineHeight: '1.5' }}>
+            <div
+              style={{
+                fontSize: '15px',
+                fontWeight: 700,
+                color: 'var(--text-primary)',
+                lineHeight: 1.4,
+                fontFamily: 'var(--font-body)',
+              }}
+            >
               {getHumanFriendlyError()}
             </div>
 
             {isMobileMode && (
               <div
                 style={{
-                  marginTop: '4px',
                   padding: '8px 12px',
-                  background: 'rgba(56, 189, 248, 0.15)',
-                  border: '1px solid rgba(56, 189, 248, 0.3)',
-                  borderRadius: '6px',
-                  color: '#38BDF8',
+                  background: 'var(--bg-primary)',
+                  border: '1px solid var(--border-default)',
+                  borderRadius: 'var(--radius-sm, 2px)',
+                  color: 'var(--status-idle, #00FF88)',
                   fontSize: '12px',
                   fontFamily: 'var(--font-mono, monospace)',
+                  fontWeight: 700,
                 }}
               >
-                📶 Hotspot re-enabled. Returning to QR Code screen in 3 seconds...
+                📶 Hotspot re-enabled. Returning to QR Code in 3 seconds...
               </div>
             )}
           </div>
         )}
       </div>
 
-      {/* 3. Action Buttons on Error */}
+      {/* 3. Huge Action Buttons on Error */}
       {isFailed && (
         <div style={{ display: 'flex', gap: '12px' }}>
           {isMobileMode ? (
@@ -247,18 +288,19 @@ export const KioskProvisioningHUD: React.FC = () => {
               <Button
                 variant="ghost"
                 leftIcon={<ChevronLeft size={18} />}
-                style={{ flex: 1.2, height: '48px', fontSize: '13px', fontWeight: 600 }}
+                style={{ flex: 1, height: '52px', fontSize: '14px', fontWeight: 700 }}
                 onClick={() => setStep('MOBILE_HANDOFF')}
               >
-                Return to QR Code Now
+                [ RETURN TO QR ]
               </Button>
 
               <Button
                 variant="primary"
-                style={{ flex: 1.5, height: '48px', fontSize: '13px', fontWeight: 700 }}
+                rightIcon={<ArrowRight size={18} />}
+                style={{ flex: 1.4, height: '52px', fontSize: '14px', fontWeight: 800 }}
                 onClick={startScreenMode}
               >
-                Switch to On-Screen Setup ➔
+                USE ON-SCREEN INSTEAD ➔
               </Button>
             </>
           ) : (
@@ -266,19 +308,19 @@ export const KioskProvisioningHUD: React.FC = () => {
               <Button
                 variant="ghost"
                 leftIcon={<ChevronLeft size={18} />}
-                style={{ flex: 1.2, height: '48px', fontSize: '13px', fontWeight: 600 }}
+                style={{ flex: 1, height: '52px', fontSize: '14px', fontWeight: 700 }}
                 onClick={() => setStep('WIFI_SCAN')}
               >
-                Choose Another Network
+                [ CHOOSE ANOTHER NETWORK ]
               </Button>
 
               <Button
                 variant="primary"
                 leftIcon={<RefreshCw size={18} />}
-                style={{ flex: 1.5, height: '48px', fontSize: '13px', fontWeight: 700 }}
+                style={{ flex: 1.4, height: '52px', fontSize: '14px', fontWeight: 800 }}
                 onClick={() => submitProvisioning()}
               >
-                Try Again
+                RETRY CONNECTION ➔
               </Button>
             </>
           )}

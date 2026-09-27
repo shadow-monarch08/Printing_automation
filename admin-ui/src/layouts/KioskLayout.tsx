@@ -22,6 +22,7 @@ export const KioskLayout: React.FC<KioskLayoutProps> = ({ children }) => {
     kioskSummary,
     keyboard,
     closeKeyboard,
+    kioskTheme,
   } = useKioskStore();
 
   const [burnInOffset, setBurnInOffset] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
@@ -74,6 +75,7 @@ export const KioskLayout: React.FC<KioskLayoutProps> = ({ children }) => {
 
   return (
     <div
+      data-theme={kioskTheme}
       onPointerDown={handlePointerDown}
       style={{
         width: '100vw',

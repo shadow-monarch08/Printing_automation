@@ -1,7 +1,7 @@
 // src/components/kiosk/onboarding/KioskModeChoiceStep.tsx
 import React from 'react';
 import { useKioskStore } from '../../../stores/useKioskStore';
-import { Smartphone, Monitor, Sparkles, Touchpad, ArrowRight } from 'lucide-react';
+import { Smartphone, Monitor, ArrowRight, AlertTriangle } from 'lucide-react';
 import { Button } from '../../shared/Button';
 
 export const KioskModeChoiceStep: React.FC = () => {
@@ -20,81 +20,66 @@ export const KioskModeChoiceStep: React.FC = () => {
         userSelect: 'none',
       }}
     >
-      {/* 1. Header Strip */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <span
-              style={{
-                width: '10px',
-                height: '10px',
-                borderRadius: '50%',
-                background: '#10B981',
-                boxShadow: '0 0 8px #10B981',
-                display: 'inline-block',
-              }}
-            />
-            <span
-              style={{
-                fontFamily: 'var(--font-mono, monospace)',
-                fontSize: '12px',
-                fontWeight: 700,
-                color: '#38BDF8',
-                letterSpacing: '0.05em',
-              }}
-            >
-              SYSTEM_PROVISIONING // CONFIGURATION_MODE
-            </span>
-          </div>
-
-          <div
-            style={{
-              fontFamily: 'var(--font-mono, monospace)',
-              fontSize: '11px',
-              color: 'var(--text-secondary, #94A3B8)',
-            }}
-          >
-            [SELECT PREFERRED METHOD]
-          </div>
-        </div>
-
-        <p
+      {/* 1. Big Punchy Header Strip (No subtitles) */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <h1
           style={{
-            margin: '2px 0 0 0',
-            fontSize: '13px',
-            color: 'var(--text-secondary, #94A3B8)',
-            lineHeight: 1.4,
+            fontFamily: 'var(--font-mono, monospace)',
+            fontSize: '24px',
+            fontWeight: 800,
+            color: 'var(--text-primary)',
+            margin: 0,
+            letterSpacing: '0.02em',
           }}
         >
-          Select how you would like to configure this kiosk terminal.
-        </p>
+          CHOOSE SETUP METHOD
+        </h1>
+
+        <span
+          style={{
+            fontFamily: 'var(--font-mono, monospace)',
+            fontSize: '11px',
+            fontWeight: 700,
+            color: 'var(--accent-primary)',
+            background: 'var(--bg-surface)',
+            border: '1px solid var(--border-default)',
+            padding: '4px 10px',
+            borderRadius: 'var(--radius-sm, 2px)',
+          }}
+        >
+          [INITIAL_CONFIG]
+        </span>
       </div>
 
-      {/* Error Notice if any */}
+      {/* Error Notice Banner if any */}
       {errorMessage && (
         <div
           style={{
-            background: 'rgba(239, 68, 68, 0.15)',
-            border: '1px solid #EF4444',
-            borderRadius: '6px',
+            background: 'rgba(255, 68, 68, 0.12)',
+            border: '1.5px solid var(--status-error, #FF4444)',
+            borderRadius: 'var(--radius-md, 4px)',
             padding: '8px 14px',
-            color: '#FCA5A5',
-            fontSize: '12px',
+            color: 'var(--status-error, #FF4444)',
+            fontSize: '13px',
             fontFamily: 'var(--font-mono, monospace)',
+            fontWeight: 700,
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'space-between',
-            gap: '8px',
+            gap: '10px',
           }}
         >
-          <span>⚠️ {errorMessage}</span>
-          <Button variant="ghost" onClick={() => setErrorMessage(null)} style={{ height: '28px', fontSize: '11px', padding: '0 8px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <AlertTriangle size={18} />
+            <span>{errorMessage}</span>
+          </div>
+          <Button variant="ghost" onClick={() => setErrorMessage(null)} style={{ height: '30px', fontSize: '11px', padding: '0 10px' }}>
             DISMISS
           </Button>
         </div>
       )}
 
-      {/* 2. Dual Selection Cards Container */}
+      {/* 2. Dual Massive Interactive Tiles (1:1 Grid) */}
       <div
         style={{
           display: 'grid',
@@ -102,12 +87,12 @@ export const KioskModeChoiceStep: React.FC = () => {
           gap: '16px',
           width: '100%',
           flex: 1,
-          maxHeight: '330px',
+          maxHeight: '340px',
           alignItems: 'stretch',
-          margin: '8px 0',
+          margin: '10px 0',
         }}
       >
-        {/* Card A: Phone / Laptop */}
+        {/* Tile A: Phone / Laptop */}
         <div
           onClick={startMobileMode}
           style={{
@@ -115,71 +100,73 @@ export const KioskModeChoiceStep: React.FC = () => {
             display: 'flex',
             flexDirection: 'column',
             justifyContent: 'space-between',
-            background: 'linear-gradient(180deg, rgba(30, 41, 59, 0.7) 0%, rgba(15, 23, 42, 0.8) 100%)',
-            border: '2px solid rgba(56, 189, 248, 0.4)',
-            borderRadius: '10px',
-            padding: '16px 18px',
+            background: 'var(--bg-surface)',
+            border: '2px solid var(--border-default)',
+            borderRadius: 'var(--radius-lg, 6px)',
+            padding: '20px 22px',
             cursor: 'none',
             position: 'relative',
-            boxShadow: '0 4px 14px rgba(0, 0, 0, 0.3)',
-            transition: 'transform 0.15s ease, border-color 0.15s ease',
+            boxShadow: 'var(--shadow-paper)',
+            transition: 'border-color 0.15s ease',
           }}
-          onPointerDown={(e) => (e.currentTarget.style.transform = 'scale(0.98)')}
-          onPointerUp={(e) => (e.currentTarget.style.transform = 'scale(1)')}
-          onPointerLeave={(e) => (e.currentTarget.style.transform = 'scale(1)')}
+          onPointerDown={(e) => {
+            e.currentTarget.style.borderColor = 'var(--accent-primary)';
+          }}
+          onPointerUp={(e) => {
+            e.currentTarget.style.borderColor = 'var(--border-default)';
+          }}
         >
-          {/* Top Tag */}
+          {/* Card Top: Icon & Mode Tag */}
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
+            <Smartphone size={40} color="var(--accent-primary)" />
             <span
               style={{
                 fontFamily: 'var(--font-mono, monospace)',
-                fontSize: '10px',
-                fontWeight: 700,
-                color: '#38BDF8',
-                background: 'rgba(56, 189, 248, 0.15)',
-                padding: '3px 8px',
-                borderRadius: '4px',
-                border: '1px solid rgba(56, 189, 248, 0.3)',
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '4px',
+                fontSize: '11px',
+                fontWeight: 800,
+                color: 'var(--accent-primary)',
+                background: 'var(--bg-primary)',
+                padding: '4px 8px',
+                borderRadius: 'var(--radius-sm, 2px)',
+                border: '1px solid var(--border-default)',
               }}
             >
-              <Sparkles size={11} /> RECOMMENDED
+              [HOTSPOT_AP]
             </span>
-            <Smartphone size={28} color="#38BDF8" />
           </div>
 
-          {/* Body Content */}
-          <div style={{ margin: '8px 0' }}>
+          {/* Big Title */}
+          <div>
             <div
               style={{
-                fontSize: '17px',
-                fontWeight: 700,
-                color: '#FFFFFF',
-                letterSpacing: '-0.01em',
-                marginBottom: '4px',
+                fontSize: '22px',
+                fontWeight: 800,
+                color: 'var(--text-primary)',
+                fontFamily: 'var(--font-body)',
+                letterSpacing: '-0.02em',
               }}
             >
               Phone / Laptop
             </div>
             <div
               style={{
-                fontSize: '12px',
-                color: 'var(--text-secondary, #94A3B8)',
-                lineHeight: 1.45,
+                fontSize: '13px',
+                fontWeight: 600,
+                color: 'var(--text-secondary)',
+                fontFamily: 'var(--font-mono, monospace)',
+                marginTop: '4px',
               }}
             >
-              Broadcasts a Wi-Fi hotspot. Connect your device to type smoothly on your mobile screen.
+              CONFIGURE VIA MOBILE BROWSER
             </div>
           </div>
 
-          {/* Action Button using Primitive Component */}
+          {/* Huge Action Button */}
           <Button
             variant="primary"
             isLoading={isHotspotStarting}
-            rightIcon={<ArrowRight size={14} />}
-            style={{ width: '100%', height: '44px', fontSize: '12px' }}
+            rightIcon={<ArrowRight size={18} />}
+            style={{ width: '100%', height: '54px', fontSize: '15px', fontWeight: 800 }}
             onClick={(e) => {
               e.stopPropagation();
               startMobileMode();
@@ -189,7 +176,7 @@ export const KioskModeChoiceStep: React.FC = () => {
           </Button>
         </div>
 
-        {/* Card B: On-Screen Touch */}
+        {/* Tile B: On-Screen Touch */}
         <div
           onClick={startScreenMode}
           style={{
@@ -197,70 +184,72 @@ export const KioskModeChoiceStep: React.FC = () => {
             display: 'flex',
             flexDirection: 'column',
             justifyContent: 'space-between',
-            background: 'linear-gradient(180deg, rgba(30, 41, 59, 0.7) 0%, rgba(15, 23, 42, 0.8) 100%)',
-            border: '2px solid rgba(16, 185, 129, 0.4)',
-            borderRadius: '10px',
-            padding: '16px 18px',
+            background: 'var(--bg-surface)',
+            border: '2px solid var(--border-default)',
+            borderRadius: 'var(--radius-lg, 6px)',
+            padding: '20px 22px',
             cursor: 'none',
             position: 'relative',
-            boxShadow: '0 4px 14px rgba(0, 0, 0, 0.3)',
-            transition: 'transform 0.15s ease, border-color 0.15s ease',
+            boxShadow: 'var(--shadow-paper)',
+            transition: 'border-color 0.15s ease',
           }}
-          onPointerDown={(e) => (e.currentTarget.style.transform = 'scale(0.98)')}
-          onPointerUp={(e) => (e.currentTarget.style.transform = 'scale(1)')}
-          onPointerLeave={(e) => (e.currentTarget.style.transform = 'scale(1)')}
+          onPointerDown={(e) => {
+            e.currentTarget.style.borderColor = 'var(--accent-primary)';
+          }}
+          onPointerUp={(e) => {
+            e.currentTarget.style.borderColor = 'var(--border-default)';
+          }}
         >
-          {/* Top Tag */}
+          {/* Card Top: Icon & Mode Tag */}
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
+            <Monitor size={40} color="var(--text-primary)" />
             <span
               style={{
                 fontFamily: 'var(--font-mono, monospace)',
-                fontSize: '10px',
-                fontWeight: 700,
-                color: '#34D399',
-                background: 'rgba(16, 185, 129, 0.15)',
-                padding: '3px 8px',
-                borderRadius: '4px',
-                border: '1px solid rgba(16, 185, 129, 0.3)',
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '4px',
+                fontSize: '11px',
+                fontWeight: 800,
+                color: 'var(--text-primary)',
+                background: 'var(--bg-primary)',
+                padding: '4px 8px',
+                borderRadius: 'var(--radius-sm, 2px)',
+                border: '1px solid var(--border-default)',
               }}
             >
-              <Touchpad size={11} /> DIRECT CHASSIS
+              [CHASSIS_TOUCH]
             </span>
-            <Monitor size={28} color="#34D399" />
           </div>
 
-          {/* Body Content */}
-          <div style={{ margin: '8px 0' }}>
+          {/* Big Title */}
+          <div>
             <div
               style={{
-                fontSize: '17px',
-                fontWeight: 700,
-                color: '#FFFFFF',
-                letterSpacing: '-0.01em',
-                marginBottom: '4px',
+                fontSize: '22px',
+                fontWeight: 800,
+                color: 'var(--text-primary)',
+                fontFamily: 'var(--font-body)',
+                letterSpacing: '-0.02em',
               }}
             >
-              Touchscreen Display
+              Touchscreen
             </div>
             <div
               style={{
-                fontSize: '12px',
-                color: 'var(--text-secondary, #94A3B8)',
-                lineHeight: 1.45,
+                fontSize: '13px',
+                fontWeight: 600,
+                color: 'var(--text-secondary)',
+                fontFamily: 'var(--font-mono, monospace)',
+                marginTop: '4px',
               }}
             >
-              Configure shop identity and connect Wi-Fi directly using this physical 5-inch touchscreen.
+              CONFIGURE DIRECTLY ON DISPLAY
             </div>
           </div>
 
-          {/* Action Button using Primitive Component */}
+          {/* Huge Action Button */}
           <Button
             variant="mechanical"
-            rightIcon={<ArrowRight size={14} />}
-            style={{ width: '100%', height: '44px', fontSize: '12px' }}
+            rightIcon={<ArrowRight size={18} />}
+            style={{ width: '100%', height: '54px', fontSize: '15px', fontWeight: 800 }}
             onClick={(e) => {
               e.stopPropagation();
               startScreenMode();
@@ -269,18 +258,6 @@ export const KioskModeChoiceStep: React.FC = () => {
             CONFIGURE ON SCREEN
           </Button>
         </div>
-      </div>
-
-      {/* 3. Footer Telemetry Note */}
-      <div
-        style={{
-          fontFamily: 'var(--font-mono, monospace)',
-          fontSize: '11px',
-          color: 'var(--text-secondary, #64748B)',
-          textAlign: 'center',
-        }}
-      >
-        You can switch between mobile and on-screen setup at any time during onboarding.
       </div>
     </div>
   );

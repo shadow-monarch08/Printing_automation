@@ -63,6 +63,8 @@ export interface KioskStoreState {
   skipWifiAndProvision: () => Promise<void>;
   resetToIdentity: () => void;
   fetchSummary: () => Promise<void>;
+  kioskTheme: 'dark' | 'light';
+  toggleKioskTheme: () => void;
 }
 
 const DEFAULT_KEYBOARD: KeyboardConfig = {
@@ -266,5 +268,17 @@ export const useKioskStore = create<KioskStoreState>((set, get) => ({
     } catch (err) {
       console.warn('[KioskStore] Error fetching summary:', err);
     }
+  },
+
+  kioskTheme: (localStorage.getItem('kiosk_display_theme') as 'dark' | 'light') || 'dark',
+  toggleKioskTheme: () => {
+    const current = get().kioskTheme;
+    const next = current === 'dark' ? 'light' : 'dark';
+    try {
+      localStorage.setItem('kiosk_display_theme', next);
+    } catch {
+      /* ignore storage errors */
+    }
+    set({ kioskTheme: next });
   },
 }));

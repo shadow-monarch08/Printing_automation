@@ -53,9 +53,9 @@ export const TouchPinPad: React.FC<TouchPinPadProps> = ({
         left: 0,
         width: '100%',
         height: '420px',
-        background: '#16181B',
-        borderTop: '2px solid #FF5500',
-        boxShadow: '0 -10px 40px rgba(0,0,0,0.9)',
+        background: 'var(--bg-primary, #1A1D20)',
+        borderTop: '2px solid var(--accent-primary, #FF5500)',
+        boxShadow: '0 -10px 40px rgba(0,0,0,0.6)',
         zIndex: 1000,
         display: 'flex',
         flexDirection: 'column',
@@ -71,8 +71,8 @@ export const TouchPinPad: React.FC<TouchPinPadProps> = ({
       <div
         style={{
           height: '48px',
-          background: validationError ? 'rgba(239, 68, 68, 0.15)' : '#22262B',
-          border: validationError ? '1.5px solid #EF4444' : '1.5px solid rgba(255, 255, 255, 0.12)',
+          background: validationError ? 'rgba(239, 68, 68, 0.15)' : 'var(--bg-surface, #24282D)',
+          border: validationError ? '1.5px solid var(--status-error, #EF4444)' : '1.5px solid var(--border-default, #3A4047)',
           borderRadius: '8px',
           display: 'flex',
           alignItems: 'center',
@@ -84,15 +84,15 @@ export const TouchPinPad: React.FC<TouchPinPadProps> = ({
       >
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
           {validationError ? (
-            <AlertCircle size={20} color="#EF4444" />
+            <AlertCircle size={20} color="var(--status-error, #EF4444)" />
           ) : (
-            <Lock size={18} color="#FF5500" />
+            <Lock size={18} color="var(--accent-primary, #FF5500)" />
           )}
           <span
             style={{
               fontSize: '14px',
               fontWeight: 700,
-              color: validationError ? '#EF4444' : '#FFFFFF',
+              color: validationError ? 'var(--status-error, #EF4444)' : 'var(--text-primary, #FFFFFF)',
               fontFamily: 'var(--font-body, sans-serif)',
             }}
           >
@@ -104,7 +104,7 @@ export const TouchPinPad: React.FC<TouchPinPadProps> = ({
         <div style={{ display: 'flex', gap: '20px', alignItems: 'center' }}>
           {[0, 1, 2, 3].map((index) => {
             const isFilled = index < pin.length;
-            const dotColor = validationError ? '#EF4444' : '#FF5500';
+            const dotColor = validationError ? 'var(--status-error, #EF4444)' : 'var(--accent-primary, #FF5500)';
             return (
               <div
                 key={index}
@@ -116,7 +116,7 @@ export const TouchPinPad: React.FC<TouchPinPadProps> = ({
                     ? `2px solid ${dotColor}`
                     : validationError
                     ? '2px solid rgba(239, 68, 68, 0.5)'
-                    : '2px solid rgba(255, 255, 255, 0.3)',
+                    : '2px solid var(--border-default, #3A4047)',
                   background: isFilled ? dotColor : 'transparent',
                   boxShadow: isFilled
                     ? `0 0 14px ${dotColor}`
@@ -132,7 +132,7 @@ export const TouchPinPad: React.FC<TouchPinPadProps> = ({
           style={{
             fontSize: '13px',
             fontWeight: 700,
-            color: validationError ? '#EF4444' : 'rgba(255, 255, 255, 0.65)',
+            color: validationError ? 'var(--status-error, #EF4444)' : 'var(--text-secondary, rgba(255, 255, 255, 0.65))',
             fontFamily: 'var(--font-mono, monospace)',
           }}
         >
