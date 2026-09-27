@@ -3,17 +3,6 @@ import { api } from '../services/api';
 import { useAdminStore } from './useAdminStore';
 import type { WebSocketEvent, BackendJob } from '../types';
 
-function generateUUID(): string {
-  if (typeof crypto !== 'undefined' && crypto.randomUUID) {
-    return crypto.randomUUID();
-  }
-  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
-    const r = (Math.random() * 16) | 0;
-    const v = c === 'x' ? r : (r & 0x3) | 0x8;
-    return v.toString(16);
-  });
-}
-
 interface FilePreview {
   name: string;
   size: number;
@@ -50,6 +39,7 @@ interface UserPrintState {
   isAcceptingJobs: boolean | null;
   fleetCapabilities: { color: boolean; duplex: boolean } | null;
 
+  initSession: () => Promise<string>;
   setFile: (file: File) => Promise<void>;
   updateConfig: (partial: Partial<Pick<UserPrintState, 'copies' | 'colorMode' | 'duplex' | 'orientation'>>) => void;
   generateQuote: () => Promise<void>;
@@ -68,7 +58,7 @@ let inactivityTimer: number | null = null;
 export const useUserPrintStore = create<UserPrintState>()(
   persist(
     (set, get) => ({
-      sessionId: generateUUID(),
+      sessionId: '',
       currentStep: 1,
 
       file: null,
@@ -88,6 +78,19 @@ export const useUserPrintStore = create<UserPrintState>()(
 
       isAcceptingJobs: null,
       fleetCapabilities: null,
+
+      initSession: async () => {
+        try {
+          const res = await api.initSession();
+          if (res?.sessionId) {
+            set({ sessionId: res.sessionId });
+            return res.sessionId;
+          }
+        } catch (e) {
+          console.error('[Session] Failed to initialize server session:', e);
+        }
+        return get().sessionId;
+      },
 
       fetchKioskStatus: async () => {
         try {
@@ -163,7 +166,11 @@ export const useUserPrintStore = create<UserPrintState>()(
       },
 
       submitJob: async () => {
-        const state = get();
+        let state = get();
+        if (!state.sessionId) {
+          await get().initSession();
+          state = get();
+        }
         try {
           const result = await api.submitPrintJob({
             file: state.file,
@@ -301,7 +308,10 @@ export const useUserPrintStore = create<UserPrintState>()(
           quote: null,
           jobId: null,
           jobStatus: null,
+          jobs: [],
         });
+        // Mint a pristine server session for next job cycle
+        get().initSession();
       }
     }),
     {

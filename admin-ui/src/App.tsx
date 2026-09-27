@@ -1,4 +1,4 @@
-﻿import { Routes, Route } from 'react-router-dom';
+import { Routes, Route } from 'react-router-dom';
 import { useEffect, useState } from 'react';
 import { Modal } from './components/shared/Modal';
 import { ToastStack } from './components/shared/ToastStack';
@@ -30,10 +30,15 @@ function UserKioskPage() {
   const currentStep = useUserPrintStore(s => s.currentStep);
   const isAcceptingJobs = useUserPrintStore(s => s.isAcceptingJobs);
   const fetchKioskStatus = useUserPrintStore(s => s.fetchKioskStatus);
+  const sessionId = useUserPrintStore(s => s.sessionId);
+  const initSession = useUserPrintStore(s => s.initSession);
 
   useEffect(() => {
     fetchKioskStatus();
-  }, [fetchKioskStatus]);
+    if (!sessionId) {
+      initSession();
+    }
+  }, [fetchKioskStatus, sessionId, initSession]);
 
   if (isAcceptingJobs === null) {
     return (

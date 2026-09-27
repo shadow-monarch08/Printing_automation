@@ -27,6 +27,10 @@ export const api = {
     return apiClient.post<{ success: boolean; message: string }>('/printers/default', { printerName: name });
   },
 
+  initSession: async () => {
+    return apiClient.post<{ success: boolean; sessionId: string }>('/session/init', {});
+  },
+
   submitPrintJob: async (config: any) => {
     const formData = new FormData();
     formData.append('file', config.file); // actual File object
