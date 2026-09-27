@@ -147,14 +147,18 @@ export const KioskLayout: React.FC<KioskLayoutProps> = ({ children }) => {
         stepIndicator={getStepIndicator()}
       />
 
-      {/* 2. Main Viewport Content (434px) */}
+      {/* 2. Main Viewport Content (428px) */}
       <main
         style={{
           flex: 1,
           width: '100%',
           display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          justifyContent: 'center',
           overflow: 'hidden',
           position: 'relative',
+          boxSizing: 'border-box',
         }}
       >
         {children}

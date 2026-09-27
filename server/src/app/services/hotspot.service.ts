@@ -2,6 +2,7 @@ import { runSecureCommand } from "../utils/exec";
 import { suspendRecoveryMonitoring, resumeRecoveryMonitoring } from "./networkRecovery.service";
 import { redisConnection } from "../../infrastructure/redis";
 import { REDIS_KEYS } from "../../infrastructure/redisKeys";
+import { autoReconnectKnownWifi } from "./wifi.service";
 
 export type OnboardingMode = "SCREEN" | "MOBILE" | "NONE";
 
@@ -46,6 +47,22 @@ export async function setOnboardingMode(mode: OnboardingMode): Promise<void> {
     console.warn("[Hotspot Service] Warning: Could not persist onboarding mode to Redis:", err);
   }
   console.log(`[Hotspot Service] 🎯 Onboarding mode set to: ${mode}`);
+
+  // Automatically reconnect to any known Wi-Fi network when returning to selection
+  if (mode === "NONE") {
+    setTimeout(async () => {
+      try {
+        const active = await isHotspotActive();
+        if (active) {
+          await deactivateHotspot();
+        } else {
+          await autoReconnectKnownWifi();
+        }
+      } catch (err) {
+        console.warn("[Hotspot Service] Auto-reconnect sweep on mode reset warning:", err);
+      }
+    }, 200);
+  }
 }
 
 /**
@@ -162,6 +179,11 @@ export async function deactivateHotspot(): Promise<void> {
 
   // Resume recovery monitoring after leaving hotspot
   resumeRecoveryMonitoring();
+
+  // Immediately reconnect to known network in background without waiting for slow NM polling
+  setTimeout(() => {
+    autoReconnectKnownWifi().catch((e) => console.warn("[Hotspot Service] Auto-reconnect failed:", e));
+  }, 300);
 }
 
 /**

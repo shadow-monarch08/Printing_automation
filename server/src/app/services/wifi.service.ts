@@ -3,6 +3,7 @@ import { runSecureCommand } from "../utils/exec";
 import { WiFiNetwork } from "../types";
 import { ValidationError, HardwareError } from "../utils/errors";
 import { suspendRecoveryMonitoring, resumeRecoveryMonitoring } from "./networkRecovery.service";
+import { getActiveConnectionProfile } from "../utils/network.utils";
 
 export async function scanNetworks(): Promise<WiFiNetwork[]> {
   try {
@@ -247,4 +248,57 @@ export async function connectToWifi(
   } finally {
     resumeRecoveryMonitoring();
   }
+}
+
+/**
+ * Immediately reconnects to any available saved Wi-Fi network without
+ * waiting for NetworkManager's slow periodic background scan.
+ */
+export async function autoReconnectKnownWifi(): Promise<string | null> {
+  console.log("[WiFi Service] 🔄 Triggering immediate auto-reconnect to known Wi-Fi network...");
+  try {
+    // 1. Ensure radio is powered on
+    try {
+      await runSecureCommand("sudo", ["nmcli", "radio", "wifi", "on"], { timeout: 5000 });
+    } catch {}
+
+    // 2. Fetch saved Wi-Fi connection profiles from NetworkManager
+    const { stdout } = await runSecureCommand("nmcli", ["-t", "-f", "NAME,TYPE", "connection", "show"]);
+    const savedWifiProfiles = stdout
+      .split("\n")
+      .map((l) => l.trim())
+      .filter((l) => l && (l.includes(":802-11-wireless") || l.includes(":wifi")))
+      .map((l) => l.split(":")[0])
+      .filter((name) => name && name !== "Kiosk-Hotspot");
+
+    console.log(`[WiFi Service] Found ${savedWifiProfiles.length} saved Wi-Fi profile(s):`, savedWifiProfiles);
+
+    // 3. Ask NetworkManager to connect wlan0 device immediately
+    try {
+      console.log("[WiFi Service] Triggering immediate device connection on wlan0...");
+      await runSecureCommand("sudo", ["nmcli", "device", "connect", "wlan0"], { timeout: 15000 });
+      const active = await getActiveConnectionProfile();
+      if (active && active !== "Kiosk-Hotspot") {
+        console.log(`[WiFi Service] ✅ Immediate device connection successful: "${active}"`);
+        return active;
+      }
+    } catch (devErr) {
+      console.warn("[WiFi Service] Immediate device connect attempt warning:", devErr);
+    }
+
+    // 4. Fallback: explicitly bring up saved profiles sequentially
+    for (const profile of savedWifiProfiles) {
+      try {
+        console.log(`[WiFi Service] Bringing up known connection profile "${profile}"...`);
+        await runSecureCommand("sudo", ["nmcli", "connection", "up", profile], { timeout: 15000 });
+        console.log(`[WiFi Service] ✅ Successfully reconnected to saved network "${profile}"!`);
+        return profile;
+      } catch (profErr: any) {
+        console.warn(`[WiFi Service] Connection attempt to "${profile}" failed:`, profErr?.message || profErr);
+      }
+    }
+  } catch (err) {
+    console.error("[WiFi Service] Error during auto-reconnect sweep:", err);
+  }
+  return null;
 }

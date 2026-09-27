@@ -142,6 +142,7 @@ export const useKioskStore = create<KioskStoreState>((set, get) => ({
   cancelMobileMode: async () => {
     try {
       await api.stopHotspot();
+      await api.setOnboardingMode('NONE');
     } catch (err) {
       console.warn('[KioskStore] Warning stopping hotspot:', err);
     }
@@ -167,9 +168,15 @@ export const useKioskStore = create<KioskStoreState>((set, get) => ({
     });
   },
 
-  resetToChoice: () => {
+  resetToChoice: async () => {
+    try {
+      await api.setOnboardingMode('NONE');
+    } catch (err) {
+      /* non-fatal */
+    }
     set({
       step: 'CHOICE',
+      onboardingMode: 'NONE',
       errorMessage: null,
       errorCode: null,
       isSubmitting: false,

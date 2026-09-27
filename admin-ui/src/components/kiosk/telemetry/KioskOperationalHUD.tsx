@@ -21,6 +21,7 @@ export const KioskOperationalHUD: React.FC<KioskOperationalHUDProps> = ({ summar
     <div
       style={{
         flex: 1,
+        width: '100%',
         height: '100%',
         display: 'flex',
         overflow: 'hidden',
