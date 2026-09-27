@@ -226,8 +226,9 @@ async function executeProvisioningPipeline(
   );
 
   // 7. Publish Final Success Status to Redis
+  const config = getSystemConfig();
   const localIp = getLocalIpAddress();
-  const localAccessUrl = localIp ? `http://${localIp}:${port}` : null;
+  const localAccessUrl = config?.localAccessUrl || (localIp ? `http://${localIp}:${port}` : "http://piprint.local:3000/");
 
   await emitProvisioningStatus({
     status: "success",

@@ -13,6 +13,7 @@ export interface SystemConfigRow {
   provisioning_state: string;
   nms_device_id: string | null;
   nms_device_secret: string | null;
+  local_access_url: string | null;
   updated_at: string;
 }
 

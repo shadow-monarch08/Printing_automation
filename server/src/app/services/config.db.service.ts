@@ -11,6 +11,7 @@ export function getSystemConfig() {
     provisioningState: globalSystemConfig.provisioning_state || (globalSystemConfig.is_onboarded ? 'READY' : 'FIRST_BOOT'),
     nmsDeviceId: globalSystemConfig.nms_device_id || null,
     nmsDeviceSecret: globalSystemConfig.nms_device_secret || null,
+    localAccessUrl: process.env.LOCAL_ACCESS_URL || globalSystemConfig.local_access_url || 'http://piprint.local:3000/',
     updatedAt: globalSystemConfig.updated_at
   };
 }
@@ -23,6 +24,7 @@ export function updateSystemConfig(data: {
   provisioningState?: string;
   nmsDeviceId?: string | null;
   nmsDeviceSecret?: string | null;
+  localAccessUrl?: string | null;
 }) {
   const current = getSystemConfig() || {
     isOnboarded: false,
@@ -31,7 +33,8 @@ export function updateSystemConfig(data: {
     adminPinHash: null,
     provisioningState: 'FIRST_BOOT',
     nmsDeviceId: null,
-    nmsDeviceSecret: null
+    nmsDeviceSecret: null,
+    localAccessUrl: 'http://piprint.local:3000/'
   };
 
   const isOnboarded = data.isOnboarded !== undefined ? data.isOnboarded : current.isOnboarded;
@@ -41,10 +44,11 @@ export function updateSystemConfig(data: {
   const provisioningState = data.provisioningState !== undefined ? data.provisioningState : current.provisioningState;
   const nmsDeviceId = data.nmsDeviceId !== undefined ? data.nmsDeviceId : current.nmsDeviceId;
   const nmsDeviceSecret = data.nmsDeviceSecret !== undefined ? data.nmsDeviceSecret : current.nmsDeviceSecret;
+  const localAccessUrl = data.localAccessUrl !== undefined ? data.localAccessUrl : current.localAccessUrl;
 
   const stmt = db.prepare(`
-    INSERT INTO system_config (id, is_onboarded, cloudflare_url, shop_name, admin_pin_hash, provisioning_state, nms_device_id, nms_device_secret, updated_at)
-    VALUES (1, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
+    INSERT INTO system_config (id, is_onboarded, cloudflare_url, shop_name, admin_pin_hash, provisioning_state, nms_device_id, nms_device_secret, local_access_url, updated_at)
+    VALUES (1, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
     ON CONFLICT(id) DO UPDATE SET
       is_onboarded = excluded.is_onboarded,
       cloudflare_url = excluded.cloudflare_url,
@@ -53,6 +57,7 @@ export function updateSystemConfig(data: {
       provisioning_state = excluded.provisioning_state,
       nms_device_id = excluded.nms_device_id,
       nms_device_secret = excluded.nms_device_secret,
+      local_access_url = excluded.local_access_url,
       updated_at = excluded.updated_at
   `);
 
@@ -63,7 +68,8 @@ export function updateSystemConfig(data: {
     adminPinHash,
     provisioningState,
     nmsDeviceId,
-    nmsDeviceSecret
+    nmsDeviceSecret,
+    localAccessUrl
   );
 
   const newRow = db.prepare(`SELECT * FROM system_config WHERE id = 1`).get() as SystemConfigRow | undefined;

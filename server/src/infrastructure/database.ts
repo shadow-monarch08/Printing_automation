@@ -31,6 +31,7 @@ CREATE TABLE IF NOT EXISTS system_config (
   provisioning_state TEXT NOT NULL DEFAULT 'FIRST_BOOT',
   nms_device_id TEXT,
   nms_device_secret TEXT,
+  local_access_url TEXT DEFAULT 'http://piprint.local:3000/',
   updated_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
@@ -111,6 +112,12 @@ try {
 
 try {
   db.exec(`ALTER TABLE system_config ADD COLUMN nms_device_secret TEXT`);
+} catch (e) {
+  // Column already exists
+}
+
+try {
+  db.exec(`ALTER TABLE system_config ADD COLUMN local_access_url TEXT DEFAULT 'http://piprint.local:3000/'`);
 } catch (e) {
   // Column already exists
 }
