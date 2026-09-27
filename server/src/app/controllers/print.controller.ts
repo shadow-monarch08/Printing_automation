@@ -1,8 +1,10 @@
 import { Request, Response } from "express";
 import * as pricingService from "../services/pricing.service";
-import { insertJob } from "../services/printJob.db.service";
+import { insertJob, upsertSession } from "../services/printJob.db.service";
 import { printMasterQueue } from "../../infrastructure/printMaster.queue";
 import { systemCommands } from "../../commands/system.commands";
+import { redisConnection } from "../../infrastructure/redis";
+import { REDIS_KEYS, REDIS_TTLS } from "../../infrastructure/redisKeys";
 import path from "path";
 import fs from "fs";
 import { v4 as uuidv4 } from "uuid";
@@ -25,6 +27,16 @@ export async function printFile(req: Request, res: Response) {
   const owner = req.body.owner || "Guest";
   const sessionId = (req as any).session?.id || req.body.sessionId || null;
 
+  if (sessionId) {
+    try {
+      upsertSession(sessionId, req.headers["user-agent"] as string, req.ip);
+      const key = REDIS_KEYS.session(sessionId);
+      await redisConnection.setex(key, REDIS_TTLS.SESSION, JSON.stringify({ active: true }));
+    } catch (e) {
+      // Non-blocking session cache
+    }
+  }
+
   const { cost } = await pricingService.calculateQuote(pages, copies, colorMode as any, duplex as any);
 
   const jobId = uuidv4();
@@ -40,6 +52,7 @@ export async function printFile(req: Request, res: Response) {
     duplex,
     orientation,
     targetPrinter,
+    status: "queued",
     cost,
     attemptedPrinters: [],
     submittedAt: new Date().toISOString(),

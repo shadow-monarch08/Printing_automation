@@ -9,19 +9,22 @@ export interface ApiOptions {
   isFormData?: boolean;
 }
 
-function getAuthHeaders(): HeadersInit {
+function getAuthHeaders(url?: string): HeadersInit {
   const token = localStorage.getItem('auth_token');
   const headers: HeadersInit = {
     'Content-Type': 'application/json',
   };
-  if (token) {
+
+  // Always attach kiosk session id when available
+  const userState = useUserPrintStore.getState();
+  if (userState.sessionId) {
+    (headers as any)['X-Session-ID'] = userState.sessionId;
+  }
+
+  // Only supply admin Bearer token for admin routes or when explicitly not in kiosk flow
+  const isAdminPath = typeof window !== 'undefined' && (window.location.pathname.startsWith('/admin') || (url && url.includes('/admin')));
+  if (token && (isAdminPath || !userState.sessionId)) {
     headers['Authorization'] = `Bearer ${token}`;
-  } else {
-    // Inject kiosk session id only when not authenticated as admin
-    const userState = useUserPrintStore.getState();
-    if (userState.sessionId) {
-      (headers as any)['X-Session-ID'] = userState.sessionId;
-    }
   }
 
   return headers;
@@ -68,7 +71,7 @@ function dispatchGlobalError(data: any, status?: number) {
 
 async function handleResponse<T>(
   response: Response,
-  requestFn: () => Promise<T>,
+  requestFn: (newSessionId?: string) => Promise<T>,
   options?: ApiOptions
 ): Promise<T> {
   const contentType = response.headers.get('content-type');
@@ -95,7 +98,7 @@ async function handleResponse<T>(
 
           onSessionRefreshed(newSessionId);
 
-          return requestFn();
+          return requestFn(newSessionId);
         } catch (err) {
           isFetchingSession = false;
           if (!options?.skipGlobalError) {
@@ -110,8 +113,8 @@ async function handleResponse<T>(
         }
       } else {
         return new Promise<T>((resolve) => {
-          addRefreshSubscriber(() => {
-            resolve(requestFn());
+          addRefreshSubscriber((newSessionId) => {
+            resolve(requestFn(newSessionId));
           });
         });
       }
@@ -144,12 +147,22 @@ export const apiClient = {
     const makeRequest = () =>
       fetch(`${BASE_URL}${endpoint}`, {
         method: 'GET',
-        headers: getAuthHeaders(),
+        headers: getAuthHeaders(endpoint),
       });
 
     try {
       const response = await makeRequest();
-      return handleResponse<T>(response, () => apiClient.get<T>(endpoint, options), options);
+      return handleResponse<T>(
+        response,
+        (newSessionId) =>
+          apiClient.get<T>(
+            newSessionId && endpoint.includes('sessionId=')
+              ? endpoint.replace(/sessionId=[^&]+/, `sessionId=${newSessionId}`)
+              : endpoint,
+            options
+          ),
+        options
+      );
     } catch (err: any) {
       if (err.name === 'TypeError' && err.message?.includes('fetch')) {
         if (!options?.skipGlobalError) {
@@ -166,7 +179,7 @@ export const apiClient = {
         ? { isFormData: isFormDataOrOptions }
         : isFormDataOrOptions;
 
-    const headers = getAuthHeaders();
+    const headers = getAuthHeaders(endpoint);
     if (options.isFormData) {
       delete (headers as any)['Content-Type'];
     }
@@ -195,7 +208,7 @@ export const apiClient = {
     const makeRequest = () =>
       fetch(`${BASE_URL}${endpoint}`, {
         method: 'PUT',
-        headers: getAuthHeaders(),
+        headers: getAuthHeaders(endpoint),
         body: JSON.stringify(body),
       });
 
@@ -216,7 +229,7 @@ export const apiClient = {
     const makeRequest = () =>
       fetch(`${BASE_URL}${endpoint}`, {
         method: 'DELETE',
-        headers: getAuthHeaders(),
+        headers: getAuthHeaders(endpoint),
       });
 
     try {

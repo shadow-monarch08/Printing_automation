@@ -33,8 +33,9 @@ export function JobTracker() {
       }]
     : [];
 
-  const getStatusBadge = (status: string, position: number) => {
-    switch (status) {
+  const getStatusBadge = (status: string | undefined | null, position: number) => {
+    const safeStatus = (status || 'queued').toLowerCase();
+    switch (safeStatus) {
       case 'queued':
         return {
           icon: <Clock size={16} color="var(--accent-primary)" />,
@@ -80,7 +81,7 @@ export function JobTracker() {
       default:
         return {
           icon: <Clock size={16} color="var(--text-secondary)" />,
-          label: status.toUpperCase(),
+          label: safeStatus.toUpperCase(),
           sub: '',
           color: 'var(--text-secondary)',
           borderColor: 'var(--border-default)'
@@ -104,7 +105,7 @@ export function JobTracker() {
     );
   }
 
-  const activeCount = displayJobs.filter(j => ['queued', 'spooling', 'printing'].includes(j.status)).length;
+  const activeCount = (displayJobs || []).filter(j => j && ['queued', 'spooling', 'printing'].includes((j.status || '').toLowerCase())).length;
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', flex: 1, width: '100%' }}>
@@ -185,19 +186,19 @@ export function JobTracker() {
                       textOverflow: 'ellipsis',
                       whiteSpace: 'nowrap'
                     }}
-                    title={job.filename}
+                    title={job.filename || 'Document.pdf'}
                   >
-                    {job.filename}
+                    {job.filename || 'Document.pdf'}
                   </h4>
                   <span style={{ fontFamily: 'var(--font-mono)', fontSize: '0.7rem', color: 'var(--text-secondary)' }}>
-                    ID: {(job.id || '').substring(0, 12)}...
+                    ID: {String(job.id || '').substring(0, 12)}...
                   </span>
                 </div>
 
                 {/* Cost */}
-                {job.cost > 0 && (
+                {Number(job.cost || 0) > 0 && (
                   <div style={{ fontFamily: 'var(--font-mono)', fontSize: '0.85rem', fontWeight: 800, color: 'var(--accent-primary)', flexShrink: 0 }}>
-                    ₹{job.cost.toFixed(2)}
+                    ₹{Number(job.cost).toFixed(2)}
                   </div>
                 )}
               </div>
@@ -248,7 +249,11 @@ export function JobTracker() {
                 >
                   <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                     <AlertTriangle size={15} />
-                    <span>{job.error || 'Hardware jam or CUPS spooling timeout.'}</span>
+                    <span>
+                      {typeof job.error === 'object' && job.error !== null
+                        ? ((job.error as any).message || JSON.stringify(job.error))
+                        : (job.error || 'Hardware jam or CUPS spooling timeout.')}
+                    </span>
                   </div>
                   <Button
                     variant="danger"

@@ -10,9 +10,12 @@ export function ActiveJobIndicator() {
   const jobs = useSessionJobs(10000);
   const [isExpanded, setIsExpanded] = useState(false);
   
-  const activeJobs = jobs.filter(j => ['queued', 'spooling', 'printing'].includes(j.status));
+  if (currentStep === 4) return null;
 
-  if (activeJobs.length === 0 || currentStep === 4) return null;
+  const safeJobs = Array.isArray(jobs) ? jobs : [];
+  const activeJobs = safeJobs.filter(j => j && ['queued', 'spooling', 'printing'].includes((j.status || '').toLowerCase()));
+
+  if (activeJobs.length === 0) return null;
 
   return (
     <div 

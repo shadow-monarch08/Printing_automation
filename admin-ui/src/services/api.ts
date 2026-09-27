@@ -30,10 +30,12 @@ export const api = {
   submitPrintJob: async (config: any) => {
     const formData = new FormData();
     formData.append('file', config.file); // actual File object
-    formData.append('copies', config.quote?.copies?.toString() || '1');
-    formData.append('colorMode', config.quote?.colorMode || 'grayscale');
-    formData.append('duplex', config.quote?.duplex || 'single');
-    formData.append('orientation', config.quote?.orientation || 'portrait');
+    const pages = config.pages || config.quote?.totalPages || 1;
+    formData.append('pages', pages.toString());
+    formData.append('copies', (config.copies || config.quote?.copies || 1).toString());
+    formData.append('colorMode', config.colorMode || config.quote?.colorMode || 'grayscale');
+    formData.append('duplex', config.duplex || config.quote?.duplex || 'single');
+    formData.append('orientation', config.orientation || config.quote?.orientation || 'portrait');
     formData.append('owner', 'Guest User');
     if (config.sessionId) {
       formData.append('sessionId', config.sessionId);
@@ -56,6 +58,9 @@ export const api = {
   fetchPrintQueue: async (sessionId?: string) => {
     const url = sessionId ? `/jobs?sessionId=${sessionId}` : '/jobs';
     const res = await apiClient.get<{ success: boolean; jobs: BackendJob[] }>(url);
+    if (!res || !Array.isArray(res.jobs)) {
+      return [];
+    }
     // Map targetPrinter to printer to match expected frontend interface structure
     return res.jobs.map(j => ({ ...j, printer: j.targetPrinter }));
   },

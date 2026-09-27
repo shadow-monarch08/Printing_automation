@@ -168,7 +168,12 @@ export const useUserPrintStore = create<UserPrintState>()(
           const result = await api.submitPrintJob({
             file: state.file,
             quote: state.quote,
-            sessionId: state.sessionId
+            sessionId: state.sessionId,
+            pages: state.filePreview?.pages || state.quote?.totalPages || 1,
+            copies: state.copies,
+            colorMode: state.colorMode,
+            duplex: state.duplex,
+            orientation: state.orientation,
           });
 
           const jobId = result.jobId || `JOB_${Date.now()}`;
@@ -189,12 +194,13 @@ export const useUserPrintStore = create<UserPrintState>()(
             sessionId: state.sessionId || undefined
           };
 
-          set({
+          set((s) => ({
             jobId: jobId,
             jobStatus: 'queued',
             jobsAhead: 0,
-            currentStep: 4
-          });
+            currentStep: 4,
+            jobs: [newJobPayload as any, ...s.jobs.filter(j => j.id !== jobId)]
+          }));
 
           // Sync to admin store immediately in all environments
           const adminState = useAdminStore.getState();
@@ -220,7 +226,16 @@ export const useUserPrintStore = create<UserPrintState>()(
         if (event.type === 'job_queued') {
           set((state) => {
             const { type, ...jobData } = event as any;
-            return { jobs: [jobData, ...state.jobs] };
+            const normalizedJob = {
+              status: 'queued',
+              ...jobData
+            };
+            return {
+              jobs: [
+                normalizedJob,
+                ...state.jobs.filter(j => j.id !== normalizedJob.id)
+              ]
+            };
           });
         } else if (event.type === 'job_active' || event.type === 'job_completed') {
           set((state) => ({
