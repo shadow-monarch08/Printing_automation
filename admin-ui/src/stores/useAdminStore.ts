@@ -54,7 +54,6 @@ export interface AdminState {
   loadPricingConfig: () => Promise<void>;
   updatePricingConfig: (config: Partial<PricingConfig>) => Promise<boolean>;
 
-  handleWebSocketEvent?: (event: any) => void;
   forceRefreshPrinter: (printerName: string) => Promise<boolean>;
 }
 

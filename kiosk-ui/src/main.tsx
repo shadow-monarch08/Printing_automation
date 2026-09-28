@@ -16,7 +16,7 @@ realtimeClient.connect();
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <ErrorBoundary>
-      <BrowserRouter>
+      <BrowserRouter basename="/terminal">
         <ThemeProvider>
           <ModalProvider>
             <ToastProvider>
