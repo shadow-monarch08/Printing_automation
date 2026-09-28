@@ -6,6 +6,7 @@ export interface PrintJobData {
   filename: string;        // Original filename
   filePath: string;        // Absolute path to uploaded file
   owner: string;           // "Guest" for kiosk
+  sessionId?: string;      // Scoped session identifier for realtime routing
   pages: number;
   copies: number;
   colorMode: 'color' | 'grayscale';

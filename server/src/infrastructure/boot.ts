@@ -14,6 +14,11 @@ export interface SystemConfigRow {
   nms_device_id: string | null;
   nms_device_secret: string | null;
   local_access_url: string | null;
+  onboarding_stage?: string | null;
+  last_error_code?: string | null;
+  last_error_message?: string | null;
+  last_failed_at?: string | null;
+  failed_step_number?: number | null;
   updated_at: string;
 }
 

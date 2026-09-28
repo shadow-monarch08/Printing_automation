@@ -1,11 +1,9 @@
 import type { ReactNode } from 'react';
 import { FloatingControlsWidget } from '../components/user/FloatingControlsWidget';
 import { useUserPrintStore } from '../stores/useUserPrintStore';
-import { useAdminStore } from '../stores/useAdminStore';
-
 export function UserLayout({ children, subtitle }: { children: ReactNode; subtitle?: string }) {
   const isAcceptingJobs = useUserPrintStore(s => s.isAcceptingJobs);
-  const shopName = useAdminStore(s => s.shopName) || 'PRINT_AUTOMATION';
+  const shopName = 'PRINT_AUTOMATION';
   const isOffline = isAcceptingJobs === false;
 
   return (

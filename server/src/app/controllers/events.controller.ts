@@ -1,57 +1,13 @@
+// server/src/app/controllers/events.controller.ts
 import { Request, Response } from "express";
-import { WebSocketServer, WebSocket } from "ws";
-import { eventBus } from "../utils/eventBus";
+import os from "os";
+import db from "../../infrastructure/database";
 import { printMasterQueue } from "../../infrastructure/printMaster.queue";
 import { listPrinters } from "../services/printer.service";
-import os from "os";
-import { getDiskUsagePercent } from "../services/metrics.service";
-import db from "../../infrastructure/database";
-import { getMetricsHistory as fetchMetricsHistory } from "../services/metrics.service";
+import { getDiskUsagePercent, getMetricsHistory as fetchMetricsHistory } from "../services/metrics.service";
 
-export function initWebSocketServer(server: any) {
-  const wss = new WebSocketServer({ noServer: true });
-
-  server.on("upgrade", (request: any, socket: any, head: any) => {
-    const pathname = request.url ? request.url.split("?")[0] : "";
-    if (pathname === "/events" || pathname === "/api/events") {
-      wss.handleUpgrade(request, socket, head, (ws) => {
-        wss.emit("connection", ws, request);
-      });
-    }
-  });
-
-  wss.on("connection", (ws: WebSocket) => {
-    ws.send(JSON.stringify({ event: "connected", data: { timestamp: new Date().toISOString() } }));
-
-    const onEvent = (eventName: string, data: any) => {
-      if (ws.readyState === WebSocket.OPEN) {
-        ws.send(JSON.stringify({ event: eventName, data }));
-      }
-    };
-
-    const eventsToListen = [
-      "job_queued", "job_active", "job_completed", "job_failed",
-      "printer_discovery", "system_critical",
-      "printer_state_changed", "printer_quarantined",
-      "queue_paused", "queue_resumed"
-    ];
-    
-    const listeners: Record<string, (data: any) => void> = {};
-
-    eventsToListen.forEach((eventName) => {
-      listeners[eventName] = (data: any) => onEvent(eventName, data);
-      eventBus.on(eventName, listeners[eventName]);
-    });
-
-    ws.on("close", () => {
-      eventsToListen.forEach((eventName) => {
-        if (listeners[eventName]) {
-          eventBus.removeListener(eventName, listeners[eventName]);
-        }
-      });
-    });
-  });
-}
+// Re-export Realtime Gateway initialization for backward compatibility
+export { initRealtimeGateway, initWebSocketServer } from "../services/realtimeGateway.service";
 
 export async function getMetrics(_req: Request, res: Response) {
   const [waiting, active, delayed, completedCount, failed] = await Promise.all([

@@ -17,7 +17,7 @@ export const printMasterWorker = new Worker<PrintJobData>(
 
     if (!matchedPrinter) {
       console.log(`[Worker] No idle/capable printer found for job ${job.id}. Delaying 15s...`);
-      eventBus.emit("job_active", { id: job.id, data: { ...job.data, status: "spooling" } });
+      eventBus.emit("customer:job:active", { sessionId: job.data?.sessionId, id: job.id, data: { ...job.data, status: "spooling" } });
       await job.moveToDelayed(Date.now() + 15000, job.token!);
       throw new DelayedError();
     }
@@ -25,7 +25,7 @@ export const printMasterWorker = new Worker<PrintJobData>(
     try {
       // Step 2.2: Add Optimistic Lock in Worker (Pre-Dispatch)
       await redisConnection.set(REDIS_KEYS.printerState(matchedPrinter), "busy");
-      eventBus.emit("printer_state_changed", { printer: matchedPrinter, state: "busy" });
+      eventBus.emit("admin:fleet:state", { printer: matchedPrinter, state: "busy" });
 
       // Resolve Strategy Adapter dynamically
       const adapter = await PrinterFactory.getAdapter(matchedPrinter);
@@ -67,9 +67,9 @@ export const printMasterWorker = new Worker<PrintJobData>(
           // Step 3.3: Quarantine at 3 Strikes
           if (newStrikes >= 3) {
             await redisConnection.set(REDIS_KEYS.printerHealth(matchedPrinter), "flagged");
-            eventBus.emit("printer_quarantined", {
+            eventBus.emit("admin:printer:quarantined", {
               printer: matchedPrinter,
-              message: `Printer ${matchedPrinter} quarantined after ${newStrikes} consecutive failures.`
+              reason: `Printer ${matchedPrinter} quarantined after ${newStrikes} consecutive failures.`
             });
             console.warn(`[Worker] QUARANTINE: ${matchedPrinter} flagged after ${newStrikes} strikes.`);
 
@@ -86,8 +86,9 @@ export const printMasterWorker = new Worker<PrintJobData>(
 
             if (!hasHealthyPrinter) {
               await printMasterQueue.pause();
-              eventBus.emit("queue_paused", {
-                message: "EMERGENCY: All printers quarantined. Queue paused. Admin intervention required."
+              eventBus.emit("system:queue:paused", {
+                message: "EMERGENCY: All printers quarantined. Queue paused. Admin intervention required.",
+                reason: "All printers quarantined"
               });
             }
           }
@@ -99,10 +100,10 @@ export const printMasterWorker = new Worker<PrintJobData>(
 
           // Step 3.4: Bad Document Isolation
           if (attempts.length >= 2) {
-            eventBus.emit("job_failed", {
+            eventBus.emit("customer:job:failed", {
+              sessionId: job.data?.sessionId,
               id: job.id,
-              reason: `Bad document detected: Job failed on ${attempts.length} different printers. Discarding.`,
-              isBadDocument: true
+              reason: `Bad document detected: Job failed on ${attempts.length} different printers. Discarding.`
             });
             throw new Error(`Job ${job.id} flagged as bad document — failed on ${attempts.join(", ")}.`);
           }
@@ -146,7 +147,7 @@ const wakeUpDelayedJobs = async () => {
 // --- EVENT LISTENERS ---
 
 printMasterWorker.on("active", (job) => {
-  eventBus.emit("job_active", { id: job.id, data: job.data });
+  eventBus.emit("customer:job:active", { sessionId: job.data?.sessionId, id: job.id, data: job.data });
 });
 
 printMasterWorker.on("completed", async (job) => {
@@ -157,10 +158,10 @@ printMasterWorker.on("completed", async (job) => {
   if (printer) {
     await redisConnection.set(REDIS_KEYS.printerState(printer), "idle");
     await redisConnection.set(REDIS_KEYS.printerStrikes(printer), "0");
-    eventBus.emit("printer_state_changed", { printer, state: "idle" });
+    eventBus.emit("admin:fleet:state", { printer, state: "idle" });
   }
 
-  eventBus.emit("job_completed", { id: job.id, data: job.data });
+  eventBus.emit("customer:job:completed", { sessionId: job.data?.sessionId, id: job.id, data: job.data });
   
   // Clean up the printed file
   const fs = require('fs');
@@ -179,10 +180,10 @@ printMasterWorker.on("failed", async (job, err) => {
   const printer = job?.data?.attemptedPrinters?.[job.data.attemptedPrinters.length - 1] || job?.data?.targetPrinter;
   if (printer) {
     await redisConnection.set(REDIS_KEYS.printerState(printer), "idle");
-    eventBus.emit("printer_state_changed", { printer, state: "idle" });
+    eventBus.emit("admin:fleet:state", { printer, state: "idle" });
   }
 
-  eventBus.emit("job_failed", { id: job?.id, reason: err.message });
+  eventBus.emit("customer:job:failed", { sessionId: job?.data?.sessionId, id: job?.id, reason: err.message });
   
   // Clean up the printed file
   if (job) {

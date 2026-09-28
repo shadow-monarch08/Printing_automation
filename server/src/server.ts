@@ -1,7 +1,7 @@
 import http from "http";
 import "./infrastructure/database";
 import app from "./app";
-import { initWebSocketServer } from "./app/controllers/events.controller";
+import { initRealtimeGateway } from "./app/services/realtimeGateway.service";
 import { getSystemConfig, updateSystemConfig } from "./app/services/config.db.service";
 import { startMetricsPolling } from "./app/services/metrics.service";
 import { startQuickTunnel } from "./app/services/tunnel.service";
@@ -13,8 +13,8 @@ const PORT = parseInt(process.env.PORT || "3000", 10);
 
 const server = http.createServer(app);
 
-// Initialize WebSocket server
-initWebSocketServer(server);
+// Initialize Realtime Multi-Room WebSocket Gateway
+initRealtimeGateway(server);
 
 async function startServer() {
   await hydrateSystem();

@@ -16,6 +16,7 @@ import {
 } from "../utils/network.utils";
 import { ensureEnrolled, sendTelemetryHeartbeat } from "./cloudSync.service";
 import * as hotspotService from "./hotspot.service";
+import { eventBus } from "../utils/eventBus";
 
 export interface ProvisionOnboardingPayload {
   adminPin?: string;
@@ -50,10 +51,69 @@ export async function emitProvisioningStatus(payload: ProvisioningTelemetryPaylo
     "EX",
     REDIS_TTLS.WIFI_STATUS
   );
+
   try {
     await redisConnection.publish("channel:provisioning:telemetry", JSON.stringify(payload));
   } catch (err) {
     /* pubsub warning ignored */
+  }
+
+  // Update SQLite persistent onboarding stage
+  try {
+    if (payload.status === "failed") {
+      updateSystemConfig({
+        onboardingStage: "FAILED",
+        lastErrorCode: payload.code || "HARDWARE_FAULT",
+        lastErrorMessage: payload.error || payload.message,
+        lastFailedAt: new Date().toISOString(),
+        failedStepNumber: payload.step || 1,
+      });
+    } else if (payload.phase) {
+      updateSystemConfig({
+        onboardingStage: payload.phase,
+      });
+    }
+  } catch (dbErr) {
+    console.warn("[Onboarding Service] Warning updating SQLite stage:", dbErr);
+  }
+
+  // Emit typed domain event on central EventBus
+  try {
+    if (payload.status === "failed") {
+      eventBus.emit("kiosk:onboarding:error", {
+        code: payload.code || "HARDWARE_FAULT",
+        error: payload.error || "Connection failed",
+        message: payload.message || "Hardware connection failed",
+        rollbackActive: payload.rollbackActive,
+        onboardingMode: payload.onboardingMode,
+        retryMode: payload.retryMode,
+        timestamp: payload.timestamp || Date.now(),
+      });
+    } else if (payload.status === "success") {
+      eventBus.emit("kiosk:onboarding:done", {
+        cloudflareUrl: payload.cloudflareUrl || "",
+        localAccessUrl: payload.localAccessUrl,
+        printerCount: payload.printerCount || 0,
+        nmsDeviceId: payload.nmsDeviceId,
+        shopName: payload.shopName || "Modern Press",
+        timestamp: payload.timestamp || Date.now(),
+      });
+    } else {
+      eventBus.emit("kiosk:onboarding:status", {
+        status: payload.status,
+        phase: payload.phase,
+        step: payload.step,
+        totalSteps: payload.totalSteps,
+        progressPercent: payload.progressPercent,
+        message: payload.message,
+        ssid: payload.ssid,
+        shopName: payload.shopName,
+        onboardingMode: payload.onboardingMode,
+        timestamp: payload.timestamp || Date.now(),
+      });
+    }
+  } catch (eBusErr) {
+    console.warn("[Onboarding Service] EventBus emission error:", eBusErr);
   }
 }
 
@@ -100,7 +160,7 @@ async function executeProvisioningPipeline(
       const isHotspot = await hotspotService.isHotspotActive();
       if (isHotspot) {
         console.log(`[Onboarding Service] 📶 Deactivating Kiosk-Hotspot to switch radio to station mode for association...`);
-        await hotspotService.deactivateHotspot();
+        await hotspotService.deactivateHotspot({ triggerAutoReconnect: false });
         await new Promise((resolve) => setTimeout(resolve, 500));
       }
     } catch (hotspotErr) {
@@ -339,6 +399,39 @@ export async function provisionOnboarding(payload: ProvisionOnboardingPayload) {
         }
       }
     }
+
+    // 3. Automated 10-second failure acknowledgment timer:
+    // Resets provisioning telemetry from 'failed' back to 'idle' in Redis, SQLite and EventBus
+    // so the kiosk terminal is NEVER trapped in a permanent error loop.
+    setTimeout(async () => {
+      try {
+        const currentStatusRaw = await redisConnection.get(REDIS_KEYS.wifiConnectionStatus);
+        if (currentStatusRaw) {
+          const parsed = JSON.parse(currentStatusRaw);
+          if (parsed.status === "failed") {
+            const idlePayload: ProvisioningTelemetryPayload = {
+              status: "idle",
+              phase: "IDLE",
+              step: 0,
+              totalSteps: 4,
+              progressPercent: 0,
+              message: "System idle. Ready for retry.",
+              timestamp: Date.now(),
+            };
+            await redisConnection.set(
+              REDIS_KEYS.wifiConnectionStatus,
+              JSON.stringify(idlePayload),
+              "EX",
+              REDIS_TTLS.WIFI_STATUS
+            );
+            eventBus.emit("kiosk:onboarding:status", idlePayload as any);
+            updateSystemConfig({ onboardingStage: "IDLE" });
+          }
+        }
+      } catch (timerErr) {
+        console.warn("[Onboarding Service] Failure acknowledgment timer error:", timerErr);
+      }
+    }, 10000);
 
     throw error instanceof AppError ? error : new HardwareError(code, errorMsg);
   }

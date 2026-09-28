@@ -32,6 +32,11 @@ CREATE TABLE IF NOT EXISTS system_config (
   nms_device_id TEXT,
   nms_device_secret TEXT,
   local_access_url TEXT DEFAULT 'http://piprint.local:3000/',
+  onboarding_stage TEXT DEFAULT 'IDLE',
+  last_error_code TEXT,
+  last_error_message TEXT,
+  last_failed_at TEXT,
+  failed_step_number INTEGER,
   updated_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
@@ -53,6 +58,13 @@ CREATE TABLE IF NOT EXISTS pricing_config (
 
 INSERT OR IGNORE INTO system_config (id, is_onboarded, shop_name) VALUES (1, 0, 'Modern Press');
 INSERT OR IGNORE INTO pricing_config (id, base_price_bw, base_price_color, duplex_discount_percent) VALUES (1, 200, 1000, 0);
+
+// Safe Idempotent Schema Migrations
+try { db.exec("ALTER TABLE system_config ADD COLUMN onboarding_stage TEXT DEFAULT 'IDLE';"); } catch {}
+try { db.exec("ALTER TABLE system_config ADD COLUMN last_error_code TEXT;"); } catch {}
+try { db.exec("ALTER TABLE system_config ADD COLUMN last_error_message TEXT;"); } catch {}
+try { db.exec("ALTER TABLE system_config ADD COLUMN last_failed_at TEXT;"); } catch {}
+try { db.exec("ALTER TABLE system_config ADD COLUMN failed_step_number INTEGER;"); } catch {}
 
 CREATE TABLE IF NOT EXISTS print_jobs (
   id TEXT PRIMARY KEY,

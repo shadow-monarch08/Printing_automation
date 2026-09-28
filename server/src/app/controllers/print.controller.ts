@@ -72,7 +72,7 @@ export async function printFile(req: Request, res: Response) {
 
   await printMasterQueue.add("print", jobData as any, { jobId });
 
-  eventBus.emit("job_queued", jobData);
+  eventBus.emit("customer:job:queued", jobData as any);
 
   res.json({
     success: true,

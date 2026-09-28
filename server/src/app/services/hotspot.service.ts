@@ -162,7 +162,7 @@ export async function activateHotspot(): Promise<void> {
 /**
  * Deactivates the Kiosk-Hotspot AP.
  */
-export async function deactivateHotspot(): Promise<void> {
+export async function deactivateHotspot(options?: { triggerAutoReconnect?: boolean }): Promise<void> {
   const active = await isHotspotActive();
   if (!active) {
     console.log(`[Hotspot Service] ℹ️ ${HOTSPOT_CONFIG.PROFILE_NAME} is already inactive.`);
@@ -180,10 +180,12 @@ export async function deactivateHotspot(): Promise<void> {
   // Resume recovery monitoring after leaving hotspot
   resumeRecoveryMonitoring();
 
-  // Immediately reconnect to known network in background without waiting for slow NM polling
-  setTimeout(() => {
-    autoReconnectKnownWifi().catch((e) => console.warn("[Hotspot Service] Auto-reconnect failed:", e));
-  }, 300);
+  // Immediately reconnect to known network in background ONLY if not explicitly suppressed
+  if (options?.triggerAutoReconnect !== false) {
+    setTimeout(() => {
+      autoReconnectKnownWifi().catch((e) => console.warn("[Hotspot Service] Auto-reconnect failed:", e));
+    }, 300);
+  }
 }
 
 /**

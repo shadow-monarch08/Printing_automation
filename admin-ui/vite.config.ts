@@ -4,11 +4,13 @@ import react from '@vitejs/plugin-react'
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [react()],
+  base: '/admin/',
   build: {
-    outDir: '../admin',
+    outDir: 'dist',
     emptyOutDir: true,
   },
   server: {
+    port: 5174,
     allowedHosts: ['dirgelike-superartificially-rachelle.ngrok-free.dev']
   }
 })

@@ -12,6 +12,11 @@ export function getSystemConfig() {
     nmsDeviceId: globalSystemConfig.nms_device_id || null,
     nmsDeviceSecret: globalSystemConfig.nms_device_secret || null,
     localAccessUrl: process.env.LOCAL_ACCESS_URL || globalSystemConfig.local_access_url || 'http://piprint.local:3000/',
+    onboardingStage: globalSystemConfig.onboarding_stage || 'IDLE',
+    lastErrorCode: globalSystemConfig.last_error_code || null,
+    lastErrorMessage: globalSystemConfig.last_error_message || null,
+    lastFailedAt: globalSystemConfig.last_failed_at || null,
+    failedStepNumber: globalSystemConfig.failed_step_number || null,
     updatedAt: globalSystemConfig.updated_at
   };
 }
@@ -25,6 +30,11 @@ export function updateSystemConfig(data: {
   nmsDeviceId?: string | null;
   nmsDeviceSecret?: string | null;
   localAccessUrl?: string | null;
+  onboardingStage?: string | null;
+  lastErrorCode?: string | null;
+  lastErrorMessage?: string | null;
+  lastFailedAt?: string | null;
+  failedStepNumber?: number | null;
 }) {
   const current = getSystemConfig() || {
     isOnboarded: false,
@@ -34,7 +44,12 @@ export function updateSystemConfig(data: {
     provisioningState: 'FIRST_BOOT',
     nmsDeviceId: null,
     nmsDeviceSecret: null,
-    localAccessUrl: 'http://piprint.local:3000/'
+    localAccessUrl: 'http://piprint.local:3000/',
+    onboardingStage: 'IDLE',
+    lastErrorCode: null,
+    lastErrorMessage: null,
+    lastFailedAt: null,
+    failedStepNumber: null
   };
 
   const isOnboarded = data.isOnboarded !== undefined ? data.isOnboarded : current.isOnboarded;
@@ -45,10 +60,20 @@ export function updateSystemConfig(data: {
   const nmsDeviceId = data.nmsDeviceId !== undefined ? data.nmsDeviceId : current.nmsDeviceId;
   const nmsDeviceSecret = data.nmsDeviceSecret !== undefined ? data.nmsDeviceSecret : current.nmsDeviceSecret;
   const localAccessUrl = data.localAccessUrl !== undefined ? data.localAccessUrl : current.localAccessUrl;
+  const onboardingStage = data.onboardingStage !== undefined ? data.onboardingStage : current.onboardingStage;
+  const lastErrorCode = data.lastErrorCode !== undefined ? data.lastErrorCode : current.lastErrorCode;
+  const lastErrorMessage = data.lastErrorMessage !== undefined ? data.lastErrorMessage : current.lastErrorMessage;
+  const lastFailedAt = data.lastFailedAt !== undefined ? data.lastFailedAt : current.lastFailedAt;
+  const failedStepNumber = data.failedStepNumber !== undefined ? data.failedStepNumber : current.failedStepNumber;
 
   const stmt = db.prepare(`
-    INSERT INTO system_config (id, is_onboarded, cloudflare_url, shop_name, admin_pin_hash, provisioning_state, nms_device_id, nms_device_secret, local_access_url, updated_at)
-    VALUES (1, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
+    INSERT INTO system_config (
+      id, is_onboarded, cloudflare_url, shop_name, admin_pin_hash,
+      provisioning_state, nms_device_id, nms_device_secret, local_access_url,
+      onboarding_stage, last_error_code, last_error_message, last_failed_at, failed_step_number,
+      updated_at
+    )
+    VALUES (1, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
     ON CONFLICT(id) DO UPDATE SET
       is_onboarded = excluded.is_onboarded,
       cloudflare_url = excluded.cloudflare_url,
@@ -58,6 +83,11 @@ export function updateSystemConfig(data: {
       nms_device_id = excluded.nms_device_id,
       nms_device_secret = excluded.nms_device_secret,
       local_access_url = excluded.local_access_url,
+      onboarding_stage = excluded.onboarding_stage,
+      last_error_code = excluded.last_error_code,
+      last_error_message = excluded.last_error_message,
+      last_failed_at = excluded.last_failed_at,
+      failed_step_number = excluded.failed_step_number,
       updated_at = excluded.updated_at
   `);
 
@@ -69,7 +99,12 @@ export function updateSystemConfig(data: {
     provisioningState,
     nmsDeviceId,
     nmsDeviceSecret,
-    localAccessUrl
+    localAccessUrl,
+    onboardingStage,
+    lastErrorCode,
+    lastErrorMessage,
+    lastFailedAt,
+    failedStepNumber
   );
 
   const newRow = db.prepare(`SELECT * FROM system_config WHERE id = 1`).get() as SystemConfigRow | undefined;

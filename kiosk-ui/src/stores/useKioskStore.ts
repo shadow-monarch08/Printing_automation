@@ -2,6 +2,7 @@
 import { create } from 'zustand';
 import { api } from '../services/api';
 import type { WifiNetwork, ProvisioningTelemetry, KioskSummaryData } from '../types';
+import { kioskEventBus } from '../services/realtime/eventEmitter';
 
 export type KioskStep = 'CHOICE' | 'IDENTITY' | 'WIFI_SCAN' | 'MOBILE_HANDOFF' | 'PROVISIONING' | 'OPERATIONAL';
 
@@ -289,3 +290,109 @@ export const useKioskStore = create<KioskStoreState>((set, get) => ({
     set({ kioskTheme: next });
   },
 }));
+
+// ==========================================
+// Centralized Kiosk Realtime Event Subscriptions
+// ==========================================
+
+// 1. Live Onboarding Telemetry / Status Updates
+kioskEventBus.on('kiosk:onboarding:status', (payload) => {
+  const current = useKioskStore.getState().provisioningTelemetry;
+  if (
+    current?.step === payload.step &&
+    current?.progressPercent === payload.progressPercent &&
+    current?.status === payload.status &&
+    current?.message === payload.message
+  ) {
+    return; // Shallow guard to prevent redundant re-renders
+  }
+
+  useKioskStore.setState({
+    provisioningTelemetry: {
+      status: payload.status,
+      step: payload.step,
+      totalSteps: payload.totalSteps || 4,
+      progressPercent: payload.progressPercent,
+      message: payload.message,
+      phase: payload.phase,
+      error: payload.error,
+      code: payload.code,
+      retryMode: payload.retryMode,
+      onboardingMode: payload.onboardingMode,
+      timestamp: payload.timestamp || Date.now(),
+      ssid: payload.ssid,
+      shopName: payload.shopName,
+      cloudflareUrl: payload.cloudflareUrl,
+      localAccessUrl: payload.localAccessUrl,
+      printerCount: payload.printerCount,
+      rollbackActive: payload.rollbackActive,
+    },
+    step: payload.status === 'success' ? 'OPERATIONAL' : 'PROVISIONING',
+  });
+
+  if (payload.status === 'success') {
+    useKioskStore.getState().fetchSummary();
+  }
+});
+
+// 2. Live Onboarding Fault / Diagnostic Alert
+kioskEventBus.on('kiosk:onboarding:error', (payload) => {
+  useKioskStore.setState((state) => ({
+    errorMessage: payload.message,
+    errorCode: payload.code || null,
+    isSubmitting: false,
+    provisioningTelemetry: state.provisioningTelemetry
+      ? {
+          ...state.provisioningTelemetry,
+          status: 'failed' as const,
+          phase: 'FAILED' as const,
+          error: payload.message,
+          code: payload.code,
+          timestamp: payload.timestamp || Date.now(),
+        }
+      : {
+          status: 'failed' as const,
+          phase: 'FAILED' as const,
+          step: 0,
+          totalSteps: 4,
+          progressPercent: 0,
+          message: payload.message,
+          error: payload.message,
+          code: payload.code,
+          timestamp: payload.timestamp || Date.now(),
+        },
+  }));
+});
+
+// 3. Live Onboarding Done / Success Transition
+kioskEventBus.on('kiosk:onboarding:done', (payload) => {
+  useKioskStore.setState({
+    step: 'OPERATIONAL',
+    isSubmitting: false,
+    errorMessage: null,
+    errorCode: null,
+    shopName: payload.shopName || useKioskStore.getState().shopName,
+  });
+  useKioskStore.getState().fetchSummary();
+});
+
+// 4. Chassis Diagnostic Alert
+kioskEventBus.on('kiosk:chassis:alert', (payload) => {
+  useKioskStore.setState({
+    errorMessage: payload.message || payload.alert || 'Hardware chassis alert',
+  });
+});
+
+// 5. Fleet State Change (e.g. printer plugged in or status changed)
+kioskEventBus.on('admin:fleet:state', () => {
+  useKioskStore.getState().fetchSummary();
+});
+
+// 6. System Broadcast / Queue Events
+kioskEventBus.on('system:queue:paused', () => {
+  useKioskStore.getState().fetchSummary();
+});
+
+kioskEventBus.on('system:queue:resumed', () => {
+  useKioskStore.getState().fetchSummary();
+});

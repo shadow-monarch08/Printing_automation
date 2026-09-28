@@ -4,20 +4,25 @@
 set -e
 
 echo "⬇️ Pulling latest code..."
-# Update the existing repository instead of cloning a new one
 git fetch origin && git reset --hard origin/main
 
-echo "📦 Installing and building frontend..."
+echo "📦 Installing and building customer-ui..."
+cd customer-ui
+npm install
+npm run build
+cd ..
+
+echo "📦 Installing and building admin-ui..."
 cd admin-ui
 npm install
 npm run build
 cd ..
 
-echo "📂 Copying frontend build to backend..."
-rm -rf server/public
-mkdir -p server/public
-# Copy the contents of the 'admin' folder directly into public
-cp -r admin/* server/public/
+echo "📦 Installing and building kiosk-ui..."
+cd kiosk-ui
+npm install
+npm run build
+cd ..
 
 echo "⚙️ Installing and building backend..."
 cd server
@@ -25,13 +30,8 @@ npm install
 npm run build
 
 echo "📂 Copying config files to build directory..."
-# Create the directory if it doesn't exist
 mkdir -p dist/config
-# Copy the contents
-cp -r src/config/* dist/config/
-
+cp -r src/config/* dist/config/ 2>/dev/null || true
 
 echo "🚀 Starting server..."
-# For now, this will run in the terminal. 
-# (Press Ctrl+C to stop it when you are done testing).
 node dist/server.js

@@ -2,7 +2,9 @@
 import { create } from 'zustand';
 import { api } from '../services/api';
 import { apiClient } from '../services/apiClient';
-import type { BackendPrinter, BackendJob, BackendMetrics, PricingConfig, WebSocketEvent, MetricSnapshot } from '../types';
+import type { BackendPrinter, BackendJob, BackendMetrics, PricingConfig, MetricSnapshot } from '../types';
+import { adminEventBus } from '../services/realtime/eventEmitter';
+import { toast } from '../context/ToastContext';
 
 export interface AdminState {
   isAuthenticated: boolean;
@@ -52,7 +54,7 @@ export interface AdminState {
   loadPricingConfig: () => Promise<void>;
   updatePricingConfig: (config: Partial<PricingConfig>) => Promise<boolean>;
 
-  handleWebSocketEvent: (event: WebSocketEvent) => void;
+  handleWebSocketEvent?: (event: any) => void;
   forceRefreshPrinter: (printerName: string) => Promise<boolean>;
 }
 
@@ -375,156 +377,6 @@ export const useAdminStore = create<AdminState>((set, get) => ({
     return false;
   },
 
-  handleWebSocketEvent: (event) => {
-    const state = get();
-    switch (event.type) {
-      // --- Phase 1: Silent Delta Merging ---
-      case 'job_queued':
-        set((state) => {
-          const { type, ...jobData } = event as any;
-          const formattedJob: BackendJob = {
-            id: jobData.id || `JOB_${Date.now()}`,
-            cupsJobId: jobData.cupsJobId || null,
-            filename: jobData.filename || 'Document.pdf',
-            owner: jobData.owner || 'Guest User',
-            pages: jobData.pages || 1,
-            copies: jobData.copies || 1,
-            colorMode: jobData.colorMode === 'color' ? 'color' : 'grayscale',
-            duplex: jobData.duplex === 'double' ? 'double' : 'single',
-            orientation: jobData.orientation === 'landscape' ? 'landscape' : 'portrait',
-            targetPrinter: jobData.targetPrinter || jobData.printer || 'Thermal POS Printer',
-            status: (jobData.status as any) || 'queued',
-            cost: jobData.cost || 0,
-            submittedAt: jobData.submittedAt || jobData.createdAt || new Date().toISOString(),
-            completedAt: jobData.completedAt || null,
-            error: jobData.error || null
-          };
-          const exists = state.queue.some(q => q.id === formattedJob.id);
-          const updatedQueue: BackendJob[] = exists 
-            ? state.queue.map(q => q.id === formattedJob.id ? { ...q, ...formattedJob } : q)
-            : [formattedJob, ...state.queue];
-
-          const currentMetrics = state.metrics || {
-            waiting: 0,
-            active: 0,
-            delayed: 0,
-            completed: 0,
-            failed: 0,
-            cpuLoad: 12,
-            memoryUsed: 2048,
-            memoryTotal: 8192,
-            diskPercent: 25,
-            uptime: '1h 0m 0s',
-            uptimeSeconds: 3600,
-            totalJobsToday: 0,
-            revenue: 0,
-            activePrinters: 1,
-            totalPrinters: 1
-          };
-
-          const waitingVal = currentMetrics.waiting ?? 0;
-          const totalTodayVal = currentMetrics.totalJobsToday ?? 0;
-          const revenueVal = currentMetrics.revenue ?? 0;
-
-          const newMetrics = {
-            ...currentMetrics,
-            waiting: exists ? waitingVal : waitingVal + 1,
-            totalJobsToday: exists ? totalTodayVal : totalTodayVal + 1,
-            revenue: exists ? revenueVal : revenueVal + (formattedJob.cost || 0)
-          };
-
-          return { queue: updatedQueue, metrics: newMetrics };
-        });
-        break;
-      case 'job_active':
-      case 'job_completed':
-        set((state) => {
-          const updatedQueue: BackendJob[] = state.queue.map(job => 
-            job.id === event.id 
-              ? { 
-                  ...job, 
-                  ...((event as any).data || {}), 
-                  status: (event.type === 'job_active' ? 'printing' : 'done') as BackendJob['status'] 
-                } 
-              : job
-          );
-          let newMetrics = state.metrics;
-          if (state.metrics) {
-            const activeCount = updatedQueue.filter(j => j.status === 'printing').length;
-            const waitingCount = updatedQueue.filter(j => j.status === 'queued' || j.status === 'spooling').length;
-            const completedCount = updatedQueue.filter(j => j.status === 'done').length;
-            newMetrics = {
-              ...state.metrics,
-              active: activeCount,
-              waiting: waitingCount,
-              completed: completedCount
-            };
-          }
-          return { queue: updatedQueue, metrics: newMetrics };
-        });
-        break;
-      case 'job_failed':
-        set((state) => {
-          const updatedQueue: BackendJob[] = state.queue.map(job => 
-            job.id === event.id 
-              ? { ...job, status: 'failed' as BackendJob['status'], error: (event as any).reason || null } 
-              : job
-          );
-          let newMetrics = state.metrics;
-          if (state.metrics) {
-            const failedCount = updatedQueue.filter(j => j.status === 'failed').length;
-            const waitingCount = updatedQueue.filter(j => j.status === 'queued' || j.status === 'spooling').length;
-            newMetrics = {
-              ...state.metrics,
-              failed: failedCount,
-              waiting: waitingCount
-            };
-          }
-          return { queue: updatedQueue, metrics: newMetrics };
-        });
-        break;
-      case 'printer_state_changed':
-        set((state) => ({
-          printers: state.printers.map(p => 
-            p.name === (event as any).printer 
-              ? { ...p, status: (event as any).state === 'flagged' ? 'error' : (event as any).state } 
-              : p
-          )
-        }));
-        break;
-      case 'printer_quarantined':
-        set((state) => ({
-          printers: state.printers.map(p => 
-            p.name === (event as any).printer 
-              ? { ...p, status: 'error', description: (event as any).message || p.description } 
-              : p
-          )
-        }));
-        break;
-      case 'queue_paused':
-        set({ isQueuePaused: true });
-        break;
-      case 'queue_resumed':
-        set({ isQueuePaused: false });
-        break;
-
-      // --- Phase 2: Full HTTP Reloads ---
-      case 'printer_discovery':
-        state.loadPrinters();
-        break;
-      case 'system_critical':
-        state.checkQueueStatus();
-        state.loadMetrics();
-        state.loadQueue();
-        break;
-      case 'connected':
-        state.loadPrinters();
-        state.loadQueue();
-        state.loadMetrics();
-        break;
-    }
-  },
-
   forceRefreshPrinter: async (printerName: string) => {
     try {
       const res = await api.forceRefreshPrinter(printerName);
@@ -539,3 +391,235 @@ export const useAdminStore = create<AdminState>((set, get) => ({
     return false;
   }
 }));
+
+/**
+ * -------------------------------------------------------------
+ * Centralized Admin Realtime Event Subscriptions
+ * Decoupled from transport; enforces Layer 1/2/3 deduplication
+ * and multi-device synchronization.
+ * -------------------------------------------------------------
+ */
+
+// 1. Connection / Reconnection: Reconcile all state with SQLite
+adminEventBus.on('connected', () => {
+  const store = useAdminStore.getState();
+  store.loadPrinters();
+  store.loadQueue();
+  store.loadMetrics();
+  store.checkQueueStatus();
+});
+
+// 2. Customer Job Queued (Mirrored to Live Queue Table)
+adminEventBus.on('customer:job:queued', (payload) => {
+  const formattedJob: BackendJob = {
+    id: payload.id,
+    cupsJobId: null,
+    filename: payload.filename,
+    owner: payload.owner || 'Customer',
+    pages: payload.pageCount || 1,
+    copies: payload.copies || 1,
+    colorMode: payload.colorMode === 'color' ? 'color' : 'grayscale',
+    duplex: payload.duplex ? 'double' : 'single',
+    orientation: 'portrait',
+    targetPrinter: payload.targetPrinter || payload.printer || 'Thermal POS Printer',
+    status: 'queued',
+    cost: payload.cost || 0,
+    submittedAt: payload.createdAt || new Date().toISOString(),
+    completedAt: null,
+    error: null,
+  };
+
+  useAdminStore.setState((state) => {
+    const exists = state.queue.some((q) => q.id === formattedJob.id);
+    const updatedQueue = exists
+      ? state.queue.map((q) => (q.id === formattedJob.id ? { ...q, ...formattedJob } : q))
+      : [formattedJob, ...state.queue];
+
+    const currentMetrics = state.metrics;
+    let newMetrics = currentMetrics;
+    if (currentMetrics) {
+      newMetrics = {
+        ...currentMetrics,
+        waiting: exists ? currentMetrics.waiting : (currentMetrics.waiting || 0) + 1,
+        totalJobsToday: exists ? currentMetrics.totalJobsToday : (currentMetrics.totalJobsToday || 0) + 1,
+        revenue: exists ? currentMetrics.revenue : (currentMetrics.revenue || 0) + (formattedJob.cost || 0),
+      };
+    }
+    return { queue: updatedQueue, metrics: newMetrics };
+  });
+});
+
+// 3. Customer Job Active (Mirrored to Live Queue Table)
+adminEventBus.on('customer:job:active', (payload) => {
+  const activeStatus = payload.data?.status === 'printing' ? 'printing' : 'spooling';
+
+  useAdminStore.setState((state) => {
+    const updatedQueue = state.queue.map((job) =>
+      job.id === payload.id
+        ? {
+            ...job,
+            status: activeStatus as BackendJob['status'],
+            targetPrinter: payload.data?.executedByPrinter || job.targetPrinter,
+          }
+        : job
+    );
+
+    let newMetrics = state.metrics;
+    if (state.metrics) {
+      const activeCount = updatedQueue.filter((j) => j.status === 'printing').length;
+      const waitingCount = updatedQueue.filter((j) => j.status === 'queued' || j.status === 'spooling').length;
+      newMetrics = {
+        ...state.metrics,
+        active: activeCount,
+        waiting: waitingCount,
+      };
+    }
+
+    return { queue: updatedQueue, metrics: newMetrics };
+  });
+});
+
+// 4. Customer Job Completed (Mirrored to Live Queue Table)
+adminEventBus.on('customer:job:completed', (payload) => {
+  useAdminStore.setState((state) => {
+    const updatedQueue = state.queue.map((job) =>
+      job.id === payload.id
+        ? {
+            ...job,
+            status: 'done' as BackendJob['status'],
+            completedAt: payload.data?.completedAt || new Date().toISOString(),
+          }
+        : job
+    );
+
+    let newMetrics = state.metrics;
+    if (state.metrics) {
+      const activeCount = updatedQueue.filter((j) => j.status === 'printing').length;
+      const completedCount = updatedQueue.filter((j) => j.status === 'done').length;
+      newMetrics = {
+        ...state.metrics,
+        active: activeCount,
+        completed: completedCount,
+      };
+    }
+
+    return { queue: updatedQueue, metrics: newMetrics };
+  });
+});
+
+// 5. Customer Job Failed (Mirrored to Live Queue Table)
+adminEventBus.on('customer:job:failed', (payload) => {
+  useAdminStore.setState((state) => {
+    const updatedQueue = state.queue.map((job) =>
+      job.id === payload.id
+        ? {
+            ...job,
+            status: 'failed' as BackendJob['status'],
+            error: payload.reason || null,
+          }
+        : job
+    );
+
+    let newMetrics = state.metrics;
+    if (state.metrics) {
+      const failedCount = updatedQueue.filter((j) => j.status === 'failed').length;
+      newMetrics = {
+        ...state.metrics,
+        failed: failedCount,
+      };
+    }
+
+    return { queue: updatedQueue, metrics: newMetrics };
+  });
+
+  // Layer 3 Keyed Toast
+  toast.error('Print Job Failed', `Job "${payload.id.substring(0, 8)}" failed: ${payload.reason}`, {
+    id: `admin_job_failed_${payload.id}`,
+  });
+});
+
+// 6. Admin Fleet State
+adminEventBus.on('admin:fleet:state', (payload) => {
+  useAdminStore.setState((state) => ({
+    printers: state.printers.map((p) =>
+      p.name === payload.printer
+        ? {
+            ...p,
+            status: payload.state === 'error' || payload.state === 'quarantined' ? 'error' : payload.state,
+          }
+        : p
+    ),
+  }));
+});
+
+// 7. Admin Printer Quarantined
+adminEventBus.on('admin:printer:quarantined', (payload) => {
+  useAdminStore.setState((state) => ({
+    printers: state.printers.map((p) =>
+      p.name === payload.printer
+        ? {
+            ...p,
+            status: 'error',
+            description: payload.reason || p.description,
+          }
+        : p
+    ),
+  }));
+
+  toast.error('Printer Quarantined', `Printer "${payload.printer}" quarantined: ${payload.reason}`, {
+    id: `admin_quarantine_${payload.printer}`,
+  });
+});
+
+// 8. Admin Queue Sync (Multi-Device Live Sync)
+adminEventBus.on('admin:queue:sync', (payload) => {
+  const store = useAdminStore.getState();
+  store.loadQueue();
+  store.checkQueueStatus();
+  toast.info('Queue Synchronized', `Queue updated by operator (${payload.action})`, {
+    id: 'admin_queue_sync',
+  });
+});
+
+// 9. Admin Hardware Discovery
+adminEventBus.on('admin:hardware:discovery', (payload) => {
+  useAdminStore.getState().loadPrinters();
+  toast.info('Hardware Discovery', `New device detected: ${payload.id || payload.deviceType || 'USB Printer'}`, {
+    id: `admin_hw_${payload.id || 'new'}`,
+  });
+});
+
+// 10. Admin Metrics Critical
+adminEventBus.on('admin:metrics:critical', (payload) => {
+  useAdminStore.getState().loadMetrics();
+  toast.warning('System Resource Alert', payload.message || 'Critical threshold exceeded.', {
+    id: 'admin_metric_alert',
+  });
+});
+
+// 11. System Queue Paused
+adminEventBus.on('system:queue:paused', (payload) => {
+  useAdminStore.setState({ isQueuePaused: true });
+  toast.warning('Queue Paused', payload.message || 'Global print queue paused.', {
+    id: 'sys_queue_paused',
+  });
+});
+
+// 12. System Queue Resumed
+adminEventBus.on('system:queue:resumed', () => {
+  useAdminStore.setState({ isQueuePaused: false });
+  toast.success('Queue Resumed', 'Global print queue resumed.', {
+    id: 'sys_queue_resumed',
+  });
+});
+
+// 13. System Broadcast Alert
+adminEventBus.on('system:broadcast:alert', (payload) => {
+  if (payload.level === 'CRITICAL') {
+    toast.error(payload.title || 'System Alert', payload.message);
+  } else if (payload.level === 'WARN') {
+    toast.warning(payload.title || 'Notice', payload.message);
+  } else {
+    toast.info(payload.title || 'Notice', payload.message);
+  }
+});

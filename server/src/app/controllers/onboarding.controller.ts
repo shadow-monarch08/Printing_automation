@@ -7,6 +7,7 @@ import db from "../../infrastructure/database";
 import { getRecoveryStatus } from "../services/networkRecovery.service";
 import { getActiveConnectionProfile, getLocalIpAddress, checkInternetConnectivity } from "../utils/network.utils";
 import { getSystemConfig } from "../services/config.db.service";
+import { eventBus } from "../utils/eventBus";
 
 export async function getSetupStatus(_req: Request, res: Response) {
   const status = onboardingService.getSetupStatus();
@@ -122,7 +123,7 @@ export async function streamProvisionStatus(req: Request, res: Response) {
 
   // Send initial state immediately
   const raw = await redisConnection.get(REDIS_KEYS.wifiConnectionStatus);
-  let lastData = raw || JSON.stringify({
+  const initialData = raw || JSON.stringify({
     status: "idle",
     phase: "IDLE",
     step: 0,
@@ -131,25 +132,28 @@ export async function streamProvisionStatus(req: Request, res: Response) {
     message: "System idle. Awaiting configuration command.",
     timestamp: Date.now(),
   });
-  res.write(`data: ${lastData}\n\n`);
+  res.write(`data: ${initialData}\n\n`);
 
-  // Stream updates on 750ms interval or heartbeat
-  const intervalId = setInterval(async () => {
+  // EventBus reactive listener (push on event, 0ms latency)
+  const onTelemetryEvent = (eventData: any) => {
     try {
-      const currentRaw = await redisConnection.get(REDIS_KEYS.wifiConnectionStatus);
-      if (currentRaw && currentRaw !== lastData) {
-        lastData = currentRaw;
-        res.write(`data: ${currentRaw}\n\n`);
-      } else {
-        res.write(": heartbeat\n\n");
-      }
-    } catch {
-      /* ignore poll errors */
-    }
-  }, 750);
+      const payload = eventData?.data !== undefined ? eventData.data : eventData;
+      res.write(`data: ${JSON.stringify(payload)}\n\n`);
+    } catch {}
+  };
+
+  eventBus.on("kiosk:onboarding:*", onTelemetryEvent);
+
+  // 15s SSE heartbeat to prevent connection timeout
+  const heartbeatId = setInterval(() => {
+    try {
+      res.write(": heartbeat\n\n");
+    } catch {}
+  }, 15000);
 
   req.on("close", () => {
-    clearInterval(intervalId);
+    eventBus.removeListener("kiosk:onboarding:*", onTelemetryEvent);
+    clearInterval(heartbeatId);
     res.end();
   });
 }

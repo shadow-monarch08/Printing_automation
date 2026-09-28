@@ -81,7 +81,8 @@ export async function forceRefreshPrinter(req: Request, res: Response) {
     const isPaused = await printMasterQueue.isPaused();
     if (isPaused) {
       await printMasterQueue.resume();
-      eventBus.emit("queue_resumed", { message: `Queue resumed. Printer ${name} is back online.` });
+      eventBus.emit("system:queue:resumed", { message: `Queue resumed. Printer ${name} is back online.` });
+      eventBus.emit("admin:queue:sync", { action: "RESUME", isQueuePaused: false });
     }
 
     res.json({ success: true, status: "healthy", message: `Printer ${name} is healthy and refreshed.` });
@@ -135,7 +136,7 @@ export async function configurePrinter(req: Request, res: Response) {
   await redisConnection.set(REDIS_KEYS.printerStrikes(queueName), "0");
   await redisConnection.set(REDIS_KEYS.printerInfo(queueName), JSON.stringify(printerInfo));
 
-  eventBus.emit("printer_discovery", { timestamp: new Date().toISOString() });
+  eventBus.emit("admin:hardware:discovery", { deviceType: "PRINTER", id: queueName, timestamp: new Date().toISOString() });
 
   res.json({ success: true, message: "Printer configured successfully", queueName });
 }
@@ -160,7 +161,7 @@ export async function updateCapabilities(req: Request, res: Response) {
   await printerService.updateCapabilitiesConfig(config);
   printerService.upsertPrinterToDB(name, alias, capabilities);
 
-  eventBus.emit("printer_discovery", { timestamp: new Date().toISOString() });
+  eventBus.emit("admin:hardware:discovery", { deviceType: "PRINTER", id: name, timestamp: new Date().toISOString() });
 
   res.json({ success: true, message: `Capabilities updated for ${name}` });
 }
@@ -205,7 +206,7 @@ export async function deletePrinter(req: Request, res: Response) {
     REDIS_KEYS.supplies(name)
   );
 
-  eventBus.emit("printer_discovery", { timestamp: new Date().toISOString() });
+  eventBus.emit("admin:hardware:discovery", { deviceType: "PRINTER", id: name, timestamp: new Date().toISOString() });
 
   res.json({ success: true, message: `Printer ${name} deleted.` });
 }
@@ -234,7 +235,7 @@ export async function deleteAllPrinters(_req: Request, res: Response) {
     );
   }
 
-  eventBus.emit("printer_discovery", { timestamp: new Date().toISOString() });
+  eventBus.emit("admin:hardware:discovery", { deviceType: "PRINTER", timestamp: new Date().toISOString() });
 
   res.json({ success: true, message: `Deleted ${printerNames.length} printers.` });
 }

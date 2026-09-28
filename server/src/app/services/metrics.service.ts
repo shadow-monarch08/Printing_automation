@@ -45,8 +45,11 @@ export async function captureMetrics() {
   if (diskPercent > 95) {
      try {
        await pauseQueue();
-       eventBus.emit('system_critical', { 
-         message: `CRITICAL: Disk usage at ${diskPercent}%. Master queue automatically paused to prevent corruption.` 
+       eventBus.emit('admin:metrics:critical', { 
+         type: 'DISK_FULL',
+         message: `CRITICAL: Disk usage at ${diskPercent}%. Master queue automatically paused to prevent corruption.`,
+         diskUsage: diskPercent,
+         timestamp: new Date().toISOString()
        });
      } catch(e) {
        console.error("Failed to pause queue during disk failsafe", e);
