@@ -76,12 +76,12 @@ app.get("/health", (_req, res) => {
 });
 
 // Dedicated Physical Kiosk Terminal Route (Restricted strictly to 127.0.0.1 / loopback)
-app.get(["/terminal", "/terminal/*"], requireLoopbackOnly, (_req, res) => {
+app.get(/^\/terminal(\/.*)?$/, requireLoopbackOnly, (_req, res) => {
   res.sendFile(path.join(KIOSK_PATH, "index.html"));
 });
 
 // Admin Control Room SPA route
-app.get(["/admin", "/admin/*"], (_req, res) => {
+app.get(/^\/admin(\/.*)?$/, (_req, res) => {
   res.sendFile(path.join(ADMIN_PATH, "index.html"));
 });
 
