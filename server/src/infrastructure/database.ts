@@ -58,6 +58,7 @@ CREATE TABLE IF NOT EXISTS pricing_config (
 
 INSERT OR IGNORE INTO system_config (id, is_onboarded, shop_name) VALUES (1, 0, 'Modern Press');
 INSERT OR IGNORE INTO pricing_config (id, base_price_bw, base_price_color, duplex_discount_percent) VALUES (1, 200, 1000, 0);
+`);
 
 // Safe Idempotent Schema Migrations
 try { db.exec("ALTER TABLE system_config ADD COLUMN onboarding_stage TEXT DEFAULT 'IDLE';"); } catch {}
@@ -66,6 +67,7 @@ try { db.exec("ALTER TABLE system_config ADD COLUMN last_error_message TEXT;"); 
 try { db.exec("ALTER TABLE system_config ADD COLUMN last_failed_at TEXT;"); } catch {}
 try { db.exec("ALTER TABLE system_config ADD COLUMN failed_step_number INTEGER;"); } catch {}
 
+db.exec(`
 CREATE TABLE IF NOT EXISTS print_jobs (
   id TEXT PRIMARY KEY,
   session_id TEXT NOT NULL,
