@@ -145,6 +145,16 @@ export interface KioskChassisAlertPayload {
   timestamp: number;
 }
 
+export interface KioskNetworkStateChangedPayload {
+  state: "ONLINE" | "CONNECTIVITY_FAILURE" | "ATTEMPTING_SAVED_NETWORKS" | "HOTSPOT_ACTIVATING" | "HOTSPOT_ACTIVE" | "RECOVERING";
+  internetOnline: boolean;
+  hotspotActive: boolean;
+  activeProfile: string | null;
+  cloudflareUrl?: string | null;
+  localAccessUrl?: string;
+  timestamp: number;
+}
+
 /**
  * -------------------------------------------------------------
  * Domain Event Payloads: System (Common Broadcast)
@@ -193,6 +203,7 @@ export interface EventMap {
   "kiosk:onboarding:error": KioskOnboardingErrorPayload;
   "kiosk:onboarding:done": KioskOnboardingDonePayload;
   "kiosk:chassis:alert": KioskChassisAlertPayload;
+  "kiosk:network:state_changed": KioskNetworkStateChangedPayload;
 
   // System Domain
   "system:queue:paused": SystemQueuePausedPayload;

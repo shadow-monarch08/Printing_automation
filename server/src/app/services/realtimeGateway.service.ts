@@ -109,7 +109,10 @@ export function initRealtimeGateway(server: any): WebSocketServer {
     // 3. Kiosk Domain: "kiosk:*"
     if (event.startsWith("kiosk:")) {
       broadcastToRoom("room:kiosk", event, data);
-      broadcastToRoom("room:admin", event, data);
+      // Internal kiosk hardware/network telemetry is scoped strictly to room:kiosk
+      if (!event.startsWith("kiosk:network:")) {
+        broadcastToRoom("room:admin", event, data);
+      }
       return;
     }
 

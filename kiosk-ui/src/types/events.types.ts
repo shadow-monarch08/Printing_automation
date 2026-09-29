@@ -47,6 +47,16 @@ export interface KioskChassisAlertPayload {
   timestamp: number;
 }
 
+export interface KioskNetworkStateChangedPayload {
+  state: 'ONLINE' | 'CONNECTIVITY_FAILURE' | 'ATTEMPTING_SAVED_NETWORKS' | 'HOTSPOT_ACTIVATING' | 'HOTSPOT_ACTIVE' | 'RECOVERING';
+  internetOnline: boolean;
+  hotspotActive: boolean;
+  activeProfile: string | null;
+  cloudflareUrl?: string | null;
+  localAccessUrl?: string;
+  timestamp: number;
+}
+
 export interface AdminFleetStatePayload {
   printers: Array<{
     name: string;
@@ -82,6 +92,7 @@ export type KioskDomainEventMap = {
   'kiosk:onboarding:error': KioskOnboardingErrorPayload;
   'kiosk:onboarding:done': KioskOnboardingDonePayload;
   'kiosk:chassis:alert': KioskChassisAlertPayload;
+  'kiosk:network:state_changed': KioskNetworkStateChangedPayload;
   'admin:fleet:state': AdminFleetStatePayload;
   'system:queue:paused': { isPaused: true; message?: string; timestamp: string };
   'system:queue:resumed': { isPaused: false; timestamp: string };

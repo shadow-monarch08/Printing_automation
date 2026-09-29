@@ -396,3 +396,33 @@ kioskEventBus.on('system:queue:paused', () => {
 kioskEventBus.on('system:queue:resumed', () => {
   useKioskStore.getState().fetchSummary();
 });
+
+// 7. Live Network State Change (Event-driven Network Manager updates)
+kioskEventBus.on('kiosk:network:state_changed', (payload) => {
+  const currentSummary = useKioskStore.getState().kioskSummary;
+  if (!currentSummary) {
+    useKioskStore.getState().fetchSummary();
+    return;
+  }
+
+  // Shallow guard to prevent redundant re-renders
+  if (
+    currentSummary.internetOnline === payload.internetOnline &&
+    currentSummary.hotspotActive === payload.hotspotActive &&
+    currentSummary.activeProfile === payload.activeProfile &&
+    currentSummary.cloudflareUrl === payload.cloudflareUrl
+  ) {
+    return;
+  }
+
+  useKioskStore.setState({
+    kioskSummary: {
+      ...currentSummary,
+      internetOnline: payload.internetOnline,
+      hotspotActive: payload.hotspotActive,
+      activeProfile: payload.activeProfile,
+      ...(payload.cloudflareUrl !== undefined ? { cloudflareUrl: payload.cloudflareUrl } : {}),
+      ...(payload.localAccessUrl ? { localAccessUrl: payload.localAccessUrl } : {}),
+    },
+  });
+});

@@ -3,11 +3,13 @@ import { REDIS_KEYS, REDIS_TTLS } from "../../infrastructure/redisKeys";
 import { runSecureCommand } from "../utils/exec";
 import { checkInternetConnectivity, getActiveConnectionProfile } from "../utils/network.utils";
 import { getSystemConfig } from "./config.db.service";
+import { eventBus } from "../utils/eventBus";
+import { autoReconnectKnownWifi } from "./wifi.service";
 
 export type RecoveryState =
   | "ONLINE"
   | "CONNECTIVITY_FAILURE"
-  | "GRACE_PERIOD"
+  | "ATTEMPTING_SAVED_NETWORKS"
   | "HOTSPOT_ACTIVATING"
   | "HOTSPOT_ACTIVE"
   | "RECOVERING";
@@ -29,7 +31,7 @@ let monitorIntervalId: NodeJS.Timeout | null = null;
 let isCheckInProgress = false;
 
 const CHECK_INTERVAL_MS = 15000; // 15 seconds
-const FAILURE_THRESHOLD = 3;     // 3 consecutive failures -> GRACE_PERIOD
+const FAILURE_THRESHOLD = 3;     // 3 consecutive failures (45s) -> ATTEMPTING_SAVED_NETWORKS
 const STABLE_SUCCESS_THRESHOLD = 2; // 2 consecutive successes to disable hotspot
 
 export function isRecoverySuspended(): boolean {
@@ -50,7 +52,7 @@ export function resumeRecoveryMonitoring(): void {
 export function getRecoveryStatus(): NetworkRecoveryStatus {
   return {
     state: currentState,
-    hotspotActive: currentState === "HOTSPOT_ACTIVE" || currentState === "RECOVERING",
+    hotspotActive: currentState === "HOTSPOT_ACTIVE" || currentState === "RECOVERING" || currentState === "HOTSPOT_ACTIVATING",
     consecutiveFailures,
     consecutiveSuccesses,
     lastCheckTimestamp: Date.now(),
@@ -72,6 +74,36 @@ async function syncStateWithRedis(): Promise<void> {
   }
 }
 
+async function emitNetworkStateChanged(): Promise<void> {
+  try {
+    const config = getSystemConfig();
+    const activeProfile = await getActiveConnectionProfile();
+    const isHotspot = currentState === "HOTSPOT_ACTIVE" || currentState === "RECOVERING" || currentState === "HOTSPOT_ACTIVATING";
+    const internetOnline = currentState === "ONLINE";
+
+    eventBus.emit("kiosk:network:state_changed", {
+      state: currentState,
+      internetOnline,
+      hotspotActive: isHotspot,
+      activeProfile: activeProfile || null,
+      cloudflareUrl: config?.cloudflareUrl || null,
+      localAccessUrl: config?.localAccessUrl || "http://piprint.local:3000/",
+      timestamp: Date.now(),
+    });
+  } catch (err) {
+    console.warn("[Network Recovery] Failed to emit network state changed event:", err);
+  }
+}
+
+async function transitionState(nextState: RecoveryState): Promise<void> {
+  if (currentState !== nextState) {
+    console.log(`[Network Recovery] State transition: ${currentState} -> ${nextState}`);
+    currentState = nextState;
+    await syncStateWithRedis();
+    await emitNetworkStateChanged();
+  }
+}
+
 async function reconcilePhysicalState(): Promise<void> {
   try {
     const activeProfile = await getActiveConnectionProfile();
@@ -79,10 +111,10 @@ async function reconcilePhysicalState(): Promise<void> {
 
     if (isHotspotPhysicallyActive && currentState !== "HOTSPOT_ACTIVE" && currentState !== "RECOVERING") {
       console.log("[Network Recovery] ⚠️ Physical Kiosk-Hotspot detected on boot. Reconciling state to HOTSPOT_ACTIVE.");
-      currentState = "HOTSPOT_ACTIVE";
+      await transitionState("HOTSPOT_ACTIVE");
     } else if (!isHotspotPhysicallyActive && (currentState === "HOTSPOT_ACTIVE" || currentState === "RECOVERING")) {
       console.log("[Network Recovery] 🔄 Kiosk-Hotspot not physically active. Reconciling state to ONLINE.");
-      currentState = "ONLINE";
+      await transitionState("ONLINE");
     }
   } catch (err) {
     console.warn("[Network Recovery] Could not reconcile physical NetworkManager state:", err);
@@ -108,27 +140,25 @@ async function performConnectivityCheck(): Promise<void> {
       consecutiveSuccesses++;
 
       if (currentState === "HOTSPOT_ACTIVE" || currentState === "RECOVERING") {
-        currentState = "RECOVERING";
+        await transitionState("RECOVERING");
 
         if (consecutiveSuccesses >= STABLE_SUCCESS_THRESHOLD) {
           console.log(`[Network Recovery] 🌐 Stable Internet restored (${consecutiveSuccesses} consecutive checks). Safely deactivating recovery hotspot...`);
           try {
-            // Re-activate known Wi-Fi profile if available
             const activeProfile = await getActiveConnectionProfile();
             if (activeProfile === "Kiosk-Hotspot") {
-              // Deactivate hotspot
               await runSecureCommand("sudo", ["nmcli", "connection", "down", "Kiosk-Hotspot"]);
             }
           } catch (downErr) {
             console.warn("[Network Recovery] Hotspot deactivation warning:", downErr);
           }
 
-          currentState = "ONLINE";
           consecutiveSuccesses = 0;
+          await transitionState("ONLINE");
           console.log("[Network Recovery] ✅ Recovery hotspot deactivated. System returned to ONLINE.");
         }
       } else {
-        currentState = "ONLINE";
+        await transitionState("ONLINE");
       }
     } else {
       // Offline
@@ -137,32 +167,62 @@ async function performConnectivityCheck(): Promise<void> {
 
       if (currentState === "ONLINE") {
         if (consecutiveFailures >= FAILURE_THRESHOLD) {
-          currentState = "GRACE_PERIOD";
-          console.log(`[Network Recovery] ⚠️ Consecutive Internet check failures (${consecutiveFailures}/${FAILURE_THRESHOLD}). Entering GRACE_PERIOD.`);
-        } else {
-          currentState = "CONNECTIVITY_FAILURE";
-        }
-      } else if (currentState === "GRACE_PERIOD") {
-        // Grace period expired with ongoing failure -> Activate Hotspot
-        console.log("[Network Recovery] 🚨 Grace period elapsed with continued Internet loss. Activating Emergency Kiosk-Hotspot...");
-        currentState = "HOTSPOT_ACTIVATING";
+          console.log(`[Network Recovery] ⚠️ Internet check failures (${consecutiveFailures}/${FAILURE_THRESHOLD}). Entering ATTEMPTING_SAVED_NETWORKS.`);
+          await transitionState("ATTEMPTING_SAVED_NETWORKS");
 
+          let reconnectedProfile: string | null = null;
+          try {
+            reconnectedProfile = await autoReconnectKnownWifi();
+          } catch (autoErr) {
+            console.warn("[Network Recovery] autoReconnectKnownWifi warning:", autoErr);
+          }
+
+          if (reconnectedProfile) {
+            console.log(`[Network Recovery] 📡 Reconnected to saved network "${reconnectedProfile}". Verifying Internet...`);
+            const verified = await checkInternetConnectivity();
+            if (verified) {
+              console.log(`[Network Recovery] ✅ Internet verified on saved network "${reconnectedProfile}". Returning to ONLINE.`);
+              consecutiveFailures = 0;
+              await transitionState("ONLINE");
+              return;
+            }
+            console.warn(`[Network Recovery] ⚠️ Associated with "${reconnectedProfile}", but WAN check failed.`);
+          } else {
+            console.log("[Network Recovery] ℹ️ No connectable saved Wi-Fi networks found.");
+          }
+
+          // No saved network succeeded -> Activate Emergency Hotspot
+          console.log("[Network Recovery] 🚨 Saved network recovery unsuccessful. Activating Emergency Kiosk-Hotspot...");
+          await transitionState("HOTSPOT_ACTIVATING");
+          try {
+            const activeProfile = await getActiveConnectionProfile();
+            if (activeProfile !== "Kiosk-Hotspot") {
+              await runSecureCommand("sudo", ["nmcli", "connection", "up", "Kiosk-Hotspot"], { timeout: 30000 });
+              console.log("[Network Recovery] 📶 Emergency Kiosk-Hotspot successfully activated.");
+            }
+            await transitionState("HOTSPOT_ACTIVE");
+          } catch (hotspotErr) {
+            console.error("[Network Recovery] ❌ Failed to activate emergency hotspot:", hotspotErr);
+            // Revert to ATTEMPTING_SAVED_NETWORKS so next interval can retry without hard failing
+            await transitionState("ATTEMPTING_SAVED_NETWORKS");
+          }
+        } else {
+          await transitionState("CONNECTIVITY_FAILURE");
+        }
+      } else if (currentState === "ATTEMPTING_SAVED_NETWORKS") {
+        await transitionState("HOTSPOT_ACTIVATING");
         try {
-          // Verify actual physical state before activating
           const activeProfile = await getActiveConnectionProfile();
           if (activeProfile !== "Kiosk-Hotspot") {
             await runSecureCommand("sudo", ["nmcli", "connection", "up", "Kiosk-Hotspot"], { timeout: 30000 });
-            console.log("[Network Recovery] 📶 Emergency Kiosk-Hotspot successfully activated.");
           }
-          currentState = "HOTSPOT_ACTIVE";
+          await transitionState("HOTSPOT_ACTIVE");
         } catch (hotspotErr) {
           console.error("[Network Recovery] ❌ Failed to activate emergency hotspot:", hotspotErr);
-          // Stay in GRACE_PERIOD so it retries with backoff instead of crashing
-          currentState = "GRACE_PERIOD";
         }
       } else if (currentState === "HOTSPOT_ACTIVE") {
-        // IDEMPOTENT: Hotspot is already active. DO NOTHING.
-        // Never repeatedly spawn nmcli commands on every interval.
+        // Hotspot is active. Simple & robust: no disruptive background frequency scanning.
+        // Waiting for admin Wi-Fi onboarding or Ethernet attachment.
       }
     }
 

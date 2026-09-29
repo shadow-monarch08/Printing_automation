@@ -53,26 +53,16 @@ export const KioskProvisioningHUD: React.FC = () => {
     };
   }, [setTelemetry, setErrorMessage, fetchSummary]);
 
-  // 2. Polling Fallback
+  // 2. Initial status check on mount if telemetry is null (subsequent updates handled by WebSocket)
   useEffect(() => {
-    const interval = setInterval(async () => {
-      try {
-        const tel = await api.getProvisionStatus();
+    if (!provisioningTelemetry) {
+      api.getProvisionStatus().then((tel) => {
         if (tel && tel.status) {
           setTelemetry(tel);
-          if (tel.status === 'success') {
-            fetchSummary();
-          } else if (tel.status === 'failed') {
-            setErrorMessage(tel.error || 'Connection failed', tel.code || 'HARDWARE_FAULT');
-          }
         }
-      } catch (err) {
-        /* ignore polling errors */
-      }
-    }, 2500);
-
-    return () => clearInterval(interval);
-  }, [setTelemetry, setErrorMessage, fetchSummary]);
+      }).catch(() => {});
+    }
+  }, [provisioningTelemetry, setTelemetry]);
 
   const isFailed =
     Boolean(errorMessage) ||

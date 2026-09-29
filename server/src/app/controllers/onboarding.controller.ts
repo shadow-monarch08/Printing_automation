@@ -5,7 +5,7 @@ import { redisConnection } from "../../infrastructure/redis";
 import { REDIS_KEYS, ProvisioningTelemetryPayload } from "../../infrastructure/redisKeys";
 import db from "../../infrastructure/database";
 import { getRecoveryStatus } from "../services/networkRecovery.service";
-import { getActiveConnectionProfile, getLocalIpAddress, checkInternetConnectivity } from "../utils/network.utils";
+import { getActiveConnectionProfile, getLocalIpAddress } from "../utils/network.utils";
 import { getSystemConfig } from "../services/config.db.service";
 import { eventBus } from "../utils/eventBus";
 
@@ -165,7 +165,7 @@ export async function getKioskSummary(_req: Request, res: Response) {
   const config = getSystemConfig();
   const recoveryStatus = getRecoveryStatus();
   const activeProfile = await getActiveConnectionProfile();
-  const isOnline = await checkInternetConnectivity();
+  const isOnline = recoveryStatus.state === "ONLINE";
   const localIp = getLocalIpAddress();
   const port = parseInt(process.env.PORT || "3000", 10);
   const isHotspot = await hotspotService.isHotspotActive();
@@ -205,7 +205,7 @@ export async function getNetworkStatus(_req: Request, res: Response) {
   const config = getSystemConfig();
   const recoveryStatus = getRecoveryStatus();
   const activeProfile = await getActiveConnectionProfile();
-  const isOnline = await checkInternetConnectivity();
+  const isOnline = recoveryStatus.state === "ONLINE";
   const port = parseInt(process.env.PORT || "3000", 10);
   const isHotspot = await hotspotService.isHotspotActive();
 

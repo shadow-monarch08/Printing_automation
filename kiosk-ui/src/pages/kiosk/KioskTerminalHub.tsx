@@ -19,13 +19,9 @@ export const KioskTerminalHub: React.FC = () => {
 
   const [initialLoading, setInitialLoading] = useState(true);
 
-  // 1. Initial Hardware Chassis Summary Fetch
+  // 1. Initial Hardware Chassis Summary Fetch on Mount (Subsequent updates arrive purely via WebSocket)
   useEffect(() => {
     fetchSummary().finally(() => setInitialLoading(false));
-
-    // Periodic summary sync every 5 seconds
-    const interval = setInterval(fetchSummary, 5000);
-    return () => clearInterval(interval);
   }, [fetchSummary]);
 
   // Loading Screen using Primitive Custom Component
