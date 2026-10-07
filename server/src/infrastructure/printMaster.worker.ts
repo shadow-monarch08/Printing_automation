@@ -43,6 +43,10 @@ export const printMasterWorker = new Worker<PrintJobData>(
       await job.updateData({ ...job.data, cupsJobId, executedByPrinter: matchedPrinter });
 
       let staleCounter = 0;
+      const totalSheets = (job.data.pages || 1) * (job.data.copies || 1);
+      // Dynamic timeout: 30s minimum, plus 8s per sheet (e.g. 50 pages * 1 copy = 420s)
+      const timeoutSeconds = Math.max(30, 20 + totalSheets * 8);
+
       while (true) {
         await new Promise(resolve => setTimeout(resolve, 3000));
         staleCounter += 3;
@@ -53,8 +57,8 @@ export const printMasterWorker = new Worker<PrintJobData>(
           return { cupsJobId, status: "completed", printer: matchedPrinter };
         }
 
-        if (status === "held_or_stopped" || status === "unreachable" || staleCounter >= 30) {
-          console.warn(`[Worker] Job ${job.id} failed on ${matchedPrinter} (status: ${status}, time: ${staleCounter}s). Triggering failover.`);
+        if (status === "held_or_stopped" || status === "aborted" || status === "unreachable" || staleCounter >= timeoutSeconds) {
+          console.warn(`[Worker] Job ${job.id} failed on ${matchedPrinter} (status: ${status}, elapsed: ${staleCounter}s / max: ${timeoutSeconds}s). Triggering failover.`);
           
           try {
             await adapter.cancelJob(matchedPrinter, cupsJobId);
@@ -188,11 +192,15 @@ printMasterWorker.on("failed", async (job, err) => {
 
   eventBus.emit("customer:job:failed", { sessionId: job?.data?.sessionId, id: job?.id, reason: err.message });
   
-  // Clean up the printed file
+  // Clean up the printed file only when all retry attempts have been exhausted or document was flagged bad
   if (job) {
-    const fs = require('fs');
-    if (job.data.filePath && fs.existsSync(job.data.filePath)) {
-      try { fs.unlinkSync(job.data.filePath); } catch(e) { console.error('Cleanup error:', e); }
+    const maxAttempts = job.opts?.attempts || 3;
+    const isTerminal = job.attemptsMade >= maxAttempts || (err?.message && err.message.toLowerCase().includes("bad document"));
+    if (isTerminal && job.data.filePath) {
+      const fs = require('fs');
+      if (fs.existsSync(job.data.filePath)) {
+        try { fs.unlinkSync(job.data.filePath); } catch(e) { console.error('Cleanup error:', e); }
+      }
     }
   }
 

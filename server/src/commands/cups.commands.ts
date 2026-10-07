@@ -137,6 +137,19 @@ export function parseCupsJobId(stdout: string, printerName: string | null = null
   );
 }
 
+/**
+ * Compiles lpstat command arguments.
+ * CRITICAL POSIX CUPS INVARIANT: The '-W which-jobs' flag MUST precede '-o printer'.
+ * Placing '-W' after '-o' causes CUPS lpstat to silently ignore '-W' and default to active jobs only.
+ */
+export function buildLpstatArgs(which: "completed" | "not-completed", printerName?: string): string[] {
+  const args = ["-W", which];
+  if (printerName) {
+    args.push("-o", printerName);
+  }
+  return args;
+}
+
 export const cupsCommands = {
   listPrinters: async () => {
     return runSecureCommand("lpstat", ["-p"]);
@@ -167,6 +180,14 @@ export const cupsCommands = {
 
   getJobStatus: async (printerName: string) => {
     return runSecureCommand("lpstat", ["-o", printerName]);
+  },
+
+  getCompletedJobs: async (printerName?: string) => {
+    return runSecureCommand("lpstat", buildLpstatArgs("completed", printerName));
+  },
+
+  getActiveJobs: async (printerName?: string) => {
+    return runSecureCommand("lpstat", buildLpstatArgs("not-completed", printerName));
   },
 
   cancelJob: async (cupsJobId: string | number) => {

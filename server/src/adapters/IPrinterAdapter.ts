@@ -8,8 +8,9 @@ export interface PrintDispatchResult {
 
 export type JobPollStatus = 
   | "printing"          // Active in spooler or physical hardware rasterizing
-  | "completed"         // Confirmed finished (lpstat missing or IPP job-state === 9)
+  | "completed"         // Confirmed finished in spooler history or IPP state === 9
   | "held_or_stopped"   // Stalled, jammed, paper empty, or paused
+  | "aborted"           // Driver crash, filter failure, or canceled by system
   | "unreachable";      // Socket timeout or connection failure
 
 export interface IPrinterAdapter {

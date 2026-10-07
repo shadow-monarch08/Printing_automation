@@ -66,19 +66,8 @@ export class EpsonLegacyAdapter implements IPrinterAdapter {
     return { cupsJobId, dispatchedAt: Date.now() };
   }
 
-  async getJobStatus(printerName: string, jobId: string, metadata?: Record<string, any>): Promise<any> {
-    try {
-      const { stdout } = await cupsCommands.getJobStatus(printerName);
-      const lines = stdout.split("\n");
-      const jobLine = lines.find((line: string) => line.includes(jobId));
-
-      if (!jobLine) return "completed";
-      const lower = jobLine.toLowerCase();
-      if (lower.includes("held") || lower.includes("stopped")) return "held_or_stopped";
-      return "printing";
-    } catch (err) {
-      return "unreachable";
-    }
+  async getJobStatus(printerName: string, jobId: string, metadata?: Record<string, any>): Promise<JobPollStatus> {
+    return printerService.queryCupsJobStatus(printerName, jobId);
   }
 
   async cancelJob(printerName: string, jobId: string): Promise<boolean> {

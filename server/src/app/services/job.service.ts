@@ -14,7 +14,7 @@ export async function getAllJobs(sessionId?: string) {
   const mapJob = (job: any, status: string) => {
     return {
       id: job.id,
-      cupsJobId: job.returnvalue?.cupsJobId || null,
+      cupsJobId: job.data?.cupsJobId || job.returnvalue?.cupsJobId || null,
       filename: job.data.filename,
       owner: job.data.owner,
       sessionId: job.data.sessionId,
@@ -54,12 +54,13 @@ export async function deleteJob(jobId: string) {
   }
 
   const isActive = await job.isActive();
+  const cupsJobId = job.data?.cupsJobId || job.returnvalue?.cupsJobId;
 
-  if (isActive && job.returnvalue?.cupsJobId) {
+  if (isActive && cupsJobId) {
     try {
-      await cupsCommands.cancelJob(job.returnvalue.cupsJobId);
+      await cupsCommands.cancelJob(cupsJobId);
     } catch (e) {
-      console.error(`Failed to cancel CUPS job ${job.returnvalue.cupsJobId}`, e);
+      console.error(`Failed to cancel CUPS job ${cupsJobId}`, e);
     }
   }
 
@@ -71,7 +72,7 @@ export async function pauseJob(jobId: string) {
   const job = await printMasterQueue.getJob(jobId);
   if (!job) throw new NotFoundError("JOB_NOT_FOUND", `Print job ${jobId} not found in queue.`);
 
-  const cupsJobId = job.data.cupsJobId;
+  const cupsJobId = job.data?.cupsJobId || job.returnvalue?.cupsJobId;
   if (cupsJobId) {
     await cupsCommands.holdJob(cupsJobId);
   } else {
@@ -83,7 +84,7 @@ export async function resumeJob(jobId: string) {
   const job = await printMasterQueue.getJob(jobId);
   if (!job) throw new NotFoundError("JOB_NOT_FOUND", `Print job ${jobId} not found in queue.`);
 
-  const cupsJobId = job.data.cupsJobId;
+  const cupsJobId = job.data?.cupsJobId || job.returnvalue?.cupsJobId;
   if (cupsJobId) {
     await cupsCommands.resumeJob(cupsJobId);
   } else {

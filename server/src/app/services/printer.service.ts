@@ -1,4 +1,6 @@
 import { cupsCommands, PrintFileOptions } from "../../commands/cups.commands";
+import ipp from "ipp";
+import { JobPollStatus } from "../../adapters/IPrinterAdapter";
 import fs from "fs/promises";
 import path from "path";
 import { redisConnection } from "../../infrastructure/redis";
@@ -241,30 +243,86 @@ export async function printFile(
 }
 
 /**
- * Gets the status of a specific CUPS job.
- * Runs `lpstat -o <printerName>` and greps for the job ID.
+ * Truthful, two-tier CUPS job status resolution engine:
+ * Tier 1: High-precision native IPP query to http://localhost:631 (RFC 8011)
+ * Tier 2: POSIX lpstat -W not-completed vs lpstat -W completed history fallback
  */
-export async function getJobStatus(printerName: string, cupsJobId: string): Promise<string> {
-  try {
-    const { stdout } = await cupsCommands.getJobStatus(printerName);
-    const lines = stdout.split("\n");
-    const jobLine = lines.find((line: string) => line.includes(cupsJobId));
+export async function queryCupsJobStatus(printerName: string, cupsJobId: string): Promise<JobPollStatus> {
+  const numericJobId = parseInt(cupsJobId.split("-").pop() || cupsJobId, 10);
 
-    if (!jobLine) {
-      // If job is not in the queue, it might be completed or canceled.
-      return "completed_or_missing";
+  // --- TIER 1: Native Localhost CUPS IPP Query (RFC 8011) ---
+  if (!isNaN(numericJobId)) {
+    try {
+      const printer = new (ipp as any).Printer("http://localhost:631/jobs");
+      const msg = {
+        "operation-attributes-tag": {
+          "attributes-charset": "utf-8",
+          "attributes-natural-language": "en",
+          "job-uri": `ipp://localhost:631/jobs/${numericJobId}`,
+        },
+      };
+
+      const res: any = await new Promise((resolve, reject) => {
+        printer.execute("Get-Job-Attributes", msg, (err: any, res: any) => {
+          if (err) return reject(err);
+          resolve(res);
+        });
+      });
+
+      const attrs = res?.["job-attributes-tag"];
+      if (attrs) {
+        const state = attrs["job-state"];
+        // IPP RFC 8011 Job States:
+        // 3: pending, 4: pending-held, 5: processing, 6: processing-stopped, 7: canceled, 8: aborted, 9: completed
+        if (state === 9 || state === "completed") return "completed";
+        if (state === 7 || state === 8 || state === "canceled" || state === "aborted") return "aborted";
+        if (state === 4 || state === 6 || state === "pending-held" || state === "processing-stopped") return "held_or_stopped";
+        if (state === 3 || state === 5 || state === "pending" || state === "processing") return "printing";
+      }
+    } catch {
+      // Local IPP socket / HTTP query failed; smoothly fall through to Tier 2 CLI verification
+    }
+  }
+
+  // --- TIER 2: CLI Invariant Verification (lpstat -W) ---
+  try {
+    // 2a. Check active queue (lpstat -W not-completed -o [printerName])
+    const { stdout: activeOut } = await cupsCommands.getActiveJobs(printerName);
+    const activeLine = activeOut
+      .split("\n")
+      .find((line: string) => line.includes(cupsJobId) || (numericJobId && line.includes(String(numericJobId))));
+
+    if (activeLine) {
+      const lower = activeLine.toLowerCase();
+      if (lower.includes("held") || lower.includes("stopped")) {
+        return "held_or_stopped";
+      }
+      return "printing";
     }
 
-    // Simple keyword extraction from the status line
-    if (jobLine.toLowerCase().includes("printing")) return "printing";
-    if (jobLine.toLowerCase().includes("held")) return "held";
-    if (jobLine.toLowerCase().includes("stopped")) return "stopped";
+    // 2b. If not active, check completed history (lpstat -W completed -o [printerName])
+    const { stdout: completedOut } = await cupsCommands.getCompletedJobs(printerName);
+    const completedLine = completedOut
+      .split("\n")
+      .find((line: string) => line.includes(cupsJobId) || (numericJobId && line.includes(String(numericJobId))));
 
-    return "pending";
-  } catch (err) {
-    console.error(`[getJobStatus] Error checking status for ${cupsJobId}:`, err);
-    return "unknown";
+    if (completedLine) {
+      return "completed";
+    }
+
+    // 2c. If missing from both active queue AND completed history -> Aborted / Filter Failed
+    return "aborted";
+  } catch (cliErr) {
+    console.error(`[queryCupsJobStatus] CLI check failed for ${cupsJobId} on ${printerName}:`, cliErr);
+    return "unreachable";
   }
+}
+
+/**
+ * Gets the status of a specific CUPS job.
+ */
+export async function getJobStatus(printerName: string, cupsJobId: string): Promise<string> {
+  return queryCupsJobStatus(printerName, cupsJobId);
 }
 
 /**

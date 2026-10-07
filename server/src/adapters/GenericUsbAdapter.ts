@@ -51,25 +51,7 @@ export class GenericUsbAdapter implements IPrinterAdapter {
   }
 
   async getJobStatus(printerName: string, jobId: string, metadata?: Record<string, any>): Promise<JobPollStatus> {
-    try {
-      const { stdout } = await cupsCommands.getJobStatus(printerName);
-      const lines = stdout.split("\n");
-      const jobLine = lines.find((line: string) => line.includes(jobId));
-
-      if (!jobLine) {
-        return "completed";
-      }
-
-      const lower = jobLine.toLowerCase();
-      if (lower.includes("held") || lower.includes("stopped")) {
-        return "held_or_stopped";
-      }
-
-      return "printing";
-    } catch (err) {
-      console.error(`[GenericUsbAdapter] Error checking status for ${jobId}:`, err);
-      return "unreachable";
-    }
+    return printerService.queryCupsJobStatus(printerName, jobId);
   }
 
   async cancelJob(printerName: string, jobId: string): Promise<boolean> {

@@ -86,7 +86,10 @@ export class IppModernAdapter implements IPrinterAdapter {
           if (state === 9 || state === "completed") {
             return "completed";
           }
-          if (state === 7 || state === 8 || state === 6 || 
+          if (state === 7 || state === 8 || state === "canceled" || state === "aborted") {
+            return "aborted";
+          }
+          if (state === 6 || state === 4 || 
               reasons.includes("offline-report") || 
               reasons.includes("media-empty") || 
               reasons.includes("media-jam")) {
@@ -101,19 +104,8 @@ export class IppModernAdapter implements IPrinterAdapter {
       }
     }
 
-    // Fallback to CUPS status parsing
-    try {
-      const { stdout } = await cupsCommands.getJobStatus(printerName);
-      const lines = stdout.split("\n");
-      const jobLine = lines.find((line: string) => line.includes(jobId));
-
-      if (!jobLine) return "completed";
-      const lower = jobLine.toLowerCase();
-      if (lower.includes("held") || lower.includes("stopped")) return "held_or_stopped";
-      return "printing";
-    } catch (err) {
-      return "unreachable";
-    }
+    // Fallback to CUPS status resolution engine
+    return printerService.queryCupsJobStatus(printerName, jobId);
   }
 
   async cancelJob(printerName: string, jobId: string): Promise<boolean> {
