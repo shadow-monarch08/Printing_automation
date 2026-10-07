@@ -44,3 +44,20 @@ sequenceDiagram
     end
 
 ```
+
+```mermaid
+graph TD
+    A["Kiosk Backend (Node.js)"] -->|"Universal lp command with standard flags\n-o ColorModel=Gray -o sides=two-sided-long-edge"| B["CUPS Spooler (cupsd)"]
+    
+    subgraph Pipeline ["CUPS Filter Pipeline (Translates to Hardware)"]
+        B --> C["Epson PPD / rastertoescpr"]
+        B --> D["HP PPD / hpcups"]
+        B --> E["PostScript / PCL Filter (SNMP/LAN Copier)"]
+        B --> F["IPP Everywhere Backend (AirPrint/Mopria)"]
+    end
+    
+    C -->|"Emits micro-piezo ESC/P-R binary"| G["Epson EcoTank L3210 (USB)"]
+    D -->|"Emits HP PCL3GUI / PCL6 binary"| H["HP LaserJet (USB)"]
+    E -->|"Emits PostScript/PJL"| I["Kyocera TASKalfa (LAN)"]
+    F -->|"Emits RFC 8011 IPP Attributes"| J["Modern IPP Printer (Wi-Fi)"]
+```

@@ -1,4 +1,5 @@
 import { PrinterSupplyStatus } from "../app/types";
+import { PrintFileOptions } from "../commands/cups.commands";
 
 export interface PrintDispatchResult {
   cupsJobId: string;
@@ -30,7 +31,7 @@ export interface IPrinterAdapter {
   /**
    * Dispatches the physical document to the target printer.
    */
-  printFile(printerName: string, filePath: string, options?: Record<string, any>): Promise<PrintDispatchResult>;
+  printFile(printerName: string, filePath: string, options?: PrintFileOptions): Promise<PrintDispatchResult>;
 
   /**
    * Polls the job status using protocol-specific methods.

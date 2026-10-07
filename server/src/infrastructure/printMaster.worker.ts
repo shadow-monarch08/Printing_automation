@@ -31,7 +31,10 @@ export const printMasterWorker = new Worker<PrintJobData>(
       const adapter = await PrinterFactory.getAdapter(matchedPrinter);
       const dispatchRes = await adapter.printFile(matchedPrinter, job.data.filePath, {
         copies: job.data.copies,
-        duplex: job.data.duplex
+        duplex: job.data.duplex,
+        colorMode: job.data.colorMode,
+        orientation: job.data.orientation,
+        jobTitle: job.data.filename,
       });
       const cupsJobId = dispatchRes.cupsJobId;
 

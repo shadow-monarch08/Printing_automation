@@ -1,4 +1,4 @@
-import { cupsCommands } from "../../commands/cups.commands";
+import { cupsCommands, PrintFileOptions } from "../../commands/cups.commands";
 import fs from "fs/promises";
 import path from "path";
 import { redisConnection } from "../../infrastructure/redis";
@@ -222,15 +222,22 @@ export async function setDefaultPrinter(printerName: string): Promise<void> {
 export async function printFile(
   filePath: string,
   printer?: string,
-  copies: number = 1,
-  duplex: "single" | "double" = "single"
+  optionsOrCopies: PrintFileOptions | number = {},
+  legacyDuplex?: "single" | "double"
 ): Promise<string> {
-  const sides = duplex === "double" ? "two-sided-long-edge" : "one-sided";
+  let options: PrintFileOptions;
 
-  const { stdout } = await cupsCommands.printFile(printer || null, filePath, { copies, sides });
-  // stdout example: "request id is MyPrinter-42 (1 file(s))"
-  const match = stdout.match(/request id is (\S+)/);
-  return match ? match[1] : stdout;
+  if (typeof optionsOrCopies === "number") {
+    options = {
+      copies: optionsOrCopies,
+      duplex: legacyDuplex || "single",
+    };
+  } else {
+    options = optionsOrCopies;
+  }
+
+  const { cupsJobId } = await cupsCommands.printFile(printer || null, filePath, options);
+  return cupsJobId;
 }
 
 /**

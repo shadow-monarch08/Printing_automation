@@ -1,7 +1,7 @@
 import { IPrinterAdapter, PrintDispatchResult, JobPollStatus } from "./IPrinterAdapter";
 import { PrinterSupplyStatus } from "../app/types";
 import { systemCommands } from "../commands/system.commands";
-import { cupsCommands } from "../commands/cups.commands";
+import { cupsCommands, PrintFileOptions } from "../commands/cups.commands";
 import * as printerService from "../app/services/printer.service";
 
 export class EpsonLegacyAdapter implements IPrinterAdapter {
@@ -61,13 +61,8 @@ export class EpsonLegacyAdapter implements IPrinterAdapter {
     await cupsCommands.addUsbPrinter(name, this.uri);
   }
 
-  async printFile(printerName: string, filePath: string, options?: Record<string, any>): Promise<any> {
-    const cupsJobId = await printerService.printFile(
-      filePath,
-      printerName,
-      options?.copies || 1,
-      options?.duplex || 'single'
-    );
+  async printFile(printerName: string, filePath: string, options?: PrintFileOptions): Promise<PrintDispatchResult> {
+    const cupsJobId = await printerService.printFile(filePath, printerName, options);
     return { cupsJobId, dispatchedAt: Date.now() };
   }
 
