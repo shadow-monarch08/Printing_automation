@@ -346,34 +346,97 @@ export async function resumeCupsJob(cupsJobId: string): Promise<void> {
   await cupsCommands.resumeJob(cupsJobId);
 }
 
+export interface DiscoveredDevice {
+  uri: string;
+  rawModel: string;
+  type: "usb" | "network" | "ipp";
+}
+
 /**
- * Phase 6: Discover unconfigured legacy HP printers (USB) and modern IPP printers.
+ * Parses a single line from CUPS `lpinfo -v` into a normalized discovered device.
+ * Universal support across USB (Epson, Canon, Brother, HP), Network Copiers (socket://, lpd://), and IPP/AirPrint.
  */
-export async function getUnconfiguredPrinters(): Promise<Array<{ uri: string, rawModel: string, type: string }>> {
+export function parseLpinfoDeviceLine(line: string): DiscoveredDevice | null {
+  const trimmed = line.trim();
+  if (!trimmed) return null;
+
+  // Split on whitespace: [class, uri, ...] (e.g. "direct usb://..." or "network socket://...")
+  const parts = trimmed.split(/\s+/);
+  const uri = parts[1];
+
+  if (!uri) return null;
+  const lowerUri = uri.toLowerCase();
+
+  // 1. USB Devices (usb://, hp:/usb/)
+  if (lowerUri.startsWith("usb://") || lowerUri.startsWith("hp:/usb/")) {
+    let rawModel = "USB Printer";
+
+    if (lowerUri.startsWith("usb://")) {
+      // Format: usb://<VENDOR>/<MODEL_WITH_ENCODING>?serial=...
+      const pathPart = uri.substring("usb://".length).split("?")[0];
+      const segments = pathPart.split("/").filter(Boolean);
+      if (segments.length >= 2) {
+        const vendor = decodeURIComponent(segments[0]);
+        const model = decodeURIComponent(segments[1]);
+        rawModel = `${vendor} ${model}`.trim();
+      } else if (segments.length === 1) {
+        rawModel = decodeURIComponent(segments[0]);
+      }
+    } else if (lowerUri.startsWith("hp:/usb/")) {
+      // Format: hp:/usb/HP_LaserJet_1020?serial=...
+      const pathPart = uri.substring("hp:/usb/".length).split("?")[0];
+      const model = decodeURIComponent(pathPart).replace(/_/g, " ");
+      rawModel = model || "HP USB Printer";
+    }
+
+    return { uri, rawModel, type: "usb" };
+  }
+
+  // 2. Heavy-Duty Network Copiers / Raw sockets (socket://, lpd://)
+  if (lowerUri.startsWith("socket://") || lowerUri.startsWith("lpd://")) {
+    const hostPort = uri.replace(/^(socket|lpd):\/\//i, "").split("/")[0];
+    const host = hostPort.split(":")[0];
+    return {
+      uri,
+      rawModel: `Network Copier (${host})`,
+      type: "network",
+    };
+  }
+
+  // 3. Modern IPP / IPPS / AirPrint / mDNS
+  if (
+    lowerUri.startsWith("ipp://") ||
+    lowerUri.startsWith("ipps://") ||
+    lowerUri.startsWith("dnssd://") ||
+    lowerUri.startsWith("mdns://")
+  ) {
+    let rawModel = "Network IPP Printer";
+    if (lowerUri.startsWith("dnssd://")) {
+      // Format: dnssd://Canon%20G3010%20series._ipp._tcp.local/?uuid=...
+      const hostPart = uri.replace(/^dnssd:\/\//i, "").split("._")[0];
+      rawModel = `${decodeURIComponent(hostPart)} (AirPrint)`;
+    } else {
+      const host = uri.replace(/^(ipp|ipps):\/\//i, "").split("/")[0].split(":")[0];
+      rawModel = `Network Printer (${host})`;
+    }
+    return { uri, rawModel, type: "ipp" };
+  }
+
+  return null;
+}
+
+/**
+ * Universal Discovery: Scans CUPS hardware for all unconfigured printers across USB, Network, and IPP.
+ */
+export async function getUnconfiguredPrinters(): Promise<DiscoveredDevice[]> {
   try {
     // 1. Get all physical devices
     const lpinfoRes = await cupsCommands.listDevices();
     const physicalDevices = lpinfoRes.stdout.split("\n").filter(Boolean);
 
     const devices = physicalDevices
-      .map((line: string) => {
-        // Check for HP USB
-        const hpMatch = line.match(/((usb:\/\/HP|hp:\/usb)\/[^ ]+)/i);
-        if (hpMatch) {
-          const uri = hpMatch[1];
-          const rawModel = decodeURIComponent(uri.split('?')[0].split('/').pop() || "Unknown_HP_Device");
-          return { uri, rawModel, type: "usb" };
-        }
-        // Check for IPP
-        const ippMatch = line.match(/(ipp:\/\/[^ ]+)/i);
-        if (ippMatch) {
-          const uri = ippMatch[1];
-          const rawModel = "Network Printer (" + decodeURIComponent(uri.split('//')[1].split('/')[0] || "Unknown_IPP_Device") + ")";
-          return { uri, rawModel, type: "ipp" };
-        }
-        return null;
-      })
-      .filter(Boolean) as Array<{ uri: string, rawModel: string, type: string }>;
+      .map(parseLpinfoDeviceLine)
+      .filter((d): d is DiscoveredDevice => d !== null);
 
     // 2. Get currently configured URIs
     const lpstatRes = await cupsCommands.getPrinterStatus().catch(() => ({ stdout: "" }));
@@ -384,8 +447,8 @@ export async function getUnconfiguredPrinters(): Promise<Array<{ uri: string, ra
       })
       .filter(Boolean) as string[];
 
-    // 3. Diff: Any device NOT in configuredUris is orphaned
-    const orphaned = devices.filter((dev: { uri: string }) => {
+    // 3. Diff: Any device NOT in configuredUris is unconfigured
+    const orphaned = devices.filter((dev) => {
       return !configuredUris.some(cUri => cUri.includes(dev.uri) || dev.uri.includes(cUri));
     });
 

@@ -222,8 +222,52 @@ export const cupsCommands = {
     return runSecureCommand("sudo", ["lpadmin", "-p", name, "-E", "-v", uri, "-m", "everywhere"]);
   },
   
-  addUsbPrinter: async (name: string, uri: string) => {
-    return runSecureCommand("sudo", ["lpadmin", "-p", name, "-E", "-v", uri, "-m", "everywhere"]);
+  addUsbPrinter: async (name: string, uri: string, modelHint?: string) => {
+    // 1. If modelHint exists (e.g. "L3150", "G2010"), search lpinfo -m for installed driver PPD
+    if (modelHint) {
+      try {
+        const { stdout } = await runSecureCommand("lpinfo", ["-m"]);
+        const lines = stdout.split("\n");
+        const cleanHint = modelHint.replace(/[^a-zA-Z0-9]/g, " ").trim();
+        const tokens = cleanHint.split(/\s+/).filter(t => t.length > 2);
+
+        if (tokens.length > 0) {
+          const matched = lines.find((line) => {
+            const lower = line.toLowerCase();
+            return tokens.every(tok => lower.includes(tok.toLowerCase()));
+          });
+
+          if (matched) {
+            const ppdModel = matched.split(/\s+/)[0];
+            if (ppdModel) {
+              return await runSecureCommand("sudo", ["lpadmin", "-p", name, "-E", "-v", uri, "-m", ppdModel]);
+            }
+          }
+        }
+      } catch (err) {
+        console.warn(`[addUsbPrinter] PPD search for '${modelHint}' failed, proceeding to fallback:`, err);
+      }
+    }
+
+    // 2. Try everywhere (in case printer supports IPP-over-USB / ipp-usb is installed)
+    try {
+      return await runSecureCommand("sudo", ["lpadmin", "-p", name, "-E", "-v", uri, "-m", "everywhere"]);
+    } catch {
+      // 3. Fallback to generic PCL raster driver (sample.drv/generpcl.ppd)
+      return runSecureCommand("sudo", ["lpadmin", "-p", name, "-E", "-v", uri, "-m", "drv:///sample.drv/generpcl.ppd"]);
+    }
+  },
+
+  addGenericPclPrinter: async (name: string, uri: string) => {
+    return runSecureCommand("sudo", ["lpadmin", "-p", name, "-E", "-v", uri, "-m", "drv:///sample.drv/generpcl.ppd"]);
+  },
+
+  addPrinterWithPpd: async (name: string, uri: string, ppdModel: string) => {
+    return runSecureCommand("sudo", ["lpadmin", "-p", name, "-E", "-v", uri, "-m", ppdModel]);
+  },
+
+  listDrivers: async () => {
+    return runSecureCommand("lpinfo", ["-m"]);
   },
   
   probeIppPrinter: async (uri: string) => {

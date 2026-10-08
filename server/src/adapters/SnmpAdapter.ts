@@ -4,7 +4,11 @@ import { systemCommands } from "../commands/system.commands";
 import { cupsCommands, PrintFileOptions } from "../commands/cups.commands";
 import * as printerService from "../app/services/printer.service";
 
-export class SnmpAdapter implements IPrinterAdapter {
+/**
+ * Strategy Adapter for Heavy-Duty Commercial Copiers & Network Printers:
+ * Canon imageRUNNER, Ricoh Aficio, Konica Minolta bizhub over socket://:9100 or lpd://.
+ */
+export class SnmpNetworkAdapter implements IPrinterAdapter {
   constructor(private printerName: string, private uri: string) {}
 
   private extractIp(uri: string): string | null {
@@ -19,7 +23,7 @@ export class SnmpAdapter implements IPrinterAdapter {
       await systemCommands.snmpWalk(ip, "1.3.6.1.2.1.1.1.0");
       return true;
     } catch (error) {
-      console.error(`[SnmpAdapter] Health check failed for ${this.uri}:`, error);
+      console.error(`[SnmpNetworkAdapter] Health check failed for ${this.uri}:`, error);
       return false;
     }
   }
@@ -55,7 +59,7 @@ export class SnmpAdapter implements IPrinterAdapter {
         supplies: { black, color },
       };
     } catch (err) {
-      console.error(`[SnmpAdapter] Failed to get supplies for ${ip}:`, err);
+      console.error(`[SnmpNetworkAdapter] Failed to get supplies for ${ip}:`, err);
       return {
         paper: "unknown",
         supplies: { black: null, color: null },
@@ -63,8 +67,11 @@ export class SnmpAdapter implements IPrinterAdapter {
     }
   }
 
+  /**
+   * Configures network copiers in CUPS using generic PCL6 driver (sample.drv/generpcl.ppd).
+   */
   async configure(name: string): Promise<void> {
-    throw new Error("Configuration not implemented for generic SNMP yet.");
+    await cupsCommands.addGenericPclPrinter(name, this.uri);
   }
 
   async printFile(printerName: string, filePath: string, options?: PrintFileOptions): Promise<PrintDispatchResult> {
@@ -85,3 +92,9 @@ export class SnmpAdapter implements IPrinterAdapter {
     }
   }
 }
+
+/**
+ * Backward-compatible alias for SnmpNetworkAdapter.
+ */
+export const SnmpAdapter = SnmpNetworkAdapter;
+export type SnmpAdapter = SnmpNetworkAdapter;

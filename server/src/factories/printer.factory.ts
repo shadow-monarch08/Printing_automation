@@ -1,9 +1,8 @@
 import { IPrinterAdapter } from "../adapters/IPrinterAdapter";
 import { HpLegacyAdapter } from "../adapters/HpLegacyAdapter";
 import { IppModernAdapter } from "../adapters/IppModernAdapter";
-import { EpsonLegacyAdapter } from "../adapters/EpsonLegacyAdapter";
-import { SnmpAdapter } from "../adapters/SnmpAdapter";
-import { GenericUsbAdapter } from "../adapters/GenericUsbAdapter";
+import { SnmpNetworkAdapter } from "../adapters/SnmpAdapter";
+import { CupsUsbRasterAdapter } from "../adapters/CupsUsbRasterAdapter";
 import { cupsCommands } from "../commands/cups.commands";
 
 export class PrinterFactory {
@@ -23,26 +22,46 @@ export class PrinterFactory {
   }
 
   /**
-   * Returns the appropriate adapter based on the URI.
+   * Returns the appropriate strategy adapter based on the device URI.
+   * Universal routing covering all 4 hardware archetypes with zero blind spots:
+   * 1. Modern Network IPP / AirPrint / Mopria (ipp://, ipps://, dnssd://, mdns://)
+   * 2. Commercial Copiers on Port 9100 / LPR (socket://, lpd://)
+   * 3. HP Legacy Firmware-Downloading Lasers (hp:/, usb://HP/, usb://Hewlett-Packard/)
+   * 4. Universal USB Desktop Inkjet & Laser (usb://EPSON/, usb://Canon/, usb://Brother/, etc.)
    */
-  static getAdapterByUri(printerName: string, uri: string): IPrinterAdapter | null {
+  static getAdapterByUri(printerName: string, uri: string): IPrinterAdapter {
     const lowerUri = uri.toLowerCase();
 
-    if (lowerUri.startsWith("ipp://")) {
+    // 1. Modern IPP / AirPrint / Mopria (Plain, TLS, or mDNS/Avahi zero-conf)
+    if (
+      lowerUri.startsWith("ipp://") ||
+      lowerUri.startsWith("ipps://") ||
+      lowerUri.startsWith("dnssd://") ||
+      lowerUri.startsWith("mdns://")
+    ) {
       return new IppModernAdapter(printerName, uri);
-    } else if (lowerUri.startsWith("socket://") || lowerUri.startsWith("lpd://")) {
-      return new SnmpAdapter(printerName, uri);
-    } else if (lowerUri.startsWith("hp:/")) {
-      // HPLIP-native URI → uses hp-setup / hp-levels
-      return new HpLegacyAdapter(printerName, uri);
-    } else if (lowerUri.startsWith("usb://epson")) {
-      return new EpsonLegacyAdapter(printerName, uri);
-    } else if (lowerUri.startsWith("usb://")) {
-      // ALL other USB (including usb://HP/) → standard CUPS lpadmin
-      return new GenericUsbAdapter(printerName, uri);
     }
 
-    return new GenericUsbAdapter(printerName, uri);
+    // 2. Heavy-Duty Commercial Copiers (Port 9100 AppSocket / LPR)
+    if (lowerUri.startsWith("socket://") || lowerUri.startsWith("lpd://")) {
+      return new SnmpNetworkAdapter(printerName, uri);
+    }
+
+    // 3. HP Legacy Host-Based Lasers (HPLIP URI or HP-branded USB device)
+    if (
+      lowerUri.startsWith("hp:/") ||
+      (lowerUri.startsWith("usb://") && (lowerUri.includes("hp/") || lowerUri.includes("hewlett-packard/")))
+    ) {
+      return new HpLegacyAdapter(printerName, uri);
+    }
+
+    // 4. Universal USB Desktop Inkjet & Laser (Epson EcoTank, Canon MegaTank, Brother, etc.)
+    if (lowerUri.startsWith("usb://")) {
+      return new CupsUsbRasterAdapter(printerName, uri);
+    }
+
+    // Fallback default
+    return new CupsUsbRasterAdapter(printerName, uri);
   }
 
   /**
@@ -51,9 +70,8 @@ export class PrinterFactory {
   static async getAdapter(printerName: string): Promise<IPrinterAdapter> {
     const uri = await this.getDeviceUri(printerName);
     if (!uri) {
-      return new GenericUsbAdapter(printerName, `usb://${printerName}`);
+      return new CupsUsbRasterAdapter(printerName, `usb://${printerName}`);
     }
-    const adapter = this.getAdapterByUri(printerName, uri);
-    return adapter || new GenericUsbAdapter(printerName, uri);
+    return this.getAdapterByUri(printerName, uri);
   }
 }

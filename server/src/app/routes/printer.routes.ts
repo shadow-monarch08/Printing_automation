@@ -15,6 +15,7 @@ router.post("/default", asyncHandler(requireAuth), asyncHandler(printerCtrl.setD
 router.put("/:name/alias", asyncHandler(requireAuth), asyncHandler(printerCtrl.updateAlias));
 router.post("/:name/refresh", asyncHandler(requireAuth), asyncHandler(printerCtrl.forceRefreshPrinter));
 router.post("/detect", asyncHandler(requireAuth), asyncHandler(printerCtrl.detectPrinters));
+router.get("/unconfigured", asyncHandler(requireAuth), asyncHandler(printerCtrl.getUnconfiguredPrinters));
 router.get("/detect-legacy", asyncHandler(requireAuth), asyncHandler(printerCtrl.detectLegacyPrinters));
 router.post("/configure", asyncHandler(requireAuth), asyncHandler(printerCtrl.configurePrinter));
 router.put("/:name/capabilities", asyncHandler(requireAuth), asyncHandler(printerCtrl.updateCapabilities));

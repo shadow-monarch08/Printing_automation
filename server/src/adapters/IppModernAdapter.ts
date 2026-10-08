@@ -57,7 +57,7 @@ export class IppModernAdapter implements IPrinterAdapter {
     const ippEndpoint = metadata?.ippUri || this.uri;
 
     // Direct binary IPP socket query using Get-Job-Attributes
-    if (ippEndpoint && ippEndpoint.startsWith("ipp://")) {
+    if (ippEndpoint && (ippEndpoint.startsWith("ipp://") || ippEndpoint.startsWith("ipps://"))) {
       try {
         const rawJobId = parseInt(jobId.split("-").pop() || jobId, 10);
         const printer = new (ipp as any).Printer(ippEndpoint);

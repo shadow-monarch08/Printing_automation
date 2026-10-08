@@ -92,10 +92,12 @@ export async function forceRefreshPrinter(req: Request, res: Response) {
   }
 }
 
-export async function detectLegacyPrinters(_req: Request, res: Response) {
+export async function getUnconfiguredPrinters(_req: Request, res: Response) {
   const devices = await printerService.getUnconfiguredPrinters();
   res.json({ success: true, devices });
 }
+
+export const detectLegacyPrinters = getUnconfiguredPrinters;
 
 export async function configurePrinter(req: Request, res: Response) {
   const { uri, rawModel } = req.body;
@@ -112,7 +114,19 @@ export async function configurePrinter(req: Request, res: Response) {
 
   const capabilities = await printerService.probePrinterCapabilities(queueName);
   const config = await printerService.getCapabilitiesConfig();
-  const printerType = uri.includes("ipp://") ? "ipp" : uri.startsWith("hp:/") ? "usb" : "usb";
+
+  const lowerUri = uri.toLowerCase();
+  let printerType = "usb";
+  if (
+    lowerUri.startsWith("ipp://") ||
+    lowerUri.startsWith("ipps://") ||
+    lowerUri.startsWith("dnssd://") ||
+    lowerUri.startsWith("mdns://")
+  ) {
+    printerType = "ipp";
+  } else if (lowerUri.startsWith("socket://") || lowerUri.startsWith("lpd://")) {
+    printerType = "network";
+  }
 
   if (!config[queueName]) {
     config[queueName] = { capabilities: capabilities, type: printerType, alias: rawModel };
