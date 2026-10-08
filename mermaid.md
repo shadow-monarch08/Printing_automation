@@ -45,6 +45,8 @@ sequenceDiagram
 
 ```
 
+---
+
 ```mermaid
 graph TD
     A["Kiosk Backend (Node.js)"] -->|"Universal lp command with standard flags\n-o ColorModel=Gray -o sides=two-sided-long-edge"| B["CUPS Spooler (cupsd)"]
@@ -60,4 +62,27 @@ graph TD
     D -->|"Emits HP PCL3GUI / PCL6 binary"| H["HP LaserJet (USB)"]
     E -->|"Emits PostScript/PJL"| I["Kyocera TASKalfa (LAN)"]
     F -->|"Emits RFC 8011 IPP Attributes"| J["Modern IPP Printer (Wi-Fi)"]
+```
+
+---
+
+```mermaid
+graph TD
+    A["Worker Polling Loop"] --> B["adapter.getJobStatus(printerName, cupsJobId)"]
+    
+    subgraph Truthful State Machine
+        B --> C{"Check Active Spooler<br/>lpstat -W not-completed -o printer"}
+        C -->|"Found in Queue"| D["Status: printing / processing / held"]
+        
+        C -->|"Not in Active Queue"| E{"Check Spooler History<br/>lpstat -W completed -o printer"}
+        E -->|"Found in Completed History"| F["Status: completed (CONFIRMED)"]
+        E -->|"Not in History or In Error Log"| G["Status: aborted / missing<br/>(FAIL WITH EXACT REASON)"]
+    end
+    
+    subgraph Worker Upgrades
+        H["Dynamic Timeout = Warmup(15s) + (Pages * 6s)"]
+        I["Active Cancellation reads job.data.cupsJobId"]
+        J["File cleanup ONLY when job.attemptsMade >= job.opts.attempts"]
+    end
+
 ```
