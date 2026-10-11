@@ -3,6 +3,7 @@ import { PrinterSupplyStatus } from "../app/types";
 import { systemCommands } from "../commands/system.commands";
 import { cupsCommands, PrintFileOptions } from "../commands/cups.commands";
 import * as printerService from "../app/services/printer.service";
+import { pingTcpPort, extractHostAndPort } from "../app/utils/network";
 
 /**
  * Strategy Adapter for Heavy-Duty Commercial Copiers & Network Printers:
@@ -12,16 +13,33 @@ export class SnmpNetworkAdapter implements IPrinterAdapter {
   constructor(private printerName: string, private uri: string) {}
 
   private extractIp(uri: string): string | null {
-    const match = uri.match(/(?:socket|lpd|ipp):\/\/([^/:]+)/);
-    return match ? match[1] : null;
+    const target = extractHostAndPort(uri);
+    return target ? target.host : null;
   }
 
+  /**
+   * Two-tier network health check:
+   * Tier 1: Fast TCP socket probe on Port 9100/515 (1.5s timeout) - works even if SNMP is disabled.
+   * Tier 2: Fallback SNMP walk on standard sysDescr OID.
+   */
   async healthCheck(): Promise<boolean> {
     try {
-      const ip = this.extractIp(this.uri);
-      if (!ip) return false;
-      await systemCommands.snmpWalk(ip, "1.3.6.1.2.1.1.1.0");
-      return true;
+      const target = extractHostAndPort(this.uri, 9100);
+      if (!target) return false;
+
+      // Tier 1: Fast TCP Socket Ping
+      const isPortAlive = await pingTcpPort(target.host, target.port, 1500);
+      if (isPortAlive) {
+        return true;
+      }
+
+      // Tier 2: SNMP sysDescr walk fallback
+      try {
+        await systemCommands.snmpWalk(target.host, "1.3.6.1.2.1.1.1.0");
+        return true;
+      } catch {
+        return false;
+      }
     } catch (error) {
       console.error(`[SnmpNetworkAdapter] Health check failed for ${this.uri}:`, error);
       return false;

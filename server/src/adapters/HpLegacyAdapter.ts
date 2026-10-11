@@ -8,10 +8,45 @@ import * as printerService from "../app/services/printer.service";
 export class HpLegacyAdapter implements IPrinterAdapter {
   constructor(private printerName: string, private uri: string) {}
 
+  /**
+   * Health check for HP legacy laser/inkjet printers:
+   * 1. Inspects CUPS status for disconnect ('unplugged or turned off').
+   * 2. Checks active presence in lpinfo -v for hp:/ or matching URI.
+   * 3. Checks lsusb for HP vendor (03f0 or Hewlett-Packard / HP, Inc) while rejecting mice/keyboards/webcams.
+   */
   async healthCheck(): Promise<boolean> {
     try {
+      // 1. CUPS status check
+      const statusRes = await cupsCommands.getPrinterStatusByName(this.printerName).catch(() => ({ stdout: "" }));
+      const lowerStatus = statusRes.stdout.toLowerCase();
+      if (lowerStatus.includes("unplugged or turned off")) {
+        return false;
+      }
+
+      // 2. Physical device check via lpinfo -v
+      const devRes = await cupsCommands.listDevices().catch(() => ({ stdout: "" }));
+      const lowerDevices = devRes.stdout.toLowerCase();
+      if (this.uri && lowerDevices.includes(this.uri.toLowerCase())) {
+        return true;
+      }
+      if (lowerDevices.includes("hp:/") || lowerDevices.includes("usb://hp/")) {
+        return true;
+      }
+
+      // 3. Fallback: lsusb with peripheral filtering
       const { stdout } = await systemCommands.checkUsbDevices();
-      return stdout.toLowerCase().includes("hewlett-packard") || stdout.toLowerCase().includes("hp");
+      const lines = stdout.split("\n");
+      for (const line of lines) {
+        const lower = line.toLowerCase();
+        if (lower.includes("mouse") || lower.includes("keyboard") || lower.includes("webcam") || lower.includes("root hub")) {
+          continue;
+        }
+        if (lower.includes("03f0:") || lower.includes("hewlett-packard") || lower.includes("hp, inc") || lower.includes("laserjet")) {
+          return true;
+        }
+      }
+
+      return false;
     } catch (error) {
       console.error(`[HpLegacyAdapter] Health check failed for ${this.printerName}:`, error);
       return false;

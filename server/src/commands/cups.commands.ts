@@ -213,6 +213,18 @@ export const cupsCommands = {
   getPrinterStatusByName: async (printerName: string) => {
     return runSecureCommand("lpstat", ["-p", printerName]);
   },
+
+  getPrinterDetailedStatus: async (printerName: string) => {
+    return runSecureCommand("lpstat", ["-p", printerName, "-l"]);
+  },
+
+  enablePrinter: async (printerName: string) => {
+    return runSecureCommand("cupsenable", [printerName]);
+  },
+
+  acceptJobs: async (printerName: string) => {
+    return runSecureCommand("cupsaccept", [printerName]);
+  },
   
   getPrinterOptions: async (printerName: string) => {
     return runSecureCommand("lpoptions", ["-p", printerName, "-l"]);

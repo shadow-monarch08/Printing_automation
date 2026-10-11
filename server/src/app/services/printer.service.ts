@@ -7,7 +7,7 @@ import { redisConnection } from "../../infrastructure/redis";
 import { REDIS_KEYS, REDIS_TTLS } from "../../infrastructure/redisKeys";
 import { eventBus } from "../utils/eventBus";
 import { PrinterFactory } from "../../factories/printer.factory";
-import { removePrinterFromAttemptedJobs } from "../../infrastructure/printMaster.queue";
+import { removePrinterFromAttemptedJobs, printMasterQueue, wakeUpDelayedJobs } from "../../infrastructure/printMaster.queue";
 import db from "../../infrastructure/database";
 import { PrinterInfo, PrinterSupplyStatus } from "../types";
 
@@ -491,15 +491,92 @@ export async function probePrinterCapabilities(queueName: string): Promise<strin
 }
 
 /**
- * Phase 1: Comprehensive Health Check
+ * Universal Supply & Marker Telemetry:
+ * Directly queries local CUPS (http://localhost:631/printers/<name>) via IPP RFC 8011
+ * to retrieve marker-levels, marker-names, and printer-state-reasons.
+ */
+export async function queryCupsPrinterMarkers(printerName: string): Promise<PrinterSupplyStatus | null> {
+  try {
+    const encodedName = encodeURIComponent(printerName);
+    const printer = new (ipp as any).Printer(`http://localhost:631/printers/${encodedName}`);
+    const msg = {
+      "operation-attributes-tag": {
+        "attributes-charset": "utf-8",
+        "attributes-natural-language": "en",
+        "printer-uri": `ipp://localhost:631/printers/${encodedName}`,
+        "requested-attributes": [
+          "marker-names",
+          "marker-levels",
+          "marker-colors",
+          "marker-types",
+          "printer-state-reasons",
+          "printer-state"
+        ]
+      }
+    };
+
+    const res: any = await new Promise((resolve, reject) => {
+      const timer = setTimeout(() => reject(new Error("Local IPP marker query timeout")), 3000);
+      printer.execute("Get-Printer-Attributes", msg, (err: any, data: any) => {
+        clearTimeout(timer);
+        if (err) return reject(err);
+        resolve(data);
+      });
+    });
+
+    const attrs = res?.["printer-attributes-tag"];
+    if (!attrs) return null;
+
+    const names: string[] = Array.isArray(attrs["marker-names"])
+      ? attrs["marker-names"]
+      : (attrs["marker-names"] ? [attrs["marker-names"]] : []);
+    const rawLevels: any = attrs["marker-levels"];
+    const levels: number[] = Array.isArray(rawLevels)
+      ? rawLevels.map((l: any) => typeof l === "number" ? l : parseInt(l, 10))
+      : (typeof rawLevels === "number" ? [rawLevels] : []);
+
+    let black: number | null = null;
+    const colorLevels: number[] = [];
+
+    for (let i = 0; i < levels.length; i++) {
+      const lvl = levels[i];
+      if (lvl < 0 || isNaN(lvl)) continue;
+      const name = (names[i] || "").toLowerCase();
+      if (name.includes("black") || name.includes("k") || (!name && i === 0)) {
+        black = lvl;
+      } else {
+        colorLevels.push(lvl);
+      }
+    }
+
+    const color = colorLevels.length > 0 ? Math.min(...colorLevels) : null;
+    const reasons = String(attrs["printer-state-reasons"] || "");
+    const paperEmpty = reasons.includes("media-empty") || reasons.includes("paper-empty");
+
+    if (black !== null || color !== null || paperEmpty) {
+      return {
+        paper: paperEmpty ? "empty" : "ready",
+        supplies: { black, color }
+      };
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Industrial-Grade Health Check & Self-Healing Engine:
+ * 1. Probes physical hardware/protocol adapter.
+ * 2. Self-heals quarantined printers (strikes >= 3 or health === "flagged") when device recovers.
+ * 3. Lock-guarded concurrency protection against overwriting active 'busy' jobs.
+ * 4. Hierarchical supplies telemetry with native CUPS marker fallback.
  */
 export async function runComprehensiveHealthCheck(name: string): Promise<void> {
   try {
-    const strikes = await redisConnection.get(REDIS_KEYS.printerStrikes(name));
-    if (parseInt(strikes || "0") >= 3) {
-      console.log(`[HealthCheck] Skipping ${name} — quarantined (${strikes} strikes)`);
-      return;
-    }
+    const strikesStr = await redisConnection.get(REDIS_KEYS.printerStrikes(name));
+    const strikes = parseInt(strikesStr || "0", 10);
+    const prevHealth = await redisConnection.get(REDIS_KEYS.printerHealth(name));
 
     const adapter = await PrinterFactory.getAdapter(name);
     if (!adapter) {
@@ -508,43 +585,86 @@ export async function runComprehensiveHealthCheck(name: string): Promise<void> {
       return;
     }
 
-    // 1. Digital Probe
+    // 1. Digital Hardware Probe via Protocol Adapter
     const isHealthy = await adapter.healthCheck();
     if (!isHealthy) {
       await redisConnection.set(REDIS_KEYS.printerHealth(name), "flagged");
       return;
     }
 
-    // 2. CUPS Status Check
+    // 2. Hardware is healthy! Attempt queue reactivation if previously quarantined or disabled
+    if (strikes >= 3 || prevHealth === "flagged") {
+      try {
+        await cupsCommands.enablePrinter(name);
+        await cupsCommands.acceptJobs(name);
+      } catch (err) {
+        console.warn(`[HealthCheck] Unable to re-enable CUPS queue for ${name}:`, err);
+      }
+    }
+
+    // 3. Inspect CUPS Queue Status
     const { stdout } = await cupsCommands.getPrinterStatusByName(name);
-    if (stdout.toLowerCase().includes("stopped") || stdout.toLowerCase().includes("rejecting")) {
+    const lowerStatus = stdout.toLowerCase();
+    if (lowerStatus.includes("stopped") || lowerStatus.includes("rejecting") || lowerStatus.includes("unplugged")) {
       await redisConnection.set(REDIS_KEYS.printerHealth(name), "flagged");
       return;
     }
 
-    const currentState = await redisConnection.get(REDIS_KEYS.printerState(name));
-    if (stdout.toLowerCase().includes("idle") && currentState === "busy") {
-      await redisConnection.set(REDIS_KEYS.printerState(name), "idle");
-    } else if (stdout.toLowerCase().includes("printing")) {
+    // 4. Concurrency & Lock Protection
+    const { stdout: activeJobsOut } = await cupsCommands.getActiveJobs(name).catch(() => ({ stdout: "" }));
+    const hasActiveJobs = activeJobsOut.trim().length > 0;
+
+    if (hasActiveJobs || lowerStatus.includes("printing")) {
       await redisConnection.set(REDIS_KEYS.printerState(name), "busy");
+    } else if (lowerStatus.includes("idle")) {
+      // Guarded: Never overwrite busy to idle if active spooler jobs exist
+      if (!hasActiveJobs) {
+        await redisConnection.set(REDIS_KEYS.printerState(name), "idle");
+      }
     }
 
-    // 3. Supplies Check
+    // 5. Hierarchical Supplies Check
     try {
-      const supplies = await adapter.getSupplies();
+      let supplies = await adapter.getSupplies();
+      // If adapter supplies returned null values, attempt native CUPS marker fallback
+      if (supplies.supplies.black === null && supplies.supplies.color === null) {
+        const cupsSupplies = await queryCupsPrinterMarkers(name);
+        if (cupsSupplies) {
+          supplies = cupsSupplies;
+        }
+      }
       await redisConnection.setex(REDIS_KEYS.supplies(name), REDIS_TTLS.SUPPLIES, JSON.stringify(supplies));
     } catch (suppliesErr) {
       console.warn(`[HealthCheck] Failed to get supplies for ${name}:`, suppliesErr);
     }
 
-    // 4. Finalize
-    const prevHealth = await redisConnection.get(REDIS_KEYS.printerHealth(name));
+    // 6. State & Quarantine Restoration (Self-Healing)
     await redisConnection.set(REDIS_KEYS.printerHealth(name), "healthy");
 
-    if (prevHealth !== "healthy") {
+    if (strikes > 0 || prevHealth !== "healthy") {
+      console.log(`[HealthCheck] Self-healing printer ${name}: resetting ${strikes} strikes.`);
+      await redisConnection.set(REDIS_KEYS.printerStrikes(name), "0");
       await removePrinterFromAttemptedJobs(name);
+
+      eventBus.emit("admin:printer:healed", {
+        printer: name,
+        message: `Printer ${name} successfully self-healed and returned to healthy status.`
+      });
+
+      // Circuit Breaker Recovery: If queue was paused because all printers were quarantined, auto-resume!
+      const isPaused = await printMasterQueue.isPaused();
+      if (isPaused) {
+        console.log(`[HealthCheck] Circuit breaker reset: Resuming global queue as ${name} is now healthy.`);
+        await printMasterQueue.resume();
+        eventBus.emit("system:queue:resumed", {
+          message: `Circuit breaker reset: Global queue resumed by healed printer ${name}.`,
+          printer: name
+        });
+        await wakeUpDelayedJobs();
+      }
     }
 
+    // 7. Sync printer metadata config
     const infoStr = await redisConnection.get(REDIS_KEYS.printerInfo(name)) || "{}";
     const info = JSON.parse(infoStr);
 

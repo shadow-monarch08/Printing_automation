@@ -46,3 +46,15 @@ export async function removePrinterFromAttemptedJobs(printerName: string): Promi
     console.error(`[Queue] Failed to remove ${printerName} from attempted jobs:`, err);
   }
 }
+
+export async function wakeUpDelayedJobs(): Promise<void> {
+  try {
+    const delayedJobs = await printMasterQueue.getDelayed();
+    for (const delayedJob of delayedJobs) {
+      console.log(`[Queue] Printer available! Promoting delayed job ${delayedJob.id} back to active.`);
+      await delayedJob.promote();
+    }
+  } catch (error) {
+    console.error("[Queue] Failed to promote delayed jobs:", error);
+  }
+}

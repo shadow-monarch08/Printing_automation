@@ -1,7 +1,7 @@
 import { Worker, Job, DelayedError } from "bullmq";
 import { redisConnection } from "./redis";
 import { REDIS_KEYS } from "./redisKeys";
-import { PrintJobData, printMasterQueue } from "./printMaster.queue";
+import { PrintJobData, printMasterQueue, wakeUpDelayedJobs } from "./printMaster.queue";
 import * as printerService from "../app/services/printer.service";
 import * as matchmakerService from "../app/services/matchmaker.service";
 import { eventBus } from "../app/utils/eventBus";
@@ -134,22 +134,6 @@ export const printMasterWorker = new Worker<PrintJobData>(
   }
 );
 
-
-// --- WAKE UP FUNCTION ---
-const wakeUpDelayedJobs = async () => {
-  try {
-    // Grab all jobs sitting in the 15-second penalty box
-    const delayedJobs = await printMasterQueue.getDelayed();
-    
-    for (const delayedJob of delayedJobs) {
-      console.log(`[Queue] Printer freed! Promoting delayed job ${delayedJob.id} back to active.`);
-      // This instantly moves the job from 'delayed' back to 'waiting'
-      await delayedJob.promote(); 
-    }
-  } catch (error) {
-    console.error("[Queue] Failed to promote delayed jobs", error);
-  }
-};
 
 // --- EVENT LISTENERS ---
 

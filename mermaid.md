@@ -86,3 +86,34 @@ graph TD
     end
 
 ```
+
+---
+
+```mermaid
+flowchart TD
+    subgraph PeriodicSweep ["Heartbeat Sweep (Every 5 Minutes / On-Demand)"]
+        SWEEP[Fetch Fleet Printers] --> LOOP[For Each Printer]
+    end
+
+    subgraph HealthProbe ["Deterministic Diagnostic Probe"]
+        LOOP --> URI_CHECK["1. Device Port & URI Validation\nVerify URI exists in lpstat -v & USB bus"]
+        URI_CHECK --> CUPS_CHECK["2. CUPS Queue State\nCheck for 'paused', 'rejecting', 'unplugged'"]
+        CUPS_CHECK --> ADAPTER_CHECK["3. Protocol Probe\nSNMP walk / IPP probe / USB descriptor"]
+    end
+
+    subgraph Healing ["Self-Healing & Quarantine Engine"]
+        ADAPTER_CHECK --> IS_QUARANTINED{Strikes >= 3?}
+        IS_QUARANTINED -->|Yes & Passed Probe| HEAL["Self-Heal Printer:\n• Reset strikes to 0\n• Mark healthy & idle\n• Emit admin:printer:healed"]
+        IS_QUARANTINED -->|Yes & Failed Probe| KEEP_Q[Keep Quarantined]
+        IS_QUARANTINED -->|No & Passed Probe| MARK_H[Mark Healthy]
+        IS_QUARANTINED -->|No & Failed Probe| INCR[Mark Flagged]
+        
+        HEAL --> RESUME_CHECK{"Queue Paused by\nCircuit Breaker?"}
+        RESUME_CHECK -->|Yes| RESUME_QUEUE["Auto-Resume Queue &\nPromote Waiting Jobs"]
+    end
+
+    subgraph Telemetry ["Universal Supply Telemetry"]
+        MARK_H --> SUPPLIES["Resolve Supplies Hierarchically:\n1. Strategy Adapter (SNMP/HPLIP)\n2. Native CUPS marker-levels\n3. Cache in Redis with TTL"]
+    end
+
+```

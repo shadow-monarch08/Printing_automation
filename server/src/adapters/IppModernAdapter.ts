@@ -7,13 +7,65 @@ import ipp from "ipp";
 export class IppModernAdapter implements IPrinterAdapter {
   constructor(private printerName: string, private uri: string) {}
 
+  /**
+   * Two-tier IPP health check:
+   * Tier 1: Direct binary IPP Get-Printer-Attributes query (3s timeout).
+   * Tier 2: Fallback to CUPS queue status / ipptool probe.
+   */
   async healthCheck(): Promise<boolean> {
+    // Tier 1: Direct binary IPP socket query
+    if (this.uri && (this.uri.startsWith("ipp://") || this.uri.startsWith("ipps://"))) {
+      try {
+        const printer = new (ipp as any).Printer(this.uri);
+        const msg = {
+          "operation-attributes-tag": {
+            "attributes-charset": "utf-8",
+            "attributes-natural-language": "en",
+            "printer-uri": this.uri,
+            "requested-attributes": ["printer-state", "printer-state-reasons"]
+          }
+        };
+
+        const res: any = await new Promise((resolve, reject) => {
+          const timer = setTimeout(() => reject(new Error("IPP Probe timeout")), 3000);
+          printer.execute("Get-Printer-Attributes", msg, (err: any, data: any) => {
+            clearTimeout(timer);
+            if (err) return reject(err);
+            resolve(data);
+          });
+        });
+
+        const attrs = res?.["printer-attributes-tag"];
+        if (attrs) {
+          const state = attrs["printer-state"];
+          const reasons = String(attrs["printer-state-reasons"] || "");
+          if (state === 5 || reasons.includes("offline-report")) {
+            return false;
+          }
+          return true;
+        }
+      } catch {
+        // Fall through to CUPS status & CLI probe
+      }
+    }
+
+    // Tier 2: Check CUPS queue status
     try {
-      await cupsCommands.probeIppPrinter(this.uri);
+      const { stdout } = await cupsCommands.getPrinterStatusByName(this.printerName);
+      const lower = stdout.toLowerCase();
+      if (lower.includes("unplugged or turned off") || lower.includes("disabled") || lower.includes("stopped")) {
+        return false;
+      }
       return true;
-    } catch (error) {
-      console.error(`[IppModernAdapter] Health check failed for ${this.uri}:`, error);
-      return false;
+    } catch {
+      // Tier 3: ipptool probe fallback
+      try {
+        await cupsCommands.probeIppPrinter(this.uri);
+        return true;
+      } catch (error) {
+        console.error(`[IppModernAdapter] Health check failed for ${this.uri}:`, error);
+        return false;
+      }
     }
   }
 

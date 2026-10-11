@@ -12,29 +12,57 @@ export class CupsUsbRasterAdapter implements IPrinterAdapter {
   constructor(private printerName: string, private uri: string) {}
 
   /**
-   * Health check verifies that a USB printer from the matching vendor/family is present on the bus.
-   * Prevents false positives from non-printer USB peripherals (mice, keyboards, dongles).
+   * Multi-tier hardware health check:
+   * 1. Inspects CUPS queue status for hardware disconnect flags ('unplugged or turned off').
+   * 2. Checks active device presence in lpinfo -v for matching URI.
+   * 3. Probes lsusb filtering out mice, keyboards, and non-printer USB peripherals.
    */
   async healthCheck(): Promise<boolean> {
     try {
+      // 1. Check CUPS queue status
+      const statusRes = await cupsCommands.getPrinterStatusByName(this.printerName).catch(() => ({ stdout: "" }));
+      const lowerStatus = statusRes.stdout.toLowerCase();
+      if (lowerStatus.includes("unplugged or turned off")) {
+        return false;
+      }
+
+      // 2. Check CUPS physical device presence via lpinfo -v
+      const devRes = await cupsCommands.listDevices().catch(() => ({ stdout: "" }));
+      if (this.uri && devRes.stdout.toLowerCase().includes(this.uri.toLowerCase())) {
+        return true;
+      }
+
+      // 3. Fallback: Check physical USB bus presence via lsusb, filtering out non-printer peripherals
       const { stdout } = await systemCommands.checkUsbDevices();
-      const lower = stdout.toLowerCase();
+      const lines = stdout.split("\n");
       const lowerUri = this.uri.toLowerCase();
       const lowerName = this.printerName.toLowerCase();
 
-      // Extract vendor hint from URI or printer name
       const isEpson = lowerUri.includes("epson") || lowerName.includes("epson");
       const isCanon = lowerUri.includes("canon") || lowerName.includes("canon");
       const isBrother = lowerUri.includes("brother") || lowerName.includes("brother");
       const isPantum = lowerUri.includes("pantum") || lowerName.includes("pantum");
 
-      if (isEpson) return lower.includes("epson") || lower.includes("seiko epson");
-      if (isCanon) return lower.includes("canon");
-      if (isBrother) return lower.includes("brother");
-      if (isPantum) return lower.includes("pantum");
+      for (const line of lines) {
+        const lower = line.toLowerCase();
+        // Ignore non-printer peripherals (mice, keyboards, webcams, hubs)
+        if (lower.includes("mouse") || lower.includes("keyboard") || lower.includes("webcam") || lower.includes("root hub")) {
+          continue;
+        }
 
-      // Generic printer class check or non-empty presence
-      return lower.includes("printer") || lower.includes("print") || stdout.trim().length > 0;
+        if (isEpson && (lower.includes("epson") || lower.includes("04b8:"))) return true;
+        if (isCanon && (lower.includes("canon") || lower.includes("04a9:"))) return true;
+        if (isBrother && (lower.includes("brother") || lower.includes("04f9:"))) return true;
+        if (isPantum && (lower.includes("pantum") || lower.includes("232b:"))) return true;
+
+        if (!isEpson && !isCanon && !isBrother && !isPantum) {
+          if (lower.includes("printer") || lower.includes("print") || lower.includes("class 07") || lower.includes("ieee-1284")) {
+            return true;
+          }
+        }
+      }
+
+      return false;
     } catch (error) {
       console.error(`[CupsUsbRasterAdapter] Health check failed for ${this.printerName}:`, error);
       return false;
