@@ -1,8 +1,6 @@
 import { cupsCommands, PrintFileOptions } from "../../commands/cups.commands";
 import ipp from "ipp";
 import { JobPollStatus } from "../../adapters/IPrinterAdapter";
-import fs from "fs/promises";
-import path from "path";
 import { redisConnection } from "../../infrastructure/redis";
 import { REDIS_KEYS, REDIS_TTLS } from "../../infrastructure/redisKeys";
 import { eventBus } from "../utils/eventBus";
@@ -11,49 +9,176 @@ import { removePrinterFromAttemptedJobs, printMasterQueue, wakeUpDelayedJobs } f
 import db from "../../infrastructure/database";
 import { PrinterInfo, PrinterSupplyStatus } from "../types";
 
-const capabilitiesPath = path.resolve(__dirname, "../../config/capabilities.json");
+export interface PrinterRecord {
+  id: string;
+  alias: string | null;
+  capabilities: string[];
+  ipp_uri: string | null;
+  type: string;
+  capabilities_source: "auto" | "manual";
+  added_at: string;
+}
 
-export async function getCapabilitiesConfig(): Promise<any> {
+export function getPrinterFromDB(id: string): PrinterRecord | null {
   try {
-    const data = await fs.readFile(capabilitiesPath, "utf-8");
-    return JSON.parse(data);
-  } catch {
-    return {};
+    const row = db.prepare(`SELECT * FROM printers WHERE id = ?`).get(id) as any;
+    if (!row) return null;
+    let capabilities: string[] = [];
+    try {
+      if (row.capabilities) {
+        capabilities = JSON.parse(row.capabilities);
+      }
+    } catch {
+      capabilities = [];
+    }
+    return {
+      id: row.id,
+      alias: row.alias || null,
+      capabilities: Array.isArray(capabilities) ? capabilities : [],
+      ipp_uri: row.ipp_uri || null,
+      type: row.type || "unknown",
+      capabilities_source: row.capabilities_source === "manual" ? "manual" : "auto",
+      added_at: row.added_at,
+    };
+  } catch (err) {
+    console.error(`[getPrinterFromDB] Failed to query printer ${id}:`, err);
+    return null;
   }
 }
 
-export async function updateCapabilitiesConfig(newConfig: any): Promise<void> {
-  await fs.writeFile(capabilitiesPath, JSON.stringify(newConfig, null, 2), "utf-8");
+export function getAllPrintersFromDB(): PrinterRecord[] {
+  try {
+    const rows = db.prepare(`SELECT * FROM printers`).all() as any[];
+    return rows.map((row) => {
+      let capabilities: string[] = [];
+      try {
+        if (row.capabilities) {
+          capabilities = JSON.parse(row.capabilities);
+        }
+      } catch {
+        capabilities = [];
+      }
+      return {
+        id: row.id,
+        alias: row.alias || null,
+        capabilities: Array.isArray(capabilities) ? capabilities : [],
+        ipp_uri: row.ipp_uri || null,
+        type: row.type || "unknown",
+        capabilities_source: row.capabilities_source === "manual" ? "manual" : "auto",
+        added_at: row.added_at,
+      };
+    });
+  } catch (err) {
+    console.error(`[getAllPrintersFromDB] Failed to query printers:`, err);
+    return [];
+  }
 }
 
-export function upsertPrinterToDB(id: string, alias?: string, capabilities?: string[], ippUri?: string): void {
+export function deletePrinterFromDB(id: string): void {
+  try {
+    db.prepare(`DELETE FROM printers WHERE id = ?`).run(id);
+  } catch (err) {
+    console.error(`[deletePrinterFromDB] Failed to delete printer ${id}:`, err);
+  }
+}
+
+export function upsertPrinterToDB(
+  id: string,
+  alias?: string | null,
+  capabilities?: string[] | null,
+  ippUri?: string | null,
+  type?: string | null,
+  capabilitiesSource?: "auto" | "manual" | null
+): void {
+  const existing = getPrinterFromDB(id);
+
+  // Admin Manual Override Immunity:
+  // If the existing record is 'manual' and this caller did not explicitly specify 'manual',
+  // preserve existing manual capabilities and manual source!
+  let finalCapabilities = capabilities;
+  let finalSource = capabilitiesSource;
+
+  if (existing && existing.capabilities_source === "manual" && capabilitiesSource !== "manual") {
+    finalCapabilities = existing.capabilities;
+    finalSource = "manual";
+  }
+
   const stmt = db.prepare(`
-    INSERT INTO printers (id, alias, capabilities, ipp_uri, added_at)
-    VALUES (?, ?, ?, ?, datetime('now'))
+    INSERT INTO printers (id, alias, capabilities, ipp_uri, type, capabilities_source, added_at)
+    VALUES (?, ?, ?, ?, ?, ?, datetime('now'))
     ON CONFLICT(id) DO UPDATE SET
       alias = COALESCE(?, alias),
       capabilities = COALESCE(?, capabilities),
-      ipp_uri = COALESCE(?, ipp_uri)
+      ipp_uri = COALESCE(?, ipp_uri),
+      type = COALESCE(?, type),
+      capabilities_source = COALESCE(?, capabilities_source)
   `);
+
+  const capsJson = finalCapabilities ? JSON.stringify(finalCapabilities) : null;
+  const safeSource = finalSource || null;
+  const safeType = type || null;
+  const safeAlias = alias || null;
+  const safeUri = ippUri || null;
+
   stmt.run(
     id,
-    alias || null,
-    capabilities ? JSON.stringify(capabilities) : null,
-    ippUri || null,
-    alias || null,
-    capabilities ? JSON.stringify(capabilities) : null,
-    ippUri || null
+    safeAlias,
+    capsJson,
+    safeUri,
+    safeType || "unknown",
+    safeSource || "auto",
+    // Conflict updates:
+    safeAlias,
+    capsJson,
+    safeUri,
+    safeType,
+    safeSource
   );
 }
 
-export async function updateAlias(printerName: string, alias: string): Promise<void> {
-  const config = await getCapabilitiesConfig();
-  if (!config[printerName]) {
-    config[printerName] = { capabilities: [], type: "unknown" };
+export async function getCapabilitiesConfig(): Promise<any> {
+  const records = getAllPrintersFromDB();
+  const config: Record<string, { capabilities: string[]; type: string; alias?: string; capabilities_source: string }> = {};
+  for (const r of records) {
+    config[r.id] = {
+      capabilities: r.capabilities,
+      type: r.type,
+      alias: r.alias || undefined,
+      capabilities_source: r.capabilities_source,
+    };
   }
-  config[printerName].alias = alias;
-  await updateCapabilitiesConfig(config);
-  upsertPrinterToDB(printerName, alias, config[printerName].capabilities);
+  return config;
+}
+
+export async function updateCapabilitiesConfig(newConfig: any): Promise<void> {
+  if (!newConfig || typeof newConfig !== "object") return;
+  for (const [id, val] of Object.entries(newConfig) as [string, any][]) {
+    upsertPrinterToDB(
+      id,
+      val.alias,
+      val.capabilities,
+      undefined,
+      val.type,
+      val.capabilities_source
+    );
+  }
+}
+
+export async function updateAlias(printerName: string, alias: string): Promise<void> {
+  const existing = getPrinterFromDB(printerName);
+  upsertPrinterToDB(
+    printerName,
+    alias,
+    existing?.capabilities || [],
+    existing?.ipp_uri,
+    existing?.type,
+    existing?.capabilities_source
+  );
+  const infoRaw = (await redisConnection.get(REDIS_KEYS.printerInfo(printerName))) || "{}";
+  let info: any = {};
+  try { info = JSON.parse(infoRaw); } catch {}
+  info.alias = alias;
+  await redisConnection.set(REDIS_KEYS.printerInfo(printerName), JSON.stringify(info));
 }
 
 export async function detectPrinters(): Promise<string[]> {
@@ -82,21 +207,22 @@ export async function listPrintersFromCUPS(): Promise<PrinterInfo[]> {
 
     const printers: PrinterInfo[] = [];
     const lines = stdout.split("\n").filter(Boolean);
-    const capabilities = await getCapabilitiesConfig();
+    const dbPrinters = getAllPrintersFromDB();
+    const dbMap = new Map(dbPrinters.map(p => [p.id, p]));
 
     for (const line of lines) {
       // Case-insensitive match to handle different CUPS/locale output formats
       const match = line.match(/^printer\s+(\S+)\s+(.*)/i);
       if (match) {
         const name = match[1];
-        const caps = capabilities[name] || {};
+        const record = dbMap.get(name);
         printers.push({
           name,
           description: match[2],
           status: line.toLowerCase().includes("idle") ? "idle" : "busy",
-          alias: caps.alias,
-          capabilities: caps.capabilities || [],
-          type: caps.type,
+          alias: record?.alias || undefined,
+          capabilities: record?.capabilities || [],
+          type: record?.type || "unknown",
         });
       }
     }
@@ -118,19 +244,20 @@ export async function listPrintersFromCUPS(): Promise<PrinterInfo[]> {
     if (stdout) {
       const printers: PrinterInfo[] = [];
       const lines = stdout.split("\n").filter(Boolean);
-      const capabilities = await getCapabilitiesConfig();
+      const dbPrinters = getAllPrintersFromDB();
+      const dbMap = new Map(dbPrinters.map(p => [p.id, p]));
       for (const line of lines) {
         const match = line.match(/^printer\s+(\S+)\s+(.*)/i);
         if (match) {
           const name = match[1];
-          const caps = capabilities[name] || {};
+          const record = dbMap.get(name);
           printers.push({
             name,
             description: match[2],
             status: line.toLowerCase().includes("idle") ? "idle" : "busy",
-            alias: caps.alias,
-            capabilities: caps.capabilities || [],
-            type: caps.type,
+            alias: record?.alias || undefined,
+            capabilities: record?.capabilities || [],
+            type: record?.type || "unknown",
           });
         }
       }
@@ -173,12 +300,21 @@ export async function listPrinters(): Promise<PrinterInfo[]> {
       if (health === "flagged") status = "error";
       else if (state === "busy") status = "busy";
 
+      // If capabilities missing in Redis, fall back to SQLite
+      let caps: string[] = info.capabilities || [];
+      if (!caps || caps.length === 0) {
+        const dbRecord = getPrinterFromDB(name);
+        if (dbRecord && dbRecord.capabilities.length > 0) {
+          caps = dbRecord.capabilities;
+        }
+      }
+
       printers.push({
         name,
         description: info.description || name,
         status,
         alias: info.alias,
-        capabilities: info.capabilities || [],
+        capabilities: caps,
         type: info.type || "unknown",
         paper: supplies?.paper || 'unknown',
         supplyBlack: supplies?.supplies?.black ?? null,
@@ -462,32 +598,203 @@ export async function getUnconfiguredPrinters(): Promise<DiscoveredDevice[]> {
 
 
 /**
- * Phase 6: Probe printer capabilities using lpoptions -l.
+ * 5-Tier Fallback Cascade for Capability Discovery:
+ * Tier 1: Native IPP (RFC 8011) query to http://localhost:631/printers/<name>
+ * Tier 2: Universal Vendor PPD Parser (lpoptions -p <name> -l)
+ * Tier 3: Physical Marker Telemetry Cross-Validation (queryCupsPrinterMarkers)
+ * Tier 4: Hardware Model & URI Pattern Heuristics
+ * Tier 5: Safe Baseline Fallback (['grayscale', 'a4'])
  */
-export async function probePrinterCapabilities(queueName: string): Promise<string[]> {
-  const capabilities: string[] = [];
+export async function probePrinterCapabilities(
+  queueName: string,
+  modelHint?: string,
+  uriHint?: string
+): Promise<string[]> {
+  const capabilities = new Set<string>();
+
+  let colorDetermined = false;
+  let duplexDetermined = false;
+
+  // --- TIER 1: Native Local IPP (RFC 8011) Query ---
   try {
-    const { stdout } = await cupsCommands.getPrinterOptions(queueName);
+    const encodedName = encodeURIComponent(queueName);
+    const printer = new (ipp as any).Printer(`http://localhost:631/printers/${encodedName}`);
+    const msg = {
+      "operation-attributes-tag": {
+        "attributes-charset": "utf-8",
+        "attributes-natural-language": "en",
+        "printer-uri": `ipp://localhost:631/printers/${encodedName}`,
+        "requested-attributes": [
+          "color-supported",
+          "print-color-mode-supported",
+          "sides-supported",
+          "media-supported",
+          "media-default",
+        ],
+      },
+    };
 
-    // Look for keywords in lpoptions -l output
-    // Example: "ColorModel/Color Mode: *Gray RGB" -> has color if RGB is present
-    // "Duplex/Two-Sided Printing: None *DuplexNoTumble DuplexTumble" -> has duplex
+    const res: any = await new Promise((resolve, reject) => {
+      const timer = setTimeout(() => reject(new Error("IPP capability query timeout")), 2500);
+      printer.execute("Get-Printer-Attributes", msg, (err: any, data: any) => {
+        clearTimeout(timer);
+        if (err) return reject(err);
+        resolve(data);
+      });
+    });
 
-    if (stdout.match(/ColorModel.*RGB/i) || stdout.match(/ColorModel.*CMYK/i) || stdout.match(/ColorModel.*Color/i)) {
-      capabilities.push("color");
-    } else if (stdout.match(/ColorModel/i)) {
-      capabilities.push("grayscale");
+    const attrs = res?.["printer-attributes-tag"];
+    if (attrs) {
+      // Color support
+      const colorSupported = attrs["color-supported"];
+      const colorModes = Array.isArray(attrs["print-color-mode-supported"])
+        ? attrs["print-color-mode-supported"]
+        : (attrs["print-color-mode-supported"] ? [attrs["print-color-mode-supported"]] : []);
+
+      if (colorSupported === true || colorSupported === 1 || colorModes.some((m: string) => /color|rgb/i.test(String(m)))) {
+        capabilities.add("color");
+        colorDetermined = true;
+      } else if (colorSupported === false || colorSupported === 0 || colorModes.some((m: string) => /monochrome|gray/i.test(String(m)))) {
+        capabilities.add("grayscale");
+        colorDetermined = true;
+      }
+
+      // Duplex support
+      const sides = Array.isArray(attrs["sides-supported"])
+        ? attrs["sides-supported"]
+        : (attrs["sides-supported"] ? [attrs["sides-supported"]] : []);
+
+      if (sides.some((s: string) => /two-sided/i.test(String(s)))) {
+        capabilities.add("duplex");
+        duplexDetermined = true;
+      }
     }
-
-    if (stdout.match(/Duplex/i)) {
-      capabilities.push("duplex");
-    }
-
-    console.log(`[probePrinterCapabilities] Probed ${queueName}:`, capabilities);
-  } catch (err) {
-    console.warn(`[probePrinterCapabilities] Failed to probe ${queueName}:`, err);
+  } catch {
+    // Local IPP query unavailable, fall through to Tier 2
   }
-  return capabilities;
+
+  // --- TIER 2: Universal Vendor PPD Parser (lpoptions -p <name> -l) ---
+  if (!colorDetermined || !duplexDetermined) {
+    try {
+      const { stdout } = await cupsCommands.getPrinterOptions(queueName);
+      if (stdout && stdout.trim().length > 0) {
+        const lines = stdout.split("\n");
+
+        for (const line of lines) {
+          const colonIdx = line.indexOf(":");
+          if (colonIdx === -1) continue;
+          const optKey = line.substring(0, colonIdx).trim().toLowerCase();
+          const optValues = line.substring(colonIdx + 1).trim();
+
+          // Color detection across vendor PPD specifications:
+          // - Standard CUPS: ColorModel/Color Mode: *Gray RGB / CMYK
+          // - IPP Everywhere: print-color-mode/Color Mode: monochrome *color
+          // - Brother: BRColor/Color: *Color Mono
+          // - Canon: CNColorMode/Color Mode: *Color Mono
+          // - HP: HPColorMode/Color Mode: *Color Grayscale
+          if (!colorDetermined) {
+            const isColorOption = (
+              optKey.startsWith("colormodel") ||
+              optKey.startsWith("print-color-mode") ||
+              optKey.startsWith("brcolor") ||
+              optKey.startsWith("cncolormode") ||
+              optKey.startsWith("hpcolormode")
+            );
+
+            if (isColorOption) {
+              // Inspect ONLY the choices after the colon, avoiding false positives on label text
+              if (/(?:RGB|CMYK|\bColor\b)/i.test(optValues)) {
+                capabilities.add("color");
+                colorDetermined = true;
+              } else if (/(?:Gray|Black|Mono|Grayscale)/i.test(optValues)) {
+                capabilities.add("grayscale");
+                colorDetermined = true;
+              }
+            }
+          }
+
+          // Duplex detection across vendor PPD specifications:
+          // - Standard CUPS: Duplex/Two-Sided Printing: None *DuplexNoTumble DuplexTumble
+          // - IPP Everywhere: sides/Sides: one-sided *two-sided-long-edge
+          // - Brother: BRDuplex/Duplex: *Duplex None
+          // - Canon: CNDuplex/Duplex: *Duplex None
+          // - Ricoh / Sharp / Konica: JCLDuplex/Duplex: *Duplex None
+          if (!duplexDetermined) {
+            const isDuplexOption = (
+              optKey.startsWith("duplex") ||
+              optKey.startsWith("sides") ||
+              optKey.startsWith("brduplex") ||
+              optKey.startsWith("cnduplex") ||
+              optKey.startsWith("jclduplex")
+            );
+
+            if (isDuplexOption) {
+              if (/(?:DuplexNoTumble|DuplexTumble|TwoSided|two-sided|\bYes\b|\bDuplex\b)/i.test(optValues)) {
+                capabilities.add("duplex");
+                duplexDetermined = true;
+              }
+            }
+          }
+        }
+      }
+    } catch {
+      // lpoptions unavailable
+    }
+  }
+
+  // --- TIER 3: Physical Marker Telemetry Cross-Validation ---
+  if (!colorDetermined) {
+    try {
+      const markers = await queryCupsPrinterMarkers(queueName);
+      if (markers && markers.supplies && markers.supplies.color !== null && markers.supplies.color !== undefined) {
+        capabilities.add("color");
+        colorDetermined = true;
+      }
+    } catch {
+      // Marker telemetry unavailable
+    }
+  }
+
+  // --- TIER 4: Hardware Model & URI Pattern Heuristics ---
+  const combinedContext = `${queueName} ${modelHint || ""} ${uriHint || ""}`.toLowerCase();
+
+  if (!colorDetermined) {
+    const isKnownColorFamily = /ecotank|megatank|smart tank|deskjet|inkjet|pixma|color laser|colorlaser|l3150|l3250|g2010|g3010/i.test(combinedContext);
+    const isKnownMonochromeFamily = /laserjet|laser|p1102|1020|m1005|hl-1210|hl-l23|dcp-l|mfc-l|hl-l|mono/i.test(combinedContext);
+
+    if (isKnownColorFamily) {
+      capabilities.add("color");
+      colorDetermined = true;
+    } else if (isKnownMonochromeFamily) {
+      capabilities.add("grayscale");
+      colorDetermined = true;
+    }
+  }
+
+  if (!duplexDetermined) {
+    // Model suffix indicating auto-duplex:
+    // Suffixes: -d, -dn, -dw, or digit followed by d/dn/dw (e.g. 2540dn, 404dw, 2520d), or keywords duplex, two-sided
+    const isKnownDuplexModel = /(?:[-_\s]d[wn]?\b|\d+d[wn]?\b|duplex|two-sided)/i.test(combinedContext) ||
+      /m402d[nw]|m404d[nw]|l2540d[nw]|l2520d|l2350d[nw]|c3000d[nw]/i.test(combinedContext);
+
+    if (isKnownDuplexModel) {
+      capabilities.add("duplex");
+      duplexDetermined = true;
+    }
+  }
+
+  // --- TIER 5: Safe Baseline Fallback ---
+  // Standard kiosk document format is A4
+  capabilities.add("a4");
+
+  // If neither color nor grayscale was determined, safe default to grayscale
+  if (!capabilities.has("color") && !capabilities.has("grayscale")) {
+    capabilities.add("grayscale");
+  }
+
+  const result = Array.from(capabilities);
+  console.log(`[probePrinterCapabilities] Probed ${queueName} (${result.join(", ")}): colorDetermined=${colorDetermined}, duplexDetermined=${duplexDetermined}`);
+  return result;
 }
 
 /**
@@ -665,18 +972,17 @@ export async function runComprehensiveHealthCheck(name: string): Promise<void> {
     }
 
     // 7. Sync printer metadata config
-    const infoStr = await redisConnection.get(REDIS_KEYS.printerInfo(name)) || "{}";
-    const info = JSON.parse(infoStr);
+    const infoStr = (await redisConnection.get(REDIS_KEYS.printerInfo(name))) || "{}";
+    let info: any = {};
+    try { info = JSON.parse(infoStr); } catch {}
 
-    const capabilities = await getCapabilitiesConfig();
-    const caps = capabilities[name] || {};
-
+    const dbRecord = getPrinterFromDB(name);
     const newInfo = {
       ...info,
       name,
-      alias: caps.alias,
-      capabilities: caps.capabilities || [],
-      type: caps.type || "unknown"
+      alias: dbRecord?.alias || info.alias,
+      capabilities: dbRecord?.capabilities && dbRecord.capabilities.length > 0 ? dbRecord.capabilities : (info.capabilities || []),
+      type: dbRecord?.type || info.type || "unknown"
     };
     await redisConnection.set(REDIS_KEYS.printerInfo(name), JSON.stringify(newInfo));
 
@@ -704,14 +1010,37 @@ export async function startHeartbeatLoop(): Promise<void> {
       }
 
       for (const p of printers) {
-        // Save description
-        const infoStr = await redisConnection.get(REDIS_KEYS.printerInfo(p.name)) || "{}";
-        const info = JSON.parse(infoStr);
-        info.description = p.description;
+        // Read existing record from SQLite
+        const dbRecord = getPrinterFromDB(p.name);
+        let currentCapabilities = dbRecord?.capabilities || p.capabilities || [];
+        const isManual = dbRecord?.capabilities_source === "manual";
+
+        // If unprofiled or empty AND not manually configured, probe hardware!
+        if ((!currentCapabilities || currentCapabilities.length === 0) && !isManual) {
+          const deviceUri = await PrinterFactory.getDeviceUri(p.name);
+          currentCapabilities = await probePrinterCapabilities(p.name, p.description, deviceUri || undefined);
+        }
+
+        // Save description and metadata to Redis
+        const infoStr = (await redisConnection.get(REDIS_KEYS.printerInfo(p.name))) || "{}";
+        let info: any = {};
+        try { info = JSON.parse(infoStr); } catch {}
+        info.name = p.name;
+        info.description = p.description || info.description || p.name;
+        info.alias = dbRecord?.alias || p.alias || info.alias;
+        info.type = dbRecord?.type || p.type || info.type || "unknown";
+        info.capabilities = currentCapabilities;
         await redisConnection.set(REDIS_KEYS.printerInfo(p.name), JSON.stringify(info));
 
-        // Sync with SQLite Database
-        upsertPrinterToDB(p.name, p.alias, p.capabilities);
+        // Sync with SQLite Database (preserving manual source if set)
+        upsertPrinterToDB(
+          p.name,
+          info.alias,
+          currentCapabilities,
+          dbRecord?.ipp_uri,
+          info.type,
+          isManual ? "manual" : "auto"
+        );
 
         // Track previous health and state
         const prevHealth = await redisConnection.get(REDIS_KEYS.printerHealth(p.name));

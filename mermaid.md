@@ -117,3 +117,37 @@ flowchart TD
     end
 
 ```
+
+---
+
+```mermaid
+flowchart TD
+    subgraph Storage ["Single Source of Truth (Pure SQLite WAL + Redis)"]
+        SQLITE[("SQLite (printers table)\n• id (queueName)\n• alias\n• capabilities (JSON array)\n• ipp_uri\n• type (usb/ipp/network)\n• capabilities_source (auto | manual)\n• added_at")]
+        REDIS[("Redis Cache\n• FLEET_PRINTERS\n• printerInfo (caps, alias, type)\n• printerState, health, supplies")]
+        DEPRECATED["❌ capabilities.json\n(Permanently Deleted)"]
+    end
+
+    subgraph Probing ["5-Tier Capability Discovery Cascade"]
+        T1["Tier 1: Native Local IPP (RFC 8011)\nhttp://localhost:631/printers/name\n• color-supported\n• sides-supported\n• media-supported"]
+        T2["Tier 2: Universal Vendor PPD Parser\nlpoptions -p name -l (colon-split value inspection)\n• IPP Everywhere (print-color-mode, sides)\n• Brother (BRColor, BRDuplex)\n• Canon (CNColorMode, CNDuplex)\n• HP HPLIP (HPColorMode)\n• Copiers (JCLDuplex)"]
+        T3["Tier 3: Marker Telemetry Validation\n• Check physical CMY levels via IPP markers"]
+        T4["Tier 4: Model & URI Regex Heuristics\n• EcoTank/MegaTank/DeskJet -> color\n• LaserJet/DCP-L/MFC-L -> grayscale\n• -dn/-dw/duplex/embedded digits -> duplex"]
+        T5["Tier 5: Safe Baseline Fallback\n• Defaults to ['grayscale', 'a4'] (never empty)"]
+    end
+
+    subgraph Sync ["Autonomous Sync & Immunity Guard"]
+        HEARTBEAT["Periodic Heartbeat Sweep\n(Every 5 Mins)"]
+        ADMIN["Admin Wizard / UI Toggle\n(PUT /api/printers/:name/capabilities)"]
+
+        ADMIN -->|capabilities_source = 'manual'| SQLITE
+        HEARTBEAT --> CHECK{"capabilities_source\n=== 'manual'?"}
+        CHECK -->|YES: Manual Immunity| PRESERVE["Preserve Admin Override!\nNever Overwrite"]
+        CHECK -->|NO: Unprofiled/Auto| T1
+        T1 --> T2 --> T3 --> T4 --> T5 --> UPSERT["Upsert to SQLite (source = 'auto')"]
+        UPSERT --> SQLITE
+        PRESERVE --> SQLITE
+        SQLITE -->|Sync Active Cache| REDIS
+        REDIS -->|Instant Lookup| MATCHMAKER["Matchmaker Engine\n(Accurate Color & Duplex Dispatch)"]
+    end
+```

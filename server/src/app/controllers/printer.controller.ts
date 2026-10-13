@@ -112,8 +112,8 @@ export async function configurePrinter(req: Request, res: Response) {
   }
   await adapter.configure(queueName);
 
-  const capabilities = await printerService.probePrinterCapabilities(queueName);
-  const config = await printerService.getCapabilitiesConfig();
+  // Auto-probe capabilities with 5-tier fallback cascade (model and URI hints)
+  const capabilities = await printerService.probePrinterCapabilities(queueName, rawModel, uri);
 
   const lowerUri = uri.toLowerCase();
   let printerType = "usb";
@@ -128,14 +128,8 @@ export async function configurePrinter(req: Request, res: Response) {
     printerType = "network";
   }
 
-  if (!config[queueName]) {
-    config[queueName] = { capabilities: capabilities, type: printerType, alias: rawModel };
-  } else {
-    config[queueName].capabilities = capabilities;
-  }
-
-  await printerService.updateCapabilitiesConfig(config);
-  printerService.upsertPrinterToDB(queueName, rawModel, capabilities);
+  // Persist directly to SQLite with capabilities_source = 'auto'
+  printerService.upsertPrinterToDB(queueName, rawModel, capabilities, uri, printerType, "auto");
 
   const printerInfo = {
     name: queueName,
@@ -152,7 +146,7 @@ export async function configurePrinter(req: Request, res: Response) {
 
   eventBus.emit("admin:hardware:discovery", { deviceType: "PRINTER", id: queueName, timestamp: new Date().toISOString() });
 
-  res.json({ success: true, message: "Printer configured successfully", queueName });
+  res.json({ success: true, message: "Printer configured successfully", queueName, capabilities });
 }
 
 export async function updateCapabilities(req: Request, res: Response) {
@@ -163,21 +157,68 @@ export async function updateCapabilities(req: Request, res: Response) {
     throw new ValidationError("VALIDATION_CAPABILITIES_FORMAT", "capabilities must be an array.");
   }
 
-  const config = await printerService.getCapabilitiesConfig();
-  if (!config[name]) {
-    config[name] = { capabilities: [], type: "unknown" };
-  }
+  const existing = printerService.getPrinterFromDB(name);
+  const finalAlias = alias !== undefined ? alias : (existing?.alias || undefined);
+  const finalType = type !== undefined ? type : (existing?.type || "unknown");
 
-  config[name].capabilities = capabilities;
-  if (type !== undefined) config[name].type = type;
-  if (alias !== undefined) config[name].alias = alias;
+  // Admin Manual Override: Persist to SQLite with capabilities_source = 'manual'
+  printerService.upsertPrinterToDB(
+    name,
+    finalAlias,
+    capabilities,
+    existing?.ipp_uri,
+    finalType,
+    "manual"
+  );
 
-  await printerService.updateCapabilitiesConfig(config);
-  printerService.upsertPrinterToDB(name, alias, capabilities);
+  // Update Redis cache immediately
+  const infoStr = (await redisConnection.get(REDIS_KEYS.printerInfo(name))) || "{}";
+  let info: any = {};
+  try { info = JSON.parse(infoStr); } catch {}
+  info.name = name;
+  info.alias = finalAlias;
+  info.capabilities = capabilities;
+  info.type = finalType;
+  await redisConnection.set(REDIS_KEYS.printerInfo(name), JSON.stringify(info));
 
   eventBus.emit("admin:hardware:discovery", { deviceType: "PRINTER", id: name, timestamp: new Date().toISOString() });
 
-  res.json({ success: true, message: `Capabilities updated for ${name}` });
+  res.json({ success: true, message: `Capabilities updated for ${name}`, capabilities });
+}
+
+export async function refreshCapabilities(req: Request, res: Response) {
+  const name = req.params.name as string;
+  const dbRecord = printerService.getPrinterFromDB(name);
+  const deviceUri = await PrinterFactory.getDeviceUri(name);
+
+  // Force re-probe via 5-tier cascade
+  const capabilities = await printerService.probePrinterCapabilities(
+    name,
+    dbRecord?.alias || undefined,
+    deviceUri || dbRecord?.ipp_uri || undefined
+  );
+
+  // Reset to auto with freshly probed capabilities
+  printerService.upsertPrinterToDB(
+    name,
+    dbRecord?.alias,
+    capabilities,
+    deviceUri || dbRecord?.ipp_uri,
+    dbRecord?.type,
+    "auto"
+  );
+
+  // Update Redis
+  const infoStr = (await redisConnection.get(REDIS_KEYS.printerInfo(name))) || "{}";
+  let info: any = {};
+  try { info = JSON.parse(infoStr); } catch {}
+  info.name = name;
+  info.capabilities = capabilities;
+  await redisConnection.set(REDIS_KEYS.printerInfo(name), JSON.stringify(info));
+
+  eventBus.emit("admin:hardware:discovery", { deviceType: "PRINTER", id: name, timestamp: new Date().toISOString() });
+
+  res.json({ success: true, message: `Capabilities refreshed for ${name}`, capabilities });
 }
 
 export async function getKioskStatus(_req: Request, res: Response) {
@@ -211,6 +252,9 @@ export async function deletePrinter(req: Request, res: Response) {
 
   await cupsCommands.deletePrinter(name);
 
+  // Delete from SQLite
+  printerService.deletePrinterFromDB(name);
+
   await redisConnection.srem(REDIS_KEYS.FLEET_PRINTERS, name);
   await redisConnection.del(
     REDIS_KEYS.printerHealth(name),
@@ -238,6 +282,9 @@ export async function deleteAllPrinters(_req: Request, res: Response) {
     } catch (e) {
       console.warn(`[deleteAllPrinters] Failed to delete ${name} from CUPS:`, e);
     }
+
+    // Delete from SQLite
+    printerService.deletePrinterFromDB(name);
 
     await redisConnection.srem(REDIS_KEYS.FLEET_PRINTERS, name);
     await redisConnection.del(

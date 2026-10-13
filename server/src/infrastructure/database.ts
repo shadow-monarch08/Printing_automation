@@ -45,6 +45,8 @@ CREATE TABLE IF NOT EXISTS printers (
   alias TEXT,
   capabilities TEXT DEFAULT '[]',
   ipp_uri TEXT,
+  type TEXT DEFAULT 'unknown',
+  capabilities_source TEXT DEFAULT 'auto',
   added_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
@@ -108,6 +110,18 @@ CREATE INDEX IF NOT EXISTS idx_sessions_expires ON kiosk_sessions(expires_at);
 
 try {
   db.exec(`ALTER TABLE printers ADD COLUMN ipp_uri TEXT`);
+} catch (e) {
+  // Column already exists
+}
+
+try {
+  db.exec(`ALTER TABLE printers ADD COLUMN type TEXT DEFAULT 'unknown'`);
+} catch (e) {
+  // Column already exists
+}
+
+try {
+  db.exec(`ALTER TABLE printers ADD COLUMN capabilities_source TEXT DEFAULT 'auto'`);
 } catch (e) {
   // Column already exists
 }
