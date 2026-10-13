@@ -1,4 +1,7 @@
 import { cupsCommands, PrintFileOptions } from "../../commands/cups.commands";
+import { systemCommands } from "../../commands/system.commands";
+import * as networkUtils from "../utils/network";
+import { ValidationError } from "../utils/errors";
 import ipp from "ipp";
 import { JobPollStatus } from "../../adapters/IPrinterAdapter";
 import { redisConnection } from "../../infrastructure/redis";
@@ -562,7 +565,90 @@ export function parseLpinfoDeviceLine(line: string): DiscoveredDevice | null {
 }
 
 /**
+ * Normalizes device URIs for collision detection, orphan diffing, and hardware deduplication.
+ * Strips volatile parameters (&interface=...) and standardizes scheme and case.
+ */
+export function normalizePrinterUri(uri: string): string {
+  if (!uri) return "";
+  const trimmed = uri.trim();
+  
+  // Extract base scheme + path and canonical serial number
+  const [base, query] = trimmed.split("?");
+  const normalizedBase = base.toLowerCase().replace(/\/+$/, "");
+
+  if (!query) {
+    return normalizedBase;
+  }
+
+  // Extract serial if present, ignoring volatile parameters like &interface=1
+  const serialMatch = /(?:^|[?&])serial=([^&]+)/i.exec(query);
+  if (serialMatch) {
+    return `${normalizedBase}?serial=${serialMatch[1].toLowerCase()}`;
+  }
+
+  return normalizedBase;
+}
+
+/**
+ * Generates a unique, collision-safe CUPS queue name.
+ * Prevents identical printer models (e.g. multiple Epson L3150s or HP 1020s) from overwriting existing configured queues.
+ */
+export async function generateUniqueQueueName(baseModel: string, uri: string): Promise<string> {
+  let cleanName = baseModel.replace(/[^a-zA-Z0-9]/g, "_").replace(/_+/g, "_").replace(/^_|_$/g, "");
+  if (!cleanName) cleanName = "Printer";
+
+  // Check existing printers in SQLite and CUPS
+  const existingRecords = getAllPrintersFromDB();
+  const cupsOutput = await cupsCommands.getPrinterStatus().then(r => r.stdout).catch(() => "");
+
+  // Helper: check if a candidate queue name is taken by a DIFFERENT printer (different URI)
+  const isNameTaken = (name: string): boolean => {
+    // 1. Check SQLite
+    const dbRecord = existingRecords.find(p => p.id.toLowerCase() === name.toLowerCase());
+    if (dbRecord) {
+      if (dbRecord.ipp_uri && dbRecord.ipp_uri.toLowerCase() !== uri.toLowerCase()) {
+        return true;
+      }
+    }
+    // 2. Check CUPS
+    const cupsMatch = new RegExp(`device for ${name}:\\s*(.+)`, "i").exec(cupsOutput);
+    if (cupsMatch) {
+      const configuredUri = cupsMatch[1].trim().toLowerCase();
+      if (configuredUri !== uri.toLowerCase()) {
+        return true;
+      }
+    }
+    return false;
+  };
+
+  if (!isNameTaken(cleanName)) {
+    return cleanName;
+  }
+
+  // Strategy 1: Append USB serial number fragment if present in URI (e.g. ?serial=123456)
+  const serialMatch = /(?:^|[?&])serial=([^&]+)/i.exec(uri);
+  if (serialMatch && serialMatch[1]) {
+    const serialClean = serialMatch[1].replace(/[^a-zA-Z0-9]/g, "");
+    if (serialClean.length > 0) {
+      const serialSuffix = serialClean.slice(-6); // last 6 characters
+      const candidateWithSerial = `${cleanName}_${serialSuffix}`;
+      if (!isNameTaken(candidateWithSerial)) {
+        return candidateWithSerial;
+      }
+    }
+  }
+
+  // Strategy 2: Sequential numbering: _2, _3, _4...
+  let index = 2;
+  while (isNameTaken(`${cleanName}_${index}`)) {
+    index++;
+  }
+  return `${cleanName}_${index}`;
+}
+
+/**
  * Universal Discovery: Scans CUPS hardware for all unconfigured printers across USB, Network, and IPP.
+ * Includes hardware deduplication for HP dual backends (hp:/ and usb://) and normalized URI diffing.
  */
 export async function getUnconfiguredPrinters(): Promise<DiscoveredDevice[]> {
   try {
@@ -570,11 +656,32 @@ export async function getUnconfiguredPrinters(): Promise<DiscoveredDevice[]> {
     const lpinfoRes = await cupsCommands.listDevices();
     const physicalDevices = lpinfoRes.stdout.split("\n").filter(Boolean);
 
-    const devices = physicalDevices
+    let rawDevices = physicalDevices
       .map(parseLpinfoDeviceLine)
       .filter((d): d is DiscoveredDevice => d !== null);
 
-    // 2. Get currently configured URIs
+    // 2. Hardware Deduplication (HP Conflict Fix):
+    // If an HP device appears as both hp:/usb/ and usb://HP/, collapse and prefer hp:/usb/
+    const hpUsbDevices = rawDevices.filter(d => d.uri.toLowerCase().startsWith("hp:/usb/"));
+    if (hpUsbDevices.length > 0) {
+      rawDevices = rawDevices.filter(d => {
+        const lower = d.uri.toLowerCase();
+        if (lower.startsWith("usb://") && (lower.includes("hp") || lower.includes("hewlett-packard"))) {
+          // If there's an hp:/usb/ device matching the model or serial, drop the generic usb://HP/ entry
+          const serialMatch = /(?:^|[?&])serial=([^&]+)/i.exec(d.uri);
+          const hasHpMatch = hpUsbDevices.some(hp => {
+            if (serialMatch && hp.uri.toLowerCase().includes(serialMatch[1].toLowerCase())) return true;
+            const modelPart = d.rawModel.toLowerCase().replace(/[^a-z0-9]/g, "");
+            const hpModelPart = hp.rawModel.toLowerCase().replace(/[^a-z0-9]/g, "");
+            return modelPart && hpModelPart && (modelPart.includes(hpModelPart) || hpModelPart.includes(modelPart));
+          });
+          return !hasHpMatch;
+        }
+        return true;
+      });
+    }
+
+    // 3. Get currently configured URIs
     const lpstatRes = await cupsCommands.getPrinterStatus().catch(() => ({ stdout: "" }));
     const configuredUris = lpstatRes.stdout.split("\n")
       .map((line: string) => {
@@ -583,9 +690,12 @@ export async function getUnconfiguredPrinters(): Promise<DiscoveredDevice[]> {
       })
       .filter(Boolean) as string[];
 
-    // 3. Diff: Any device NOT in configuredUris is unconfigured
-    const orphaned = devices.filter((dev) => {
-      return !configuredUris.some(cUri => cUri.includes(dev.uri) || dev.uri.includes(cUri));
+    const normalizedConfigured = configuredUris.map(normalizePrinterUri);
+
+    // 4. Diff: Any device whose normalized URI does not match a configured URI is unconfigured
+    const orphaned = rawDevices.filter((dev) => {
+      const normDev = normalizePrinterUri(dev.uri);
+      return !normalizedConfigured.some(cUri => cUri === normDev || normDev.startsWith(cUri) || cUri.startsWith(normDev));
     });
 
     return orphaned;
@@ -593,6 +703,67 @@ export async function getUnconfiguredPrinters(): Promise<DiscoveredDevice[]> {
     console.error("[getUnconfiguredPrinters] Discovery failed:", err);
     return [];
   }
+}
+
+/**
+ * Probes a targeted commercial network copier by IP address using TCP socket ping and SNMP Printer-MIB.
+ * Standard ports: 9100 (AppSocket/JetDirect), 631 (IPP), 515 (LPD).
+ */
+export async function probeCopierByIp(ip: string): Promise<DiscoveredDevice> {
+  const cleanIp = ip.trim();
+  const ipv4Regex = /^(\d{1,3}\.){3}\d{1,3}$/;
+  if (!ipv4Regex.test(cleanIp)) {
+    throw new ValidationError("INVALID_IP_FORMAT", `Invalid IPv4 address format: '${cleanIp}'`);
+  }
+
+  // 1. Probe printer ports (9100, 631, 515)
+  const isPort9100 = await networkUtils.pingTcpPort(cleanIp, 9100, 2000);
+  const isPort631 = !isPort9100 ? await networkUtils.pingTcpPort(cleanIp, 631, 2000) : false;
+  const isPort515 = !isPort9100 && !isPort631 ? await networkUtils.pingTcpPort(cleanIp, 515, 2000) : false;
+
+  if (!isPort9100 && !isPort631 && !isPort515) {
+    throw new ValidationError(
+      "COPIER_UNREACHABLE",
+      `No stationary printing ports (9100 AppSocket, 631 IPP, 515 LPD) are accessible at ${cleanIp}. Verify copier is powered on and network cable connected.`
+    );
+  }
+
+  // 2. Query SNMP sysDescr to detect manufacturer and model
+  let rawModel = `Network Copier (${cleanIp})`;
+  try {
+    const { stdout } = await systemCommands.snmpWalk(cleanIp, "1.3.6.1.2.1.1.1.0");
+    const match = /STRING:\s*"?([^"\r\n]+)"?/i.exec(stdout);
+    if (match && match[1]) {
+      const desc = match[1].trim();
+      const firstChunk = desc.split(/[,;]/)[0].trim();
+      if (firstChunk.length > 3) {
+        rawModel = firstChunk;
+      }
+    }
+  } catch (err) {
+    console.warn(`[probeCopierByIp] SNMP walk on ${cleanIp} failed or timed out, using fallback label:`, err);
+  }
+
+  // Determine preferred URI and type
+  let uri = `socket://${cleanIp}:9100`;
+  let type: "network" | "ipp" = "network";
+
+  if (isPort9100) {
+    uri = `socket://${cleanIp}:9100`;
+    type = "network";
+  } else if (isPort631) {
+    uri = `ipp://${cleanIp}:631/ipp/print`;
+    type = "ipp";
+  } else if (isPort515) {
+    uri = `lpd://${cleanIp}/lp`;
+    type = "network";
+  }
+
+  return {
+    uri,
+    rawModel,
+    type,
+  };
 }
 
 

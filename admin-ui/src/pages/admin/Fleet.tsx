@@ -281,27 +281,70 @@ const ConfigureDeviceButton = ({ device }: { device: { uri: string, rawModel: st
 
 const ManualIpModalBody = ({ closeModal }: { closeModal: () => void }) => {
   const { addToast } = useToast();
+  const { openModal } = useModal();
+  const { probeCopierByIp } = useAdminStore();
   const [ipAddress, setIpAddress] = useState('');
+  const [isProbing, setIsProbing] = useState(false);
   const isFormValid = validateRequired(ipAddress, 'IP Address') === null;
+
+  const handleProbe = async () => {
+    if (!isFormValid || isProbing) return;
+    setIsProbing(true);
+    try {
+      const device = await probeCopierByIp(ipAddress.trim());
+      if (device) {
+        addToast({ 
+          type: 'success', 
+          title: 'Target Probed', 
+          description: `Identified ${device.rawModel} on ${device.uri}` 
+        });
+        closeModal();
+        openModal({
+          title: 'Setup Wizard',
+          content: <SetupWizardModalBody device={device} closeModal={closeModal} />
+        });
+      }
+    } catch (err: any) {
+      addToast({
+        type: 'error',
+        title: 'Probe Failed',
+        description: err.message || `No stationary print ports accessible at ${ipAddress}.`
+      });
+    } finally {
+      setIsProbing(false);
+    }
+  };
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
       <p style={{ margin: 0, color: 'var(--text-secondary)', fontSize: '0.9rem' }}>
-        Specify a static IPv4 network address or hostname for hardware targets not responding to mDNS auto-probing.
+        Specify a static IPv4 address for commercial network copiers or stationary printers.
       </p>
       <ValidatedInput
-        label="IP Address / Hostname"
+        label="IP Address"
         value={ipAddress}
         onChange={setIpAddress}
         placeholder="e.g. 192.168.1.150"
-        validateFn={(val) => validateRequired(val, 'IP Address')}
+        validateFn={(val) => {
+          const reqErr = validateRequired(val, 'IP Address');
+          if (reqErr) return reqErr;
+          const ipv4Regex = /^(\d{1,3}\.){3}\d{1,3}$/;
+          if (!ipv4Regex.test(val.trim())) {
+            return 'Invalid IPv4 address format (e.g. 192.168.1.150)';
+          }
+          return null;
+        }}
       />
       <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '1rem', marginTop: '1rem' }}>
-        <Button variant="ghost" onClick={closeModal}>Cancel</Button>
-        <Button variant="mechanical" disabled={!isFormValid} onClick={() => {
-          addToast({ type: 'info', title: 'Target Probed', description: `Attempting CUPS socket handshake with ${ipAddress}...` });
-          closeModal();
-        }}>Probe Target</Button>
+        <Button variant="ghost" onClick={closeModal} disabled={isProbing}>Cancel</Button>
+        <Button 
+          variant="mechanical" 
+          disabled={!isFormValid || isProbing} 
+          isLoading={isProbing} 
+          onClick={handleProbe}
+        >
+          Probe Target
+        </Button>
       </div>
     </div>
   );
@@ -344,13 +387,13 @@ export function Fleet() {
 
   const handleDetect = async () => {
     setHasSearched(true);
-    addToast({ type: 'info', title: 'Hardware Scan', description: 'Polling local USB and network ports for undocumented devices...', duration: 3000 });
+    addToast({ type: 'info', title: 'Hardware Scan', description: 'Scanning local USB and network ports for stationary printers...', duration: 3000 });
     await detectLegacyPrinter();
     const count = useAdminStore.getState().detectedDevices.length;
     if (count > 0) {
       addToast({ type: 'success', title: 'Scan Complete', description: `Found ${count} unconfigured devices.` });
     } else {
-      addToast({ type: 'warning', title: 'Scan Complete', description: `No new legacy devices found.` });
+      addToast({ type: 'warning', title: 'Scan Complete', description: `No unconfigured printers detected.` });
     }
   };
 
@@ -383,8 +426,11 @@ export function Fleet() {
               Delete All
             </Button>
           )}
+          <Button variant="ghost" onClick={handleOpenManualIpModal}>
+            + Add by IP
+          </Button>
           <Button variant="mechanical" onClick={handleDetect} isLoading={isDetecting} rightIcon={<Search size={18} />}>
-            Detect Legacy Hardware
+            Scan Hardware
           </Button>
         </div>
       </div>

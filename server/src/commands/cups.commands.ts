@@ -235,7 +235,14 @@ export const cupsCommands = {
   },
   
   addUsbPrinter: async (name: string, uri: string, modelHint?: string) => {
-    // 1. If modelHint exists (e.g. "L3150", "G2010"), search lpinfo -m for installed driver PPD
+    const lowerUri = uri.toLowerCase();
+    const lowerHint = (modelHint || "").toLowerCase();
+    const isEpson = lowerUri.includes("epson") || lowerHint.includes("epson");
+    const isCanon = lowerUri.includes("canon") || lowerHint.includes("canon");
+    const isBrother = lowerUri.includes("brother") || lowerHint.includes("brother");
+    const isInkjet = isEpson || isCanon;
+
+    // 1. Search lpinfo -m for installed driver PPD
     if (modelHint) {
       try {
         const { stdout } = await runSecureCommand("lpinfo", ["-m"]);
@@ -244,10 +251,22 @@ export const cupsCommands = {
         const tokens = cleanHint.split(/\s+/).filter(t => t.length > 2);
 
         if (tokens.length > 0) {
-          const matched = lines.find((line) => {
+          // Pass 1: Category-constrained driver matching prioritizing specialized drivers
+          let matched = lines.find((line) => {
             const lower = line.toLowerCase();
+            if (isEpson && !lower.includes("escpr") && !lower.includes("epson")) return false;
+            if (isCanon && !lower.includes("gutenprint") && !lower.includes("canon")) return false;
+            if (isBrother && !lower.includes("brlaser") && !lower.includes("brother")) return false;
             return tokens.every(tok => lower.includes(tok.toLowerCase()));
           });
+
+          // Pass 2: Fall back to broader token search if category-specific filter did not match
+          if (!matched) {
+            matched = lines.find((line) => {
+              const lower = line.toLowerCase();
+              return tokens.every(tok => lower.includes(tok.toLowerCase()));
+            });
+          }
 
           if (matched) {
             const ppdModel = matched.split(/\s+/)[0];
@@ -261,11 +280,18 @@ export const cupsCommands = {
       }
     }
 
-    // 2. Try everywhere (in case printer supports IPP-over-USB / ipp-usb is installed)
+    // 2. Try everywhere (in case printer supports IPP-over-USB / ipp-usb is active)
     try {
       return await runSecureCommand("sudo", ["lpadmin", "-p", name, "-E", "-v", uri, "-m", "everywhere"]);
     } catch {
-      // 3. Fallback to generic PCL raster driver (sample.drv/generpcl.ppd)
+      // 3. Fallback: Refuse Generic PCL for inkjets to prevent endless blank/corrupted pages!
+      if (isInkjet) {
+        throw new CupsDispatchError(
+          `Refused to configure inkjet printer '${name}' with Generic PCL driver. Generic PCL will corrupt prints. Please verify printer-driver-escpr (Epson) or printer-driver-gutenprint (Canon) is installed.`,
+          "",
+          name
+        );
+      }
       return runSecureCommand("sudo", ["lpadmin", "-p", name, "-E", "-v", uri, "-m", "drv:///sample.drv/generpcl.ppd"]);
     }
   },

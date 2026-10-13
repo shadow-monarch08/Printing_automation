@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Printer, Usb, Wifi, Edit3, Trash2, RefreshCw, Check } from 'lucide-react';
+import { Printer, Usb, Wifi, Edit3, Trash2, RefreshCw, Check, Sliders } from 'lucide-react';
 import type { BackendPrinter } from '../../types';
 import { Button } from '../shared/Button';
 import { useAdminStore } from '../../stores/useAdminStore';
@@ -10,6 +10,7 @@ export interface PrinterCardProps {
   printer: BackendPrinter;
   onEditAlias?: (printerName: string, currentAlias?: string) => void;
   onRefresh?: (printerName: string) => void;
+  onRefreshCapabilities?: (printerName: string) => void;
   onSetDefault: (printerName: string) => void;
   onDeletePrinter?: (printerName: string) => void;
   onDelete?: (printer: BackendPrinter) => void;
@@ -43,16 +44,38 @@ export const PrinterCard: React.FC<PrinterCardProps> = ({
   printer,
   onEditAlias,
   onRefresh,
+  onRefreshCapabilities,
   onSetDefault,
   onDeletePrinter,
   onDelete,
   isRefreshing: propIsRefreshing = false,
 }) => {
-  const { forceRefreshPrinter } = useAdminStore();
+  const { forceRefreshPrinter, refreshPrinterCapabilities } = useAdminStore();
   const { addToast } = useToast();
   const [internalRefreshing, setInternalRefreshing] = useState(false);
+  const [internalReprobing, setInternalReprobing] = useState(false);
 
   const isRefreshing = propIsRefreshing || internalRefreshing;
+
+  const handleReprobeCapabilitiesClick = async () => {
+    soundFx.playClick();
+    if (onRefreshCapabilities) {
+      onRefreshCapabilities(printer.name);
+      return;
+    }
+
+    setInternalReprobing(true);
+    try {
+      const success = await refreshPrinterCapabilities(printer.name);
+      if (success) {
+        addToast({ type: 'success', title: 'Capabilities Refreshed', description: `Hardware capabilities for ${printer.name} updated.` });
+      }
+    } catch (e: any) {
+      /* Handled by global API error interceptor */
+    } finally {
+      setInternalReprobing(false);
+    }
+  };
 
   const handleRefreshClick = async () => {
     soundFx.playClick();
@@ -196,6 +219,39 @@ export const PrinterCard: React.FC<PrinterCardProps> = ({
               <Edit3 size={14} />
             </button>
 
+            {/* Recessed Re-probe Capabilities Trigger */}
+            <button
+              type="button"
+              onClick={handleReprobeCapabilitiesClick}
+              title="Re-probe Hardware Capabilities"
+              disabled={internalReprobing}
+              style={{
+                background: 'transparent',
+                border: '1px solid transparent',
+                borderRadius: '2px',
+                padding: '2px 4px',
+                cursor: internalReprobing ? 'not-allowed' : 'pointer',
+                color: 'var(--text-secondary)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                marginLeft: 'auto',
+                transition: 'all 0.15s ease'
+              }}
+              onMouseEnter={(e) => {
+                if (!internalReprobing) {
+                  e.currentTarget.style.borderColor = 'var(--border-default)';
+                  e.currentTarget.style.color = 'var(--text-primary)';
+                }
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.borderColor = 'transparent';
+                e.currentTarget.style.color = 'var(--text-secondary)';
+              }}
+            >
+              <Sliders size={14} className={internalReprobing ? "spin-anim" : ""} />
+            </button>
+
             {/* Recessed Refresh Trigger */}
             <button
               type="button"
@@ -212,7 +268,6 @@ export const PrinterCard: React.FC<PrinterCardProps> = ({
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                marginLeft: 'auto',
                 transition: 'all 0.15s ease'
               }}
               onMouseEnter={(e) => {
@@ -246,6 +301,50 @@ export const PrinterCard: React.FC<PrinterCardProps> = ({
             >
               {printer.description}
             </span>
+          </div>
+
+          {/* Capabilities Badges */}
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', marginTop: '6px', alignItems: 'center' }}>
+            {printer.capabilities && printer.capabilities.length > 0 ? (
+              printer.capabilities.map((cap) => (
+                <span
+                  key={cap}
+                  style={{
+                    fontFamily: 'var(--font-mono)',
+                    fontSize: '9px',
+                    fontWeight: 700,
+                    letterSpacing: '0.05em',
+                    textTransform: 'uppercase',
+                    padding: '1px 5px',
+                    borderRadius: '2px',
+                    background: cap === 'color' 
+                      ? 'rgba(255, 170, 0, 0.1)' 
+                      : cap === 'duplex'
+                      ? 'rgba(0, 255, 136, 0.1)'
+                      : 'rgba(255, 255, 255, 0.05)',
+                    color: cap === 'color' 
+                      ? 'var(--accent-primary)' 
+                      : cap === 'duplex'
+                      ? 'var(--status-idle)'
+                      : 'var(--text-secondary)',
+                    border: `1px solid ${cap === 'color' ? 'var(--accent-primary)' : cap === 'duplex' ? 'var(--status-idle)' : 'var(--border-default)'}`
+                  }}
+                >
+                  {cap}
+                </span>
+              ))
+            ) : (
+              <span
+                style={{
+                  fontFamily: 'var(--font-mono)',
+                  fontSize: '9px',
+                  color: 'var(--text-muted)',
+                  fontStyle: 'italic'
+                }}
+              >
+                PROBING REQUIRED
+              </span>
+            )}
           </div>
         </div>
       </div>

@@ -101,9 +101,16 @@ export const api = {
     return apiClient.post<{ success: boolean; message: string }>('/jobs/queue/emergency-stop');
   },
 
+  getUnconfiguredPrinters: async () => {
+    return apiClient.get<{ success: boolean; devices: { uri: string; rawModel: string; type?: string }[] }>('/printers/unconfigured');
+  },
+
   detectLegacyPrinter: async () => {
-    const res = await apiClient.get<{ success: boolean; devices: { uri: string; rawModel: string }[] }>('/printers/detect-legacy');
-    return res;
+    return api.getUnconfiguredPrinters();
+  },
+
+  probeCopierByIp: async (ip: string) => {
+    return apiClient.post<{ success: boolean; device: { uri: string; rawModel: string; type: string } }>('/printers/probe-ip', { ip });
   },
 
   fetchPricingConfig: async () => {
@@ -156,6 +163,10 @@ export const api = {
 
   forceRefreshPrinter: async (printerName: string) => {
     return apiClient.post<{ success: boolean; status?: string; message?: string }>(`/printers/${encodeURIComponent(printerName)}/refresh`);
+  },
+
+  refreshCapabilities: async (printerName: string) => {
+    return apiClient.post<{ success: boolean; message: string; capabilities: string[] }>(`/printers/${encodeURIComponent(printerName)}/refresh-capabilities`);
   },
 
   deletePrinter: async (printerName: string) => {

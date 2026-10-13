@@ -105,7 +105,8 @@ export async function configurePrinter(req: Request, res: Response) {
     throw new ValidationError("VALIDATION_URI_REQUIRED", "Missing uri or rawModel.");
   }
 
-  let queueName = rawModel.replace(/[^a-zA-Z0-9]/g, "_").replace(/_+/g, "_");
+  // Generate collision-safe queue name preventing overwrites of identical printer models
+  const queueName = await printerService.generateUniqueQueueName(rawModel, uri);
   const adapter = PrinterFactory.getAdapterByUri(queueName, uri);
   if (!adapter) {
     throw new ValidationError("PRINTER_UNSUPPORTED_URI", `Unsupported printer type or invalid URI: ${uri}`);
@@ -300,3 +301,14 @@ export async function deleteAllPrinters(_req: Request, res: Response) {
 
   res.json({ success: true, message: `Deleted ${printerNames.length} printers.` });
 }
+
+export async function probePrinterByIp(req: Request, res: Response) {
+  const { ip } = req.body;
+  if (!ip || typeof ip !== "string") {
+    throw new ValidationError("VALIDATION_IP_REQUIRED", "ip parameter is required and must be an IPv4 string.");
+  }
+
+  const device = await printerService.probeCopierByIp(ip.trim());
+  res.json({ success: true, device });
+}
+

@@ -46,8 +46,10 @@ export interface AdminState {
   loadMetricsHistory: () => Promise<void>;
 
   isDetecting: boolean;
-  detectedDevices: { uri: string; rawModel: string }[];
+  detectedDevices: { uri: string; rawModel: string; type?: string }[];
   detectLegacyPrinter: () => Promise<void>;
+  scanUnconfiguredPrinters: () => Promise<void>;
+  probeCopierByIp: (ip: string) => Promise<{ uri: string; rawModel: string; type: string } | null>;
 
   pricingConfig: PricingConfig | null;
   isLoadingPricing: boolean;
@@ -55,6 +57,7 @@ export interface AdminState {
   updatePricingConfig: (config: Partial<PricingConfig>) => Promise<boolean>;
 
   forceRefreshPrinter: (printerName: string) => Promise<boolean>;
+  refreshPrinterCapabilities: (printerName: string) => Promise<boolean>;
 }
 
 export const useAdminStore = create<AdminState>((set, get) => ({
@@ -335,10 +338,10 @@ export const useAdminStore = create<AdminState>((set, get) => ({
 
   isDetecting: false,
   detectedDevices: [],
-  detectLegacyPrinter: async () => {
+  scanUnconfiguredPrinters: async () => {
     set({ isDetecting: true, detectedDevices: [] });
     try {
-      const res = await api.detectLegacyPrinter();
+      const res = await api.getUnconfiguredPrinters();
       if (res.success && res.devices) {
         set({ isDetecting: false, detectedDevices: res.devices });
       } else {
@@ -347,6 +350,21 @@ export const useAdminStore = create<AdminState>((set, get) => ({
     } catch(e) {
       set({ isDetecting: false });
     }
+  },
+  detectLegacyPrinter: async () => {
+    return get().scanUnconfiguredPrinters();
+  },
+  probeCopierByIp: async (ip: string) => {
+    try {
+      const res = await api.probeCopierByIp(ip);
+      if (res.success && res.device) {
+        return res.device;
+      }
+    } catch(e) {
+      console.error(e);
+      throw e;
+    }
+    return null;
   },
 
   pricingConfig: null,
@@ -379,6 +397,20 @@ export const useAdminStore = create<AdminState>((set, get) => ({
   forceRefreshPrinter: async (printerName: string) => {
     try {
       const res = await api.forceRefreshPrinter(printerName);
+      if (res.success) {
+        get().loadPrinters(); // Refresh the list
+        return true;
+      }
+    } catch(e) {
+      console.error(e);
+      throw e;
+    }
+    return false;
+  },
+
+  refreshPrinterCapabilities: async (printerName: string) => {
+    try {
+      const res = await api.refreshCapabilities(printerName);
       if (res.success) {
         get().loadPrinters(); // Refresh the list
         return true;
