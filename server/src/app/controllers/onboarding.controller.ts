@@ -188,7 +188,7 @@ export async function getKioskSummary(_req: Request, res: Response) {
     shopName: config?.shopName || "Modern Press",
     nmsDeviceId: config?.nmsDeviceId || null,
     hotspotSsid: hotspotService.HOTSPOT_CONFIG.SSID,
-    setupUrl: `http://192.168.4.1:${port}/setup`,
+    setupUrl: `http://192.168.4.1:${port}/admin/setup`,
     localAccessUrl: config?.localAccessUrl || "http://piprint.local:3000/",
     cloudflareUrl: config?.cloudflareUrl || null,
     internetOnline: isOnline,

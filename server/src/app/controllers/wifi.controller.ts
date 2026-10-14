@@ -16,18 +16,31 @@ export async function connectWifiNetwork(req: Request, res: Response) {
     throw new ValidationError("VALIDATION_SSID_REQUIRED", "SSID is required.");
   }
 
+  const targetNetwork = ssid || profileName;
+
+  // 1. Immediately flag Redis status as connecting
+  await redisConnection.set(
+    REDIS_KEYS.wifiConnectionStatus,
+    JSON.stringify({ status: "connecting", ssid: targetNetwork, timestamp: Date.now() }),
+    "EX",
+    120
+  );
+
+  // 2. Respond immediately to caller before radio cycles and severs LAN socket
   res.json({
-    message: "Connection request received. Applying credentials...",
-    rebooting: true,
+    success: true,
+    message: `Reconfiguration initiated for "${targetNetwork}". Live telemetry is streaming to kiosk display.`,
+    targetNetwork,
   });
 
-  setTimeout(async () => {
+  // 3. Launch resilient background pipeline with EventBus & Cloudflare re-spawn
+  setImmediate(async () => {
     try {
-      await wifiService.connectToWifi(ssid, password, profileName, isSaved);
+      await wifiService.reconfigureWifiPipeline(ssid, password, profileName, isSaved);
     } catch (err) {
-      console.error("[WiFi Controller] Connection background task failed:", err);
+      console.error("[WiFi Controller] Wi-Fi reconfiguration pipeline failed:", err);
     }
-  }, 1000);
+  });
 }
 
 export async function getWifiConnectionStatus(_req: Request, res: Response) {

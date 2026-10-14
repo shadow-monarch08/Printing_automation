@@ -3,7 +3,13 @@ import { runSecureCommand } from "../utils/exec";
 import { WiFiNetwork } from "../types";
 import { ValidationError, HardwareError } from "../utils/errors";
 import { suspendRecoveryMonitoring, resumeRecoveryMonitoring } from "./networkRecovery.service";
-import { getActiveConnectionProfile } from "../utils/network.utils";
+import { getActiveConnectionProfile, verifyInternetReadiness } from "../utils/network.utils";
+import { eventBus } from "../utils/eventBus";
+import { stopQuickTunnel, waitForTunnelPromise } from "./tunnel.service";
+import { updateSystemConfig, getSystemConfig } from "./config.db.service";
+import { redisConnection } from "../../infrastructure/redis";
+import { REDIS_KEYS } from "../../infrastructure/redisKeys";
+import db from "../../infrastructure/database";
 
 export async function scanNetworks(): Promise<WiFiNetwork[]> {
   try {
@@ -301,4 +307,179 @@ export async function autoReconnectKnownWifi(): Promise<string | null> {
     console.error("[WiFi Service] Error during auto-reconnect sweep:", err);
   }
   return null;
+}
+
+/**
+ * Industrial Event-Driven Wi-Fi Reconfiguration Pipeline
+ * Orchestrates connection, WAN verification, Cloudflare Quick Tunnel re-spawn,
+ * and loopback EventBus status broadcasts to the physical Kiosk display.
+ */
+export async function reconfigureWifiPipeline(
+  ssid?: string,
+  password?: string,
+  profileName?: string,
+  isSaved?: boolean
+): Promise<void> {
+  const targetNetwork = ssid || profileName;
+  if (!targetNetwork) {
+    throw new ValidationError("VALIDATION_SSID_REQUIRED", "Wi-Fi SSID is required.");
+  }
+
+  const port = parseInt(process.env.PORT || "3000", 10);
+  const config = getSystemConfig();
+  const shopName = config?.shopName || "Modern Press";
+
+  // Pause recovery monitoring to prevent race conditions during association
+  suspendRecoveryMonitoring();
+
+  try {
+    // =========================================================================
+    // Phase 1 (01/04): Radio Cycling & Physical Association (25%)
+    // =========================================================================
+    console.log(`[WiFi Service] Pipeline Phase 1: Associating radio with "${targetNetwork}"...`);
+    eventBus.emit("kiosk:onboarding:status", {
+      status: "connecting",
+      phase: "CYCLING_RADIO_HARDWARE",
+      step: 1,
+      totalSteps: 4,
+      progressPercent: 25,
+      message: `Cycling wireless interface to associate with [${targetNetwork}]...`,
+      ssid: targetNetwork,
+      shopName,
+      timestamp: Date.now(),
+    });
+
+    await connectToWifi(ssid, password, profileName, isSaved);
+    console.log(`[WiFi Service] Pipeline Phase 1 complete: Associated with "${targetNetwork}".`);
+
+    // =========================================================================
+    // Phase 2 (02/04): Negotiating WAN DHCP & Gateway Trace (55%)
+    // =========================================================================
+    console.log(`[WiFi Service] Pipeline Phase 2: Verifying WAN & DNS readiness...`);
+    eventBus.emit("kiosk:onboarding:status", {
+      status: "verifying_internet",
+      phase: "NEGOTIATING_WAN_DHCP_LEASE",
+      step: 2,
+      totalSteps: 4,
+      progressPercent: 55,
+      message: "Validating WAN IP address lease, gateway negotiation & DNS resolution...",
+      ssid: targetNetwork,
+      shopName,
+      timestamp: Date.now(),
+    });
+
+    let hasInternet = false;
+    try {
+      await verifyInternetReadiness(8, 2000);
+      hasInternet = true;
+      console.log(`[WiFi Service] Pipeline Phase 2 complete: WAN access confirmed.`);
+    } catch (netErr) {
+      console.warn(`[WiFi Service] WAN verification warning:`, netErr);
+      // Non-fatal if local-only LAN, but noted
+    }
+
+    // =========================================================================
+    // Phase 3 (03/04): Cloudflare Quick Tunnel Re-initiation (85%)
+    // =========================================================================
+    let liveTunnelUrl: string | null = config?.cloudflareUrl || null;
+    if (hasInternet) {
+      console.log(`[WiFi Service] Pipeline Phase 3: Spawning Cloudflare Quick Tunnel edge endpoint...`);
+      eventBus.emit("kiosk:onboarding:status", {
+        status: "starting_tunnel",
+        phase: "SPAWNING_CLOUDFLARE_EDGE_TUNNEL",
+        step: 3,
+        totalSteps: 4,
+        progressPercent: 85,
+        message: "Provisioning encrypted Cloudflare Quick Tunnel edge endpoint...",
+        ssid: targetNetwork,
+        shopName,
+        timestamp: Date.now(),
+      });
+
+      try {
+        stopQuickTunnel();
+        await new Promise((resolve) => setTimeout(resolve, 1000));
+        liveTunnelUrl = await waitForTunnelPromise(port, 25000);
+        console.log(`[WiFi Service] Pipeline Phase 3 complete: Live Cloudflare URL: ${liveTunnelUrl}`);
+        updateSystemConfig({ cloudflareUrl: liveTunnelUrl });
+      } catch (tunnelErr: any) {
+        console.warn(`[WiFi Service] Cloudflare Quick Tunnel warning:`, tunnelErr?.message || tunnelErr);
+      }
+    }
+
+    // =========================================================================
+    // Phase 4 (04/04): State Reconciliation & Completion (100%)
+    // =========================================================================
+    const activeProfile = (await getActiveConnectionProfile()) || targetNetwork;
+    let printerCount = 0;
+    try {
+      const printerRow = db.prepare("SELECT COUNT(*) as count FROM printers WHERE is_quarantined = 0").get() as { count: number } | undefined;
+      printerCount = printerRow?.count || 0;
+    } catch {
+      printerCount = 0;
+    }
+
+    // Sync Redis status for any subsequent polling
+    await redisConnection.set(
+      REDIS_KEYS.wifiConnectionStatus,
+      JSON.stringify({ status: "success", ssid: activeProfile, timestamp: Date.now() }),
+      "EX",
+      120
+    );
+
+    // Emit Completion to Kiosk Display (switches to OPERATIONAL)
+    eventBus.emit("kiosk:onboarding:done", {
+      cloudflareUrl: liveTunnelUrl || "",
+      localAccessUrl: config?.localAccessUrl || "http://piprint.local:3000/",
+      printerCount,
+      nmsDeviceId: config?.nmsDeviceId || null,
+      shopName,
+      timestamp: Date.now(),
+    });
+
+    // Emit live network state changed so HUD activeProfile updates immediately
+    eventBus.emit("kiosk:network:state_changed", {
+      state: "ONLINE",
+      internetOnline: hasInternet,
+      hotspotActive: false,
+      activeProfile,
+      cloudflareUrl: liveTunnelUrl,
+      localAccessUrl: config?.localAccessUrl || "http://piprint.local:3000/",
+      timestamp: Date.now(),
+    });
+
+    // Emit Admin event for remote dashboard
+    eventBus.emit("admin:network:status", {
+      activeProfile,
+      internetOnline: hasInternet,
+      timestamp: Date.now(),
+    });
+
+    console.log(`[WiFi Service] ✅ Reconfiguration pipeline completed successfully for "${activeProfile}".`);
+  } catch (rawErr: any) {
+    const rawMsg = rawErr?.message || String(rawErr);
+    console.error(`[WiFi Service] ❌ Pipeline failed for "${targetNetwork}":`, rawMsg);
+
+    const { code, message } = parseDetailedWifiError(rawMsg, targetNetwork);
+
+    // Write failure to Redis
+    await redisConnection.set(
+      REDIS_KEYS.wifiConnectionStatus,
+      JSON.stringify({ status: "failed", code, error: message, timestamp: Date.now() }),
+      "EX",
+      120
+    );
+
+    // Emit error event to Kiosk Display
+    eventBus.emit("kiosk:onboarding:error", {
+      code,
+      error: message,
+      message,
+      timestamp: Date.now(),
+    });
+
+    throw rawErr;
+  } finally {
+    resumeRecoveryMonitoring();
+  }
 }

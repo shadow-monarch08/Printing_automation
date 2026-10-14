@@ -85,6 +85,11 @@ app.get(/^\/admin(\/.*)?$/, (_req, res) => {
   res.sendFile(path.join(ADMIN_PATH, "index.html"));
 });
 
+// Legacy Setup & Onboarding URL redirect -> Admin Setup Wizard
+app.get(/^\/(setup|onboarding)(\/.*)?$/, (_req, res) => {
+  res.redirect("/admin/setup");
+});
+
 // Customer Flow SPA Catch-all
 app.get(/.*/, (req, res) => {
   if (req.path.startsWith("/terminal")) {

@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Wifi, RefreshCw, Globe, ExternalLink, Radio, Signal } from 'lucide-react';
 import { Button } from '../../components/shared/Button';
 import { PaperTable } from '../../components/shared/PaperTable';
@@ -7,6 +7,7 @@ import { useModal } from '../../context/ModalContext';
 import { useToast } from '../../context/ToastContext';
 import { WifiConnectModalBody } from '../../components/onboarding/WifiConnectModalBody';
 import { api } from '../../services/api';
+import { adminEventBus } from '../../services/realtime/eventEmitter';
 import type { WifiNetwork, NetworkStatus } from '../../types';
 
 export function Network() {
@@ -17,9 +18,6 @@ export function Network() {
   const [networks, setNetworks] = useState<WifiNetwork[]>([]);
   const [isScanning, setIsScanning] = useState(false);
   const [isLoadingStatus, setIsLoadingStatus] = useState(true);
-  const [isConnecting, setIsConnecting] = useState(false);
-  const [selectedSsid, setSelectedSsid] = useState('');
-  const [connectProgress, setConnectProgress] = useState(0);
 
   const fetchStatus = useCallback(async () => {
     try {
@@ -60,8 +58,27 @@ export function Network() {
     return () => clearInterval(interval);
   }, [fetchStatus, fetchNetworks]);
 
+  // Listen to live network changes from backend EventBus
+  useEffect(() => {
+    const handleNetworkStatus = (data: any) => {
+      fetchStatus();
+      fetchNetworks();
+      if (data?.activeProfile) {
+        addToast({
+          title: 'Wi-Fi Reconfigured',
+          description: `Successfully authenticated and linked to "${data.activeProfile}".`,
+          type: 'success',
+        });
+      }
+    };
+
+    adminEventBus.on('admin:network:status' as any, handleNetworkStatus);
+    return () => {
+      adminEventBus.off('admin:network:status' as any, handleNetworkStatus);
+    };
+  }, [fetchStatus, fetchNetworks, addToast]);
+
   const handleNetworkSelect = (network: WifiNetwork) => {
-    setSelectedSsid(network.ssid);
     openModal({
       title: `RECONFIGURE_LINK: [${network.ssid}]`,
       content: (
@@ -84,69 +101,21 @@ export function Network() {
         isSaved,
       });
 
-      // ONLY start polling on successful dispatch
-      setConnectProgress(5);
-      setIsConnecting(true);
+      addToast({
+        title: 'Reconfiguring Wi-Fi',
+        description: `Applying credentials for "${ssid}". Live progress is displayed on the physical kiosk screen.`,
+        type: 'info',
+      });
     } catch (err: any) {
-      setIsConnecting(false);
       /* Handled by global interceptor in apiClient */
     }
   };
-
-  // Connection Progress Polling
-  const pollRef = useRef(isConnecting);
-  pollRef.current = isConnecting;
-
-  useEffect(() => {
-    if (!isConnecting) return;
-
-    let seconds = 0;
-    const interval = setInterval(async () => {
-      seconds += 2;
-      setConnectProgress(Math.min(95, Math.round((seconds / 40) * 100)));
-
-      try {
-        const res = await api.getWifiConnectionStatus();
-        if (res?.status === 'success') {
-          clearInterval(interval);
-          setIsConnecting(false);
-          setConnectProgress(100);
-          addToast({
-            title: 'Wi-Fi Connected',
-            description: `Successfully authenticated and linked to "${selectedSsid}".`,
-            type: 'success',
-          });
-          fetchStatus();
-          fetchNetworks();
-        } else if (res?.status === 'failed') {
-          clearInterval(interval);
-          setIsConnecting(false);
-          // Handled automatically by pollingApiClient domain error interceptor
-          fetchStatus();
-        }
-      } catch {
-        if (seconds >= 45) {
-          clearInterval(interval);
-          setIsConnecting(false);
-          fetchStatus();
-        }
-      }
-    }, 2000);
-
-    return () => clearInterval(interval);
-  }, [isConnecting, selectedSsid, addToast, fetchStatus, fetchNetworks]);
 
   const renderSignalGauge = (signal: number) => {
     const blocks = Math.min(4, Math.max(1, Math.ceil(signal / 25)));
     const filled = '█ '.repeat(blocks);
     const empty = '░ '.repeat(4 - blocks);
     return `[ ${filled}${empty}] ${signal}%`;
-  };
-
-  const renderProgressBlocks = (progress: number) => {
-    const filled = Math.min(10, Math.max(0, Math.round((progress / 100) * 10)));
-    const empty = 10 - filled;
-    return `[ ${'█ '.repeat(filled)}${'░ '.repeat(empty)}]`;
   };
 
   if (isLoadingStatus && !networkStatus) {
@@ -418,26 +387,6 @@ export function Network() {
           )}
         </PaperTable>
       </div>
-
-      {/* Connecting Hazard Overlay */}
-      {isConnecting && (
-        <div className="hazard-overlay-backdrop">
-          <div className="hazard-overlay-card">
-            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '4px' }}>
-              <span className="led-diode amber" style={{ width: '16px', height: '16px' }} />
-              <h3 style={{ fontFamily: 'var(--font-mono)', fontSize: '14px', fontWeight: 700, color: 'var(--text-primary)', margin: 0 }}>
-                [ RECONFIGURING_WIRELESS_INTERFACE ]
-              </h3>
-            </div>
-            <p style={{ fontFamily: 'var(--font-body)', fontSize: '13px', color: 'var(--text-secondary)', margin: 0, lineHeight: 1.5 }}>
-              Connecting to wireless access point <strong>{selectedSsid}</strong>. The recovery daemon has been paused to prevent interface contention.
-            </p>
-            <div style={{ fontFamily: 'var(--font-mono)', fontSize: '12px', fontWeight: 700, color: 'var(--accent-primary)', marginTop: '8px', letterSpacing: '0.05em' }}>
-              {renderProgressBlocks(connectProgress)} {connectProgress}%
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

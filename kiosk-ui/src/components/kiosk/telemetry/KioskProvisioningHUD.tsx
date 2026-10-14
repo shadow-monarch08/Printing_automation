@@ -17,6 +17,7 @@ export const KioskProvisioningHUD: React.FC = () => {
     setStep,
     submitProvisioning,
     fetchSummary,
+    kioskSummary,
   } = useKioskStore();
 
   // 1. SSE Stream for Real-time Hardware Telemetry
@@ -76,13 +77,24 @@ export const KioskProvisioningHUD: React.FC = () => {
 
   // Auto-revert back to MOBILE_HANDOFF if provisioning in mobile mode failed
   useEffect(() => {
-    if (isFailed && isMobileMode) {
+    if (isFailed && isMobileMode && !kioskSummary?.isOnboarded) {
       const timer = setTimeout(() => {
         setStep('MOBILE_HANDOFF');
       }, 3500);
       return () => clearTimeout(timer);
     }
-  }, [isFailed, isMobileMode, setStep]);
+  }, [isFailed, isMobileMode, kioskSummary?.isOnboarded, setStep]);
+
+  // Auto-revert back to OPERATIONAL if post-onboarding reconfiguration failed
+  useEffect(() => {
+    if (isFailed && kioskSummary?.isOnboarded) {
+      const timer = setTimeout(() => {
+        setErrorMessage(null);
+        setStep('OPERATIONAL');
+      }, 5000);
+      return () => clearTimeout(timer);
+    }
+  }, [isFailed, kioskSummary?.isOnboarded, setErrorMessage, setStep]);
 
   const getHumanFriendlyError = () => {
     const code = errorCode || provisioningTelemetry?.code;
@@ -275,7 +287,18 @@ export const KioskProvisioningHUD: React.FC = () => {
       {/* 3. Huge Action Buttons on Error */}
       {isFailed && (
         <div style={{ display: 'flex', gap: '12px' }}>
-          {isMobileMode ? (
+          {kioskSummary?.isOnboarded ? (
+            <Button
+              variant="primary"
+              style={{ width: '100%', height: '52px', fontSize: '14px', fontWeight: 800 }}
+              onClick={() => {
+                setErrorMessage(null);
+                setStep('OPERATIONAL');
+              }}
+            >
+              DISMISS & RETURN TO TERMINAL ➔
+            </Button>
+          ) : isMobileMode ? (
             <>
               <Button
                 variant="ghost"

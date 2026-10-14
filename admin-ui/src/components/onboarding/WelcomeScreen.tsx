@@ -18,7 +18,7 @@ export function WelcomeScreen({ data, onContinue }: WelcomeScreenProps) {
 
   const handleGoToKiosk = () => {
     onContinue();
-    navigate('/');
+    window.location.href = '/';
   };
 
   const handleOpenLink = (url: string) => {

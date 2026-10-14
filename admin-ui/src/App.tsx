@@ -34,7 +34,10 @@ function App() {
     return (
       <Routes>
         <Route path="/" element={<Navigate to="/admin" replace />} />
+        <Route path="/setup" element={<OnboardingLayout />} />
         <Route path="/onboarding" element={<OnboardingLayout />} />
+        <Route path="/admin/setup" element={<OnboardingLayout />} />
+        <Route path="/admin/onboarding" element={<OnboardingLayout />} />
         <Route path="/admin" element={<AdminLayout><Dashboard /></AdminLayout>} />
         <Route path="/admin/fleet" element={<AdminLayout><Fleet /></AdminLayout>} />
         <Route path="/admin/queue" element={<AdminLayout><Queue /></AdminLayout>} />

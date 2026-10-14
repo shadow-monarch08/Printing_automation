@@ -9,7 +9,7 @@ export const KioskMobileHandoffStep: React.FC = () => {
   const { cancelMobileMode, startScreenMode, errorMessage } = useKioskStore();
 
   const wifiQrPayload = 'WIFI:S:Kiosk-Hotspot;T:nopass;;';
-  const portalUrl = 'http://192.168.4.1:3000/setup';
+  const portalUrl = 'http://192.168.4.1:3000/admin/setup';
 
   return (
     <div
@@ -227,7 +227,7 @@ export const KioskMobileHandoffStep: React.FC = () => {
               letterSpacing: '0.02em',
             }}
           >
-            URL: http://192.168.4.1:3000/setup
+            URL: http://192.168.4.1:3000/admin/setup
           </div>
         </div>
       </div>
