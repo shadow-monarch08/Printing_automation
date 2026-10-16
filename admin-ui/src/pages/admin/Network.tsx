@@ -86,18 +86,19 @@ export function Network() {
           ssid={network.ssid}
           isSaved={network.isSaved}
           closeModal={closeModal}
-          onSubmit={(password) => handleConnectSubmit(network.ssid, password, network.isSaved, network.profileName || undefined)}
+          onSubmit={(password) => handleConnectSubmit(network.ssid, password, network.isSaved, network.profileName || undefined, network.uuid || undefined)}
         />
       ),
     });
   };
 
-  const handleConnectSubmit = async (ssid: string, password?: string, isSaved?: boolean, profileName?: string) => {
+  const handleConnectSubmit = async (ssid: string, password?: string, isSaved?: boolean, profileName?: string, uuid?: string) => {
     try {
       await api.connectToWifi({
         ssid,
         password,
         profileName,
+        uuid,
         isSaved,
       });
 

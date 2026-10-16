@@ -24,6 +24,7 @@ export interface ProvisionOnboardingPayload {
   wifiSsid?: string;
   wifiPassword?: string;
   profileName?: string;
+  uuid?: string;
   isSaved?: boolean;
   skipWifi?: boolean;
   mode?: "MOBILE" | "SCREEN";
@@ -121,10 +122,10 @@ async function executeProvisioningPipeline(
   payload: ProvisionOnboardingPayload,
   provisioningState: string
 ) {
-  const { adminPin, shopName, wifiSsid, wifiPassword, profileName, isSaved, skipWifi } = payload;
+  const { adminPin, shopName, wifiSsid, wifiPassword, profileName, isSaved, skipWifi, uuid } = payload;
   const port = parseInt(process.env.PORT || "3000", 10);
   const effectiveShopName = shopName?.trim() || "Modern Press";
-  const targetNetwork = wifiSsid || profileName || "Active Gateway";
+  const targetNetwork = wifiSsid || profileName || uuid || "Active Gateway";
 
   // 1. Capture previous active profile in RECOVERY mode for rollback if new connection fails
   let previousActiveProfile: string | null = null;
@@ -151,8 +152,8 @@ async function executeProvisioningPipeline(
 
   // 2. Handle Wi-Fi Connection
   if (!skipWifi) {
-    if (!wifiSsid && !profileName) {
-      throw new ValidationError("VALIDATION_SSID_REQUIRED", "Wi-Fi SSID is required.");
+    if (!wifiSsid && !profileName && !uuid) {
+      throw new ValidationError("VALIDATION_SSID_REQUIRED", "Wi-Fi SSID or UUID is required.");
     }
 
     // Cleanly tear down setup hotspot if active so wlan0 can switch to station mode
@@ -167,8 +168,8 @@ async function executeProvisioningPipeline(
       console.warn("[Onboarding Service] Warning deactivating hotspot before station association:", hotspotErr);
     }
 
-    console.log(`[Onboarding Service] Phase 1: Connecting to Wi-Fi "${targetNetwork}" (Saved: ${Boolean(isSaved)})...`);
-    await wifiService.connectToWifi(wifiSsid, wifiPassword, profileName, isSaved);
+    console.log(`[Onboarding Service] Phase 1: Connecting to Wi-Fi "${targetNetwork}" (Saved: ${Boolean(isSaved || uuid)})...`);
+    await wifiService.connectToWifi(wifiSsid, wifiPassword, profileName, isSaved, uuid);
     console.log(`[Onboarding Service] Phase 1 complete: Wi-Fi radio association successful.`);
   } else {
     console.log(`[Onboarding Service] Phase 1: Skipping Wi-Fi radio reconfiguration. Using active network...`);

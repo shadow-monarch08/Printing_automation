@@ -213,6 +213,7 @@ export const useKioskStore = create<KioskStoreState>((set, get) => ({
         wifiPassword: finalPassword || undefined,
         isSaved: finalIsSaved,
         profileName: selectedNetwork?.profileName || undefined,
+        uuid: selectedNetwork?.uuid || undefined,
         mode: get().onboardingMode === 'MOBILE' ? 'MOBILE' : 'SCREEN',
         source: get().onboardingMode === 'MOBILE' ? 'mobile' : 'kiosk',
       });

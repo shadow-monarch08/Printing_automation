@@ -1,6 +1,7 @@
 export interface ConnectPayload {
   ssid?: string;
   profileName?: string;
+  uuid?: string;
   password?: string;
   skipWifi?: boolean;
 }
@@ -11,7 +12,9 @@ export interface WiFiNetwork {
   isActive?: boolean;
   isSaved?: boolean;
   profileName?: string;
+  uuid?: string;
   isSecured?: boolean;
   securityType?: string;
 }
+
 

@@ -10,7 +10,11 @@ export const systemCommands = {
   },
 
   getSavedNetworks: async () => {
-    return runSecureCommand('nmcli', ['-t', '-f', 'NAME', 'connection', 'show'], { timeout: 10000 });
+    return runSecureCommand('nmcli', ['-t', '-f', 'NAME,UUID,TYPE,FILENAME', 'connection', 'show'], { timeout: 10000 });
+  },
+
+  getConnectionSsid: async (uuid: string) => {
+    return runSecureCommand('nmcli', ['-g', '802-11-wireless.ssid', 'connection', 'show', uuid], { timeout: 5000 });
   },
 
   rescanWifi: async () => {

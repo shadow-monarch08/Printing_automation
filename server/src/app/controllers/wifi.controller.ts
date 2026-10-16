@@ -10,13 +10,13 @@ export async function scanWifiNetworks(_req: Request, res: Response) {
 }
 
 export async function connectWifiNetwork(req: Request, res: Response) {
-  const { ssid, profileName, password, isSaved } = req.body;
+  const { ssid, profileName, uuid, password, isSaved } = req.body;
 
-  if (!ssid && !profileName) {
-    throw new ValidationError("VALIDATION_SSID_REQUIRED", "SSID is required.");
+  if (!ssid && !profileName && !uuid) {
+    throw new ValidationError("VALIDATION_SSID_REQUIRED", "SSID or UUID is required.");
   }
 
-  const targetNetwork = ssid || profileName;
+  const targetNetwork = ssid || profileName || uuid;
 
   // 1. Immediately flag Redis status as connecting
   await redisConnection.set(
@@ -36,7 +36,7 @@ export async function connectWifiNetwork(req: Request, res: Response) {
   // 3. Launch resilient background pipeline with EventBus & Cloudflare re-spawn
   setImmediate(async () => {
     try {
-      await wifiService.reconfigureWifiPipeline(ssid, password, profileName, isSaved);
+      await wifiService.reconfigureWifiPipeline(ssid, password, profileName, isSaved, uuid);
     } catch (err) {
       console.error("[WiFi Controller] Wi-Fi reconfiguration pipeline failed:", err);
     }

@@ -15,9 +15,9 @@ export async function getSetupStatus(_req: Request, res: Response) {
 }
 
 export async function provisionSetup(req: Request, res: Response) {
-  const { adminPin, shopName, wifiSsid, wifiPassword, profileName, isSaved, skipWifi, mode, source } = req.body;
+  const { adminPin, shopName, wifiSsid, wifiPassword, profileName, uuid, isSaved, skipWifi, mode, source } = req.body;
   const effectiveShopName = shopName?.trim() || "Modern Press";
-  const targetNetwork = wifiSsid || profileName || "Selected Network";
+  const targetNetwork = wifiSsid || profileName || uuid || "Selected Network";
   const effectiveMode = (mode || (source === "mobile" ? "MOBILE" : undefined)) as ("MOBILE" | "SCREEN" | undefined);
 
   // Synchronously initialize Stage 1 Redis status so loopback 127.0.0.1 immediately switches to hazard overlay
@@ -47,6 +47,7 @@ export async function provisionSetup(req: Request, res: Response) {
         wifiSsid,
         wifiPassword,
         profileName,
+        uuid,
         isSaved,
         skipWifi,
         mode: effectiveMode,

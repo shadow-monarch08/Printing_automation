@@ -74,13 +74,13 @@ export function Step2WifiSetup({ shopName, adminPin, onComplete }: Step2WifiSetu
           ssid={network.ssid}
           isSaved={network.isSaved}
           closeModal={closeModal}
-          onSubmit={(password) => handleConnectSubmit(network.ssid, password, network.isSaved, network.profileName || undefined)}
+          onSubmit={(password) => handleConnectSubmit(network.ssid, password, network.isSaved, network.profileName || undefined, network.uuid || undefined)}
         />
       ),
     });
   };
 
-  const handleConnectSubmit = async (ssid: string, password?: string, isSaved?: boolean, profileName?: string) => {
+  const handleConnectSubmit = async (ssid: string, password?: string, isSaved?: boolean, profileName?: string, uuid?: string) => {
     setIsSubmitting(true);
     setErrorMessage(null);
 
@@ -89,6 +89,7 @@ export function Step2WifiSetup({ shopName, adminPin, onComplete }: Step2WifiSetu
         wifiSsid: ssid,
         wifiPassword: password,
         profileName,
+        uuid,
         isSaved,
         adminPin,
         shopName,

@@ -94,6 +94,7 @@ export interface WifiNetwork {
   isActive?: boolean;
   isSaved?: boolean;
   profileName?: string | null;
+  uuid?: string | null;
   isSecured?: boolean;
   securityType?: string;
 }
@@ -101,6 +102,7 @@ export interface WifiNetwork {
 export interface ConnectPayload {
   ssid?: string;
   profileName?: string;
+  uuid?: string;
   password?: string;
   adminPin?: string;
   shopName?: string;

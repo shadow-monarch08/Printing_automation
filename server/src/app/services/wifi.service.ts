@@ -23,14 +23,40 @@ export async function scanNetworks(): Promise<WiFiNetwork[]> {
     // 2. Fetch live scan results (with security flags)
     const { stdout } = await systemCommands.getWifiStatus();
 
-    // 3. Fetch saved networks list
-    const savedNetworks = new Set<string>();
+    // 3. Fetch saved networks list with UUIDs and true 802-11-wireless.ssid
+    const savedProfilesMap = new Map<string, { name: string; uuid: string }>();
     try {
       const savedRes = await systemCommands.getSavedNetworks();
-      savedRes.stdout.split("\n").forEach((line) => {
-        const trimmed = line.trim();
-        if (trimmed) savedNetworks.add(trimmed);
-      });
+      const rawLines = savedRes.stdout.split("\n").map((l) => l.trim()).filter(Boolean);
+      const wirelessProfiles: Array<{ name: string; uuid: string }> = [];
+
+      for (const line of rawLines) {
+        const parts = line.split(":");
+        if (parts.length >= 3) {
+          const name = parts[0];
+          const uuid = parts[1];
+          const type = parts[2];
+          if (type === "802-11-wireless" && name !== "Kiosk-Hotspot") {
+            wirelessProfiles.push({ name, uuid });
+          }
+        }
+      }
+
+      // Query true SSIDs in parallel
+      await Promise.all(
+        wirelessProfiles.map(async (prof) => {
+          try {
+            const { stdout: ssidOut } = await systemCommands.getConnectionSsid(prof.uuid);
+            const actualSsid = ssidOut.trim();
+            if (actualSsid) {
+              savedProfilesMap.set(actualSsid, prof);
+            }
+          } catch {
+            const fallbackSsid = prof.name.replace(/^netplan-wlan0-/, "");
+            savedProfilesMap.set(fallbackSsid, prof);
+          }
+        })
+      );
     } catch (err) {
       console.warn("[WiFi Service] Failed to get saved networks:", err);
     }
@@ -56,12 +82,10 @@ export async function scanNetworks(): Promise<WiFiNetwork[]> {
       const isSecured = Boolean(rawSecurity && rawSecurity !== "--");
       const securityType = isSecured ? rawSecurity : "OPEN";
 
-      const savedProfiles = Array.from(savedNetworks);
-      const matchedProfile = savedProfiles.find(
-        (profile) => profile === rawSsid || profile === `netplan-wlan0-${rawSsid}`
-      );
-      const isSaved = !!matchedProfile;
-      const profileName = matchedProfile || undefined;
+      const savedMatch = savedProfilesMap.get(rawSsid);
+      const isSaved = !!savedMatch;
+      const profileName = savedMatch?.name || undefined;
+      const uuid = savedMatch?.uuid || undefined;
 
       const existing = networksMap.get(rawSsid);
       if (!existing) {
@@ -71,6 +95,7 @@ export async function scanNetworks(): Promise<WiFiNetwork[]> {
           isActive,
           isSaved,
           profileName,
+          uuid,
           isSecured,
           securityType,
         });
@@ -85,6 +110,7 @@ export async function scanNetworks(): Promise<WiFiNetwork[]> {
         if (isSaved) {
           existing.isSaved = true;
           existing.profileName = profileName;
+          existing.uuid = uuid;
         }
       }
     }
@@ -182,14 +208,15 @@ export async function connectToWifi(
   ssid?: string,
   password?: string,
   profileName?: string,
-  isSaved?: boolean
+  isSaved?: boolean,
+  uuid?: string
 ): Promise<void> {
   suspendRecoveryMonitoring();
 
   try {
     const targetSsid = ssid || profileName;
-    if (!targetSsid) {
-      throw new ValidationError("VALIDATION_SSID_REQUIRED", "Wi-Fi SSID is required.");
+    if (!targetSsid && !uuid) {
+      throw new ValidationError("VALIDATION_SSID_REQUIRED", "Wi-Fi SSID or UUID is required.");
     }
 
     // 1. Ensure Wi-Fi radio is physically powered on and settled
@@ -201,24 +228,25 @@ export async function connectToWifi(
     await settleWifiRadio("wlan0", 3000);
 
     // 2. If connecting to a SAVED profile without a new password:
-    if ((isSaved || profileName) && !password) {
-      const connName = profileName || targetSsid;
-      console.log(`[WiFi Service] Activating existing saved profile "${connName}"...`);
+    if ((uuid || isSaved || profileName) && !password) {
+      const targetArgs = uuid ? ["uuid", uuid] : [profileName || targetSsid!];
+      const displayName = profileName || targetSsid || uuid || "saved-profile";
+      console.log(`[WiFi Service] Activating existing saved profile "${displayName}" (Target: ${uuid ? `uuid ${uuid}` : displayName})...`);
       try {
-        await runSecureCommand("sudo", ["nmcli", "connection", "up", connName], { timeout: 60000 });
-        console.log(`[WiFi Service] Successfully connected to saved profile "${connName}".`);
+        await runSecureCommand("sudo", ["nmcli", "connection", "up", ...targetArgs], { timeout: 60000 });
+        console.log(`[WiFi Service] Successfully connected to saved profile "${displayName}".`);
         return;
       } catch (firstErr: any) {
-        console.warn(`[WiFi Service] First activation attempt for "${connName}" failed. Settling radio and retrying...`);
+        console.warn(`[WiFi Service] First activation attempt for "${displayName}" failed. Settling radio and retrying...`);
         await settleWifiRadio("wlan0", 3000);
         try {
-          await runSecureCommand("sudo", ["nmcli", "connection", "up", connName], { timeout: 60000 });
-          console.log(`[WiFi Service] Successfully connected to saved profile "${connName}" on retry.`);
+          await runSecureCommand("sudo", ["nmcli", "connection", "up", ...targetArgs], { timeout: 60000 });
+          console.log(`[WiFi Service] Successfully connected to saved profile "${displayName}" on retry.`);
           return;
         } catch (retryErr: any) {
           const rawMsg = retryErr?.message || String(retryErr);
-          console.error(`[WiFi Service] Failed to activate saved profile "${connName}" after retry:`, rawMsg);
-          const { code, message } = parseDetailedWifiError(rawMsg, connName);
+          console.error(`[WiFi Service] Failed to activate saved profile "${displayName}" after retry:`, rawMsg);
+          const { code, message } = parseDetailedWifiError(rawMsg, displayName);
           throw new HardwareError(code, message);
         }
       }
@@ -241,8 +269,11 @@ export async function connectToWifi(
 
     // 4. Atomic association using NetworkManager native `nmcli device wifi connect`
     // Auto-negotiates WPA2-PSK, WPA3-SAE, or Open security and writes a clean system connection profile.
+    if (!targetSsid) {
+      throw new ValidationError("VALIDATION_SSID_REQUIRED", "Wi-Fi SSID is required for device association.");
+    }
     console.log(`[WiFi Service] Associating with "${targetSsid}" via atomic device wifi connect...`);
-    const connectArgs = ["nmcli", "device", "wifi", "connect", targetSsid];
+    const connectArgs: string[] = ["nmcli", "device", "wifi", "connect", targetSsid];
     if (password && password.trim().length > 0) {
       connectArgs.push("password", password.trim());
     }
@@ -327,9 +358,10 @@ export async function reconfigureWifiPipeline(
   ssid?: string,
   password?: string,
   profileName?: string,
-  isSaved?: boolean
+  isSaved?: boolean,
+  uuid?: string
 ): Promise<void> {
-  const targetNetwork = ssid || profileName;
+  const targetNetwork = ssid || profileName || uuid;
   if (!targetNetwork) {
     throw new ValidationError("VALIDATION_SSID_REQUIRED", "Wi-Fi SSID is required.");
   }
@@ -358,7 +390,7 @@ export async function reconfigureWifiPipeline(
       timestamp: Date.now(),
     });
 
-    await connectToWifi(ssid, password, profileName, isSaved);
+    await connectToWifi(ssid, password, profileName, isSaved, uuid);
     console.log(`[WiFi Service] Pipeline Phase 1 complete: Associated with "${targetNetwork}".`);
 
     // =========================================================================

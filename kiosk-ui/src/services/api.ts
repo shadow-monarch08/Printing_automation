@@ -196,6 +196,7 @@ export const api = {
     wifiSsid?: string;
     wifiPassword?: string;
     profileName?: string;
+    uuid?: string;
     isSaved?: boolean;
     skipWifi?: boolean;
     handoffToken?: string;
