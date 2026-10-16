@@ -3,7 +3,7 @@ import { runSecureCommand } from "../utils/exec";
 import { WiFiNetwork } from "../types";
 import { ValidationError, HardwareError } from "../utils/errors";
 import { suspendRecoveryMonitoring, resumeRecoveryMonitoring } from "./networkRecovery.service";
-import { getActiveConnectionProfile, verifyInternetReadiness } from "../utils/network.utils";
+import { getActiveConnectionProfile, verifyInternetReadiness, settleWifiRadio } from "../utils/network.utils";
 import { eventBus } from "../utils/eventBus";
 import { stopQuickTunnel, waitForTunnelPromise } from "./tunnel.service";
 import { updateSystemConfig, getSystemConfig } from "./config.db.service";
@@ -192,12 +192,13 @@ export async function connectToWifi(
       throw new ValidationError("VALIDATION_SSID_REQUIRED", "Wi-Fi SSID is required.");
     }
 
-    // 1. Ensure Wi-Fi radio is physically powered on
+    // 1. Ensure Wi-Fi radio is physically powered on and settled
     try {
       await runSecureCommand("sudo", ["nmcli", "radio", "wifi", "on"], { timeout: 5000 });
     } catch {
       /* non-fatal */
     }
+    await settleWifiRadio("wlan0", 3000);
 
     // 2. If connecting to a SAVED profile without a new password:
     if ((isSaved || profileName) && !password) {
@@ -207,11 +208,19 @@ export async function connectToWifi(
         await runSecureCommand("sudo", ["nmcli", "connection", "up", connName], { timeout: 60000 });
         console.log(`[WiFi Service] Successfully connected to saved profile "${connName}".`);
         return;
-      } catch (err: any) {
-        const rawMsg = err?.message || String(err);
-        console.error(`[WiFi Service] Failed to activate saved profile "${connName}":`, rawMsg);
-        const { code, message } = parseDetailedWifiError(rawMsg, connName);
-        throw new HardwareError(code, message);
+      } catch (firstErr: any) {
+        console.warn(`[WiFi Service] First activation attempt for "${connName}" failed. Settling radio and retrying...`);
+        await settleWifiRadio("wlan0", 3000);
+        try {
+          await runSecureCommand("sudo", ["nmcli", "connection", "up", connName], { timeout: 60000 });
+          console.log(`[WiFi Service] Successfully connected to saved profile "${connName}" on retry.`);
+          return;
+        } catch (retryErr: any) {
+          const rawMsg = retryErr?.message || String(retryErr);
+          console.error(`[WiFi Service] Failed to activate saved profile "${connName}" after retry:`, rawMsg);
+          const { code, message } = parseDetailedWifiError(rawMsg, connName);
+          throw new HardwareError(code, message);
+        }
       }
     }
 

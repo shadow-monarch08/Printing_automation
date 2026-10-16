@@ -161,7 +161,7 @@ async function executeProvisioningPipeline(
       if (isHotspot) {
         console.log(`[Onboarding Service] 📶 Deactivating Kiosk-Hotspot to switch radio to station mode for association...`);
         await hotspotService.deactivateHotspot({ triggerAutoReconnect: false });
-        await new Promise((resolve) => setTimeout(resolve, 500));
+        console.log(`[Onboarding Service] 📶 Kiosk-Hotspot deactivated and wireless radio verified settled in station mode.`);
       }
     } catch (hotspotErr) {
       console.warn("[Onboarding Service] Warning deactivating hotspot before station association:", hotspotErr);

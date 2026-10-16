@@ -3,6 +3,7 @@ import { suspendRecoveryMonitoring, resumeRecoveryMonitoring } from "./networkRe
 import { redisConnection } from "../../infrastructure/redis";
 import { REDIS_KEYS } from "../../infrastructure/redisKeys";
 import { autoReconnectKnownWifi } from "./wifi.service";
+import { settleWifiRadio, waitForDeviceState } from "../utils/network.utils";
 
 export type OnboardingMode = "SCREEN" | "MOBILE" | "NONE";
 
@@ -152,8 +153,9 @@ export async function activateHotspot(): Promise<void> {
     /* non-fatal if already disconnected */
   }
 
-  // Brief pause for driver settle
-  await new Promise((resolve) => setTimeout(resolve, 500));
+  // Active hardware state poll: wait until wlan0 reports disconnected before AP start
+  await waitForDeviceState(HOTSPOT_CONFIG.INTERFACE, ["disconnected"], 4000);
+  await new Promise((resolve) => setTimeout(resolve, 200));
 
   await runSecureCommand("sudo", ["nmcli", "connection", "up", HOTSPOT_CONFIG.PROFILE_NAME], { timeout: 30000 });
   console.log(`[Hotspot Service] 📶 ${HOTSPOT_CONFIG.PROFILE_NAME} successfully activated at ${HOTSPOT_CONFIG.IP}`);
@@ -176,6 +178,9 @@ export async function deactivateHotspot(options?: { triggerAutoReconnect?: boole
   } catch (err: any) {
     console.warn("[Hotspot Service] Warning deactivating hotspot:", err.message || err);
   }
+
+  // Hardware State Settle Guard: Wait for kernel/firmware to transition from AP to Managed Station mode
+  await settleWifiRadio(HOTSPOT_CONFIG.INTERFACE, 4000);
 
   // Resume recovery monitoring after leaving hotspot
   resumeRecoveryMonitoring();
@@ -204,8 +209,9 @@ export async function restoreHotspotAfterFailure(): Promise<void> {
     console.warn("[Hotspot Service] Interface disconnect warning (proceeding):", err.message || err);
   }
 
-  // Step 2: 1-second pause to let the kernel / driver state settle
-  await new Promise((resolve) => setTimeout(resolve, 1000));
+  // Step 2: Active hardware state poll: wait until wlan0 reports disconnected before AP restore
+  await waitForDeviceState(HOTSPOT_CONFIG.INTERFACE, ["disconnected"], 4000);
+  await new Promise((resolve) => setTimeout(resolve, 200));
 
   // Step 3: Bring up the hotspot
   try {

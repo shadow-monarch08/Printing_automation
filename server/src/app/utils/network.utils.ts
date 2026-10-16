@@ -109,3 +109,77 @@ export function getLocalIpAddress(): string | null {
     return null;
   }
 }
+
+/**
+ * Returns the state and type of a physical/virtual network device from NetworkManager.
+ */
+export async function getDeviceState(
+  deviceName: string = "wlan0"
+): Promise<{ device: string; state: string; type: string } | null> {
+  try {
+    const { stdout } = await runSecureCommand("nmcli", ["-t", "-f", "DEVICE,STATE,TYPE", "device"]);
+    const lines = stdout.split("\n").map((l) => l.trim()).filter(Boolean);
+    for (const line of lines) {
+      const parts = line.split(":");
+      if (parts[0] === deviceName) {
+        return {
+          device: parts[0],
+          state: parts[1] || "unknown",
+          type: parts[2] || "unknown",
+        };
+      }
+    }
+    return null;
+  } catch (err) {
+    console.warn(`[Network Utils] Could not query device state for "${deviceName}":`, err);
+    return null;
+  }
+}
+
+/**
+ * Polls device state until it enters one of the acceptableStates, or times out.
+ */
+export async function waitForDeviceState(
+  deviceName: string = "wlan0",
+  acceptableStates: string[] = ["disconnected"],
+  timeoutMs: number = 4000,
+  pollIntervalMs: number = 200
+): Promise<{ state: string; settled: boolean }> {
+  const startTime = Date.now();
+  let lastState = "unknown";
+
+  while (Date.now() - startTime < timeoutMs) {
+    const dev = await getDeviceState(deviceName);
+    if (dev) {
+      lastState = dev.state;
+      if (acceptableStates.includes(dev.state)) {
+        console.log(`[Network Utils] 🎯 Device "${deviceName}" reached target state "${dev.state}" after ${Date.now() - startTime}ms`);
+        return { state: dev.state, settled: true };
+      }
+    }
+    await new Promise((resolve) => setTimeout(resolve, pollIntervalMs));
+  }
+
+  console.warn(`[Network Utils] ⚠️ Device "${deviceName}" timed out waiting for states [${acceptableStates.join(", ")}]. Last state: "${lastState}"`);
+  return { state: lastState, settled: false };
+}
+
+/**
+ * Ensures the Wi-Fi radio interface (e.g., wlan0) has physically settled out of
+ * transient states ('deactivating', 'unavailable', or mid-firmware-reset) before
+ * attempting association or AP mode changes.
+ */
+export async function settleWifiRadio(
+  deviceName: string = "wlan0",
+  timeoutMs: number = 4000
+): Promise<boolean> {
+  console.log(`[Network Utils] ⏳ Ensuring Wi-Fi radio "${deviceName}" is physically settled...`);
+  
+  // Acceptable settled states: 'disconnected' (ready for association) or 'connected'
+  const result = await waitForDeviceState(deviceName, ["disconnected", "connected"], timeoutMs, 200);
+
+  // Broadcom driver quiet period: brief 300ms buffer to allow kernel tasklets & wpa_supplicant state flush
+  await new Promise((resolve) => setTimeout(resolve, 300));
+  
+  return result.settled;
+}
