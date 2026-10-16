@@ -160,7 +160,7 @@ async function runTests() {
     // 4a. Standard CUPS PPD (RGB + Duplex)
     cupsCommands.getPrinterOptions = async () => ({
       stdout: `
-ColorModel/Color Mode: *Gray RGB CMYK
+ColorModel/Color Mode: Gray *RGB CMYK
 Duplex/Two-Sided Printing: None *DuplexNoTumble DuplexTumble
 PageSize/Media Size: *A4 Letter
       `,
@@ -170,6 +170,22 @@ PageSize/Media Size: *A4 Letter
     assert(
       "Standard CUPS PPD: identifies 'color', 'duplex', and 'a4'",
       caps.includes("color") && caps.includes("duplex") && caps.includes("a4")
+    );
+
+    // 4a2. Generic PCL PPD with *Gray active (Simplex with *None and OptionDuplex=*False)
+    cupsCommands.getPrinterOptions = async () => ({
+      stdout: `
+ColorModel/Color Mode: *Gray RGB CMYK
+Duplex/Two-Sided Printing: *None DuplexNoTumble DuplexTumble
+OptionDuplex/Duplex Unit: *False True
+PageSize/Media Size: *A4 Letter
+      `,
+      stderr: "",
+    });
+    caps = await probePrinterCapabilities("dummy_queue");
+    assert(
+      "Generic PCL PPD: identifies 'grayscale' and NO duplex when *Gray and OptionDuplex=*False",
+      caps.includes("grayscale") && !caps.includes("color") && !caps.includes("duplex") && caps.includes("a4")
     );
 
     // 4b. Standard CUPS Monochrome PPD (Gray only, No Duplex)

@@ -250,9 +250,9 @@ async function runTests() {
     const origAccept = cupsCommands.acceptJobs;
     const origActiveJobs = cupsCommands.getActiveJobs;
 
-    let enabledCalled = false;
-    let acceptCalled = false;
-    let healedEventReceived = false;
+    let enabledCalled: boolean = false;
+    let acceptCalled: boolean = false;
+    let healedEventReceived: boolean = false;
 
     cupsCommands.getPrinterStatus = async () => ({
       stdout: `device for ${testPrinter}: usb://HP/LaserJet%20P1102?serial=999`,
@@ -286,11 +286,11 @@ async function runTests() {
     const postStrikes = inMemoryRedis.get(strikeKey);
     const postHealth = inMemoryRedis.get(healthKey);
 
-    assert(enabledCalled === true, "Must call cupsenable on healed printer");
-    assert(acceptCalled === true, "Must call cupsaccept on healed printer");
+    assert(Boolean(enabledCalled), "Must call cupsenable on healed printer");
+    assert(Boolean(acceptCalled), "Must call cupsaccept on healed printer");
     assert(postStrikes === "0", "Strikes must be reset to 0 upon healing");
     assert(postHealth === "healthy", "Health must be reset to 'healthy'");
-    assert(healedEventReceived === true, "admin:printer:healed event must be emitted");
+    assert(Boolean(healedEventReceived), "admin:printer:healed event must be emitted");
 
     eventBus.off("admin:printer:healed", onHealed);
     cupsCommands.getPrinterStatusByName = origStatusByName;
@@ -336,7 +336,7 @@ async function runTests() {
     } as any);
     cupsCommands.getActiveJobs = async () => ({ stdout: "", stderr: "" } as any);
 
-    let resumeEventReceived = false;
+    let resumeEventReceived: boolean = false;
     const onResumed = () => { resumeEventReceived = true; };
     eventBus.on("system:queue:resumed", onResumed);
 
@@ -344,7 +344,7 @@ async function runTests() {
 
     const isNowPaused = await printMasterQueue.isPaused();
     assert(isNowPaused === false, "Global queue must be automatically resumed when printer heals");
-    assert(resumeEventReceived === true, "system:queue:resumed event must be emitted");
+    assert(Boolean(resumeEventReceived), "system:queue:resumed event must be emitted");
 
     eventBus.off("system:queue:resumed", onResumed);
     cupsCommands.getPrinterStatusByName = origStatusByName;

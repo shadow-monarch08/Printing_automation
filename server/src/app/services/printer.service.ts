@@ -785,6 +785,7 @@ export async function probePrinterCapabilities(
 
   let colorDetermined = false;
   let duplexDetermined = false;
+  let duplexUnitInstalled: boolean | null = null; // null = unspecified, true = installed, false = absent
 
   // --- TIER 1: Native Local IPP (RFC 8011) Query ---
   try {
@@ -816,28 +817,41 @@ export async function probePrinterCapabilities(
 
     const attrs = res?.["printer-attributes-tag"];
     if (attrs) {
-      // Color support
+      // Color support: IPP RFC 8011 color-supported is the primary authority
       const colorSupported = attrs["color-supported"];
       const colorModes = Array.isArray(attrs["print-color-mode-supported"])
         ? attrs["print-color-mode-supported"]
         : (attrs["print-color-mode-supported"] ? [attrs["print-color-mode-supported"]] : []);
 
-      if (colorSupported === true || colorSupported === 1 || colorModes.some((m: string) => /color|rgb/i.test(String(m)))) {
-        capabilities.add("color");
-        colorDetermined = true;
-      } else if (colorSupported === false || colorSupported === 0 || colorModes.some((m: string) => /monochrome|gray/i.test(String(m)))) {
+      if (colorSupported === false || colorSupported === 0) {
         capabilities.add("grayscale");
         colorDetermined = true;
+      } else if (colorSupported === true || colorSupported === 1) {
+        capabilities.add("color");
+        colorDetermined = true;
+      } else if (colorModes.length > 0) {
+        // Only if color-supported is omitted: If only monochrome modes exist, mark grayscale
+        if (colorModes.every((m: string) => /monochrome|gray/i.test(String(m)))) {
+          capabilities.add("grayscale");
+          colorDetermined = true;
+        } else if (colorModes.every((m: string) => /color|rgb/i.test(String(m)))) {
+          capabilities.add("color");
+          colorDetermined = true;
+        }
       }
 
-      // Duplex support
+      // Duplex support: sides-supported
       const sides = Array.isArray(attrs["sides-supported"])
         ? attrs["sides-supported"]
         : (attrs["sides-supported"] ? [attrs["sides-supported"]] : []);
 
-      if (sides.some((s: string) => /two-sided/i.test(String(s)))) {
-        capabilities.add("duplex");
-        duplexDetermined = true;
+      if (sides.length > 0) {
+        if (sides.every((s: string) => /one-sided/i.test(String(s)))) {
+          duplexDetermined = true; // strictly simplex
+        } else if (sides.some((s: string) => /two-sided/i.test(String(s)))) {
+          capabilities.add("duplex");
+          duplexDetermined = true;
+        }
       }
     }
   } catch {
@@ -857,12 +871,31 @@ export async function probePrinterCapabilities(
           const optKey = line.substring(0, colonIdx).trim().toLowerCase();
           const optValues = line.substring(colonIdx + 1).trim();
 
-          // Color detection across vendor PPD specifications:
-          // - Standard CUPS: ColorModel/Color Mode: *Gray RGB / CMYK
-          // - IPP Everywhere: print-color-mode/Color Mode: monochrome *color
-          // - Brother: BRColor/Color: *Color Mono
-          // - Canon: CNColorMode/Color Mode: *Color Mono
-          // - HP: HPColorMode/Color Mode: *Color Grayscale
+          // Extract active selection marked with an asterisk '*' (PPD / CUPS standard RFC/Adobe 4.3)
+          const activeMatch = optValues.match(/\*([^\s]+)/);
+          const activeChoice = activeMatch ? activeMatch[1].toLowerCase() : "";
+          const choices = optValues.split(/\s+/).map(c => c.replace(/^\*/, "").toLowerCase());
+
+          // 1. Check for physical installable duplex accessory options (RFC / Adobe PPD 4.3 Section 5.17)
+          // e.g. OptionDuplex/Duplex Unit: *False True, InstalledDuplex/Duplexer: *False Installed
+          if (
+            optKey.startsWith("optionduplex") ||
+            optKey.startsWith("installedduplex") ||
+            optKey.startsWith("duplexunit") ||
+            optKey.startsWith("jclduplexunit")
+          ) {
+            if (/(?:false|none|notinstalled|no\b)/i.test(activeChoice)) {
+              duplexUnitInstalled = false;
+              capabilities.delete("duplex");
+              duplexDetermined = true;
+            } else if (/(?:true|installed|yes\b)/i.test(activeChoice)) {
+              duplexUnitInstalled = true;
+              capabilities.add("duplex");
+              duplexDetermined = true;
+            }
+          }
+
+          // 2. Color detection across vendor PPD specifications
           if (!colorDetermined) {
             const isColorOption = (
               optKey.startsWith("colormodel") ||
@@ -873,24 +906,29 @@ export async function probePrinterCapabilities(
             );
 
             if (isColorOption) {
-              // Inspect ONLY the choices after the colon, avoiding false positives on label text
-              if (/(?:RGB|CMYK|\bColor\b)/i.test(optValues)) {
-                capabilities.add("color");
-                colorDetermined = true;
-              } else if (/(?:Gray|Black|Mono|Grayscale)/i.test(optValues)) {
-                capabilities.add("grayscale");
-                colorDetermined = true;
+              if (activeChoice) {
+                if (/(?:gray|grayscale|mono|monochrome|black\b)/i.test(activeChoice)) {
+                  capabilities.add("grayscale");
+                  colorDetermined = true;
+                } else if (/(?:rgb|cmyk|\bcolor\b)/i.test(activeChoice)) {
+                  capabilities.add("color");
+                  colorDetermined = true;
+                }
+              } else {
+                // No asterisk marked: inspect overall choices
+                if (choices.every(c => /(?:gray|grayscale|mono|monochrome|black)/i.test(c))) {
+                  capabilities.add("grayscale");
+                  colorDetermined = true;
+                } else if (choices.some(c => /(?:rgb|cmyk|\bcolor\b)/i.test(c))) {
+                  capabilities.add("color");
+                  colorDetermined = true;
+                }
               }
             }
           }
 
-          // Duplex detection across vendor PPD specifications:
-          // - Standard CUPS: Duplex/Two-Sided Printing: None *DuplexNoTumble DuplexTumble
-          // - IPP Everywhere: sides/Sides: one-sided *two-sided-long-edge
-          // - Brother: BRDuplex/Duplex: *Duplex None
-          // - Canon: CNDuplex/Duplex: *Duplex None
-          // - Ricoh / Sharp / Konica: JCLDuplex/Duplex: *Duplex None
-          if (!duplexDetermined) {
+          // 3. Duplex modes (Duplex, sides, BRDuplex, CNDuplex, JCLDuplex)
+          if (!duplexDetermined && duplexUnitInstalled !== false) {
             const isDuplexOption = (
               optKey.startsWith("duplex") ||
               optKey.startsWith("sides") ||
@@ -900,9 +938,16 @@ export async function probePrinterCapabilities(
             );
 
             if (isDuplexOption) {
-              if (/(?:DuplexNoTumble|DuplexTumble|TwoSided|two-sided|\bYes\b|\bDuplex\b)/i.test(optValues)) {
+              if (activeChoice && /(?:duplexnotumble|duplextumble|two-sided-long-edge|two-sided-short-edge|\bduplex\b)/i.test(activeChoice)) {
                 capabilities.add("duplex");
                 duplexDetermined = true;
+              } else if (activeChoice && /(?:none|one-sided|\bsimplex\b)/i.test(activeChoice)) {
+                // If active choice is None, check if duplex choices exist and duplex unit is explicitly confirmed installed
+                const hasDuplexChoice = choices.some(c => /(?:duplexnotumble|duplextumble|two-sided)/i.test(c));
+                if (hasDuplexChoice && duplexUnitInstalled === true) {
+                  capabilities.add("duplex");
+                  duplexDetermined = true;
+                }
               }
             }
           }
@@ -913,17 +958,25 @@ export async function probePrinterCapabilities(
     }
   }
 
-  // --- TIER 3: Physical Marker Telemetry Cross-Validation ---
-  if (!colorDetermined) {
-    try {
-      const markers = await queryCupsPrinterMarkers(queueName);
-      if (markers && markers.supplies && markers.supplies.color !== null && markers.supplies.color !== undefined) {
+  // --- TIER 3: Physical Marker Telemetry Cross-Validation (Dynamic Hardware Reality) ---
+  // Queries local CUPS markers / supplies. If the physical printer only has a black cartridge
+  // and zero color cartridges, hardware physics dictates it cannot print in color!
+  try {
+    const markers = await queryCupsPrinterMarkers(queueName);
+    if (markers && markers.supplies) {
+      if (markers.supplies.color !== null && markers.supplies.color !== undefined) {
+        capabilities.delete("grayscale");
         capabilities.add("color");
         colorDetermined = true;
+      } else if (markers.supplies.black !== null && markers.supplies.black !== undefined && markers.supplies.color === null) {
+        // Physical engine only contains black cartridge!
+        capabilities.delete("color");
+        capabilities.add("grayscale");
+        colorDetermined = true;
       }
-    } catch {
-      // Marker telemetry unavailable
     }
+  } catch {
+    // Marker telemetry unavailable
   }
 
   // --- TIER 4: Hardware Model & URI Pattern Heuristics ---
@@ -942,7 +995,7 @@ export async function probePrinterCapabilities(
     }
   }
 
-  if (!duplexDetermined) {
+  if (!duplexDetermined && duplexUnitInstalled !== false) {
     // Model suffix indicating auto-duplex:
     // Suffixes: -d, -dn, -dw, or digit followed by d/dn/dw (e.g. 2540dn, 404dw, 2520d), or keywords duplex, two-sided
     const isKnownDuplexModel = /(?:[-_\s]d[wn]?\b|\d+d[wn]?\b|duplex|two-sided)/i.test(combinedContext) ||

@@ -374,18 +374,34 @@ export const PrinterCard: React.FC<PrinterCardProps> = ({
           </div>
         </div>
 
-        {/* Paper Tray Meter */}
-        <div>
-          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px', fontSize: '11px', fontFamily: 'var(--font-mono)' }}>
-            <span style={{ color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>PAPER TRAY</span>
-            {printer.paper === 'unknown' ? (
-              <span style={{ fontSize: '10px', padding: '1px 4px', background: 'var(--bg-surface-alt)', borderRadius: '2px', color: 'var(--text-muted)' }}>UNKNOWN</span>
-            ) : (
-              <span className="data-mono" style={{ textTransform: 'uppercase', fontWeight: 600 }}>{printer.paper}</span>
-            )}
-          </div>
-          <div style={{ height: '5px', background: 'var(--bg-primary)', borderRadius: '2px', overflow: 'hidden', border: '1px solid var(--border-default)' }}>
-            <div style={{ height: '100%', width: printer.paper === 'unknown' ? '50%' : printer.paper === 'ready' ? '100%' : '0%', background: getPaperColor(printer.paper) }} />
+        {/* Paper Tray Status (Binary Hardware Presence) */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <span style={{ fontFamily: 'var(--font-mono)', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--text-secondary)' }}>
+            PAPER TRAY
+          </span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <span 
+              style={{
+                width: '6px',
+                height: '6px',
+                borderRadius: '50%',
+                backgroundColor: getPaperColor(printer.paper),
+                display: 'inline-block',
+                boxShadow: printer.paper === 'ready' ? '0 0 5px var(--accent-primary)' : printer.paper === 'empty' ? '0 0 5px var(--status-error)' : 'none'
+              }} 
+            />
+            <span 
+              className="data-mono" 
+              style={{ 
+                fontSize: '10px', 
+                fontWeight: 600, 
+                textTransform: 'uppercase',
+                color: getPaperColor(printer.paper),
+                letterSpacing: '0.04em'
+              }}
+            >
+              {printer.paper === 'ready' ? 'LOADED' : printer.paper === 'empty' ? 'EMPTY' : 'UNKNOWN'}
+            </span>
           </div>
         </div>
 
