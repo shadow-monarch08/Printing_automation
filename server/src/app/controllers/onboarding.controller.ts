@@ -230,7 +230,13 @@ export async function startHotspot(_req: Request, res: Response) {
   });
 }
 
+export async function cancelProvisioning(_req: Request, res: Response) {
+  onboardingService.cancelActiveProvisioning("Client requested cancellation");
+  res.json({ success: true, message: "Active provisioning cancelled." });
+}
+
 export async function stopHotspot(_req: Request, res: Response) {
+  onboardingService.cancelActiveProvisioning("Hotspot stopped");
   await hotspotService.deactivateHotspot();
   await hotspotService.setOnboardingMode("SCREEN");
   res.json({
@@ -250,6 +256,7 @@ export async function setOnboardingMode(req: Request, res: Response) {
     res.status(400).json({ error: "Invalid mode. Must be 'SCREEN', 'MOBILE', or 'NONE'." });
     return;
   }
+  onboardingService.cancelActiveProvisioning(`Mode switched to ${mode}`);
   await hotspotService.setOnboardingMode(mode);
   res.json({ success: true, mode });
 }

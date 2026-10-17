@@ -142,6 +142,7 @@ export const useKioskStore = create<KioskStoreState>((set, get) => ({
 
   cancelMobileMode: async () => {
     try {
+      await api.cancelProvisioning();
       await api.stopHotspot();
       await api.setOnboardingMode('NONE');
     } catch (err) {
@@ -152,6 +153,8 @@ export const useKioskStore = create<KioskStoreState>((set, get) => ({
       onboardingMode: 'NONE',
       errorMessage: null,
       errorCode: null,
+      isSubmitting: false,
+      provisioningTelemetry: null,
     });
   },
 
@@ -171,6 +174,7 @@ export const useKioskStore = create<KioskStoreState>((set, get) => ({
 
   resetToChoice: async () => {
     try {
+      await api.cancelProvisioning();
       await api.setOnboardingMode('NONE');
     } catch (err) {
       /* non-fatal */
@@ -308,7 +312,13 @@ kioskEventBus.on('kiosk:onboarding:status', (payload) => {
     return; // Shallow guard to prevent redundant re-renders
   }
 
-  useKioskStore.setState({
+  const isActiveProgress =
+    payload.status === 'connecting' ||
+    payload.status === 'verifying_internet' ||
+    payload.status === 'starting_tunnel' ||
+    payload.status === 'verifying_daemons';
+
+  useKioskStore.setState((state) => ({
     provisioningTelemetry: {
       status: payload.status,
       step: payload.step,
@@ -328,8 +338,12 @@ kioskEventBus.on('kiosk:onboarding:status', (payload) => {
       printerCount: payload.printerCount,
       rollbackActive: payload.rollbackActive,
     },
-    step: payload.status === 'success' ? 'OPERATIONAL' : 'PROVISIONING',
-  });
+    step: payload.status === 'success'
+      ? 'OPERATIONAL'
+      : isActiveProgress
+      ? 'PROVISIONING'
+      : state.step,
+  }));
 
   if (payload.status === 'success') {
     useKioskStore.getState().fetchSummary();
@@ -426,4 +440,19 @@ kioskEventBus.on('kiosk:network:state_changed', (payload) => {
       ...(payload.localAccessUrl ? { localAccessUrl: payload.localAccessUrl } : {}),
     },
   });
+});
+
+// 8. Live Cloudflare Quick Tunnel Status & URL Updates
+kioskEventBus.on('system:tunnel:updated', (payload) => {
+  const currentSummary = useKioskStore.getState().kioskSummary;
+  if (!currentSummary) return;
+
+  if (currentSummary.cloudflareUrl !== payload.url) {
+    useKioskStore.setState({
+      kioskSummary: {
+        ...currentSummary,
+        cloudflareUrl: payload.url,
+      },
+    });
+  }
 });

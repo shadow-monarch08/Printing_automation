@@ -1,3 +1,4 @@
+import { runSecureCommand } from "../utils/exec";
 import { redisConnection } from "../../infrastructure/redis";
 import { REDIS_KEYS, REDIS_TTLS } from "../../infrastructure/redisKeys";
 import { checkInternetConnectivity, getActiveConnectionProfile } from "../utils/network.utils";
@@ -27,6 +28,7 @@ interface NetworkRecoveryStatus {
 let currentState: RecoveryState = "ONLINE";
 let consecutiveFailures = 0;
 let consecutiveSuccesses = 0;
+let hotspotIdleCycles = 0;
 let isSuspended = false;
 let monitorIntervalId: NodeJS.Timeout | null = null;
 let isCheckInProgress = false;
@@ -125,6 +127,15 @@ async function reconcilePhysicalState(): Promise<void> {
   }
 }
 
+async function hasActiveHotspotClients(): Promise<boolean> {
+  try {
+    const { stdout } = await runSecureCommand("iw", ["dev", "wlan0", "station", "dump"]);
+    return stdout.includes("Station ");
+  } catch {
+    return false;
+  }
+}
+
 async function performConnectivityCheck(): Promise<void> {
   if (isCheckInProgress || isSuspended) return;
 
@@ -217,8 +228,32 @@ async function performConnectivityCheck(): Promise<void> {
           console.error("[Network Recovery] ❌ Failed to activate emergency hotspot:", hotspotErr);
         }
       } else if (currentState === "HOTSPOT_ACTIVE") {
-        // Hotspot is active. Simple & robust: no disruptive background frequency scanning.
-        // Waiting for admin Wi-Fi onboarding or Ethernet attachment.
+        const hasClients = await hasActiveHotspotClients();
+        if (hasClients) {
+          hotspotIdleCycles = 0;
+        } else {
+          hotspotIdleCycles++;
+          // Probe every 60s (4 checks * 15s) when no clients are using the emergency hotspot
+          if (hotspotIdleCycles >= 4) {
+            hotspotIdleCycles = 0;
+            console.log("[Network Recovery] 🔍 Hotspot idle (no clients connected for 60s). Probing for known saved networks...");
+            try {
+              const reconnectedProfile = await autoReconnectKnownWifi();
+              if (reconnectedProfile) {
+                const verified = await checkInternetConnectivity();
+                if (verified) {
+                  console.log(`[Network Recovery] ✅ Known network "${reconnectedProfile}" restored and verified. Safely deactivating hotspot...`);
+                  await deactivateHotspot();
+                  consecutiveFailures = 0;
+                  await transitionState("ONLINE");
+                  return;
+                }
+              }
+            } catch (probeErr) {
+              console.warn("[Network Recovery] Idle probe warning:", probeErr);
+            }
+          }
+        }
       }
     }
 

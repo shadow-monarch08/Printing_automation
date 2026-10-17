@@ -235,6 +235,10 @@ export const api = {
     return apiClient.post<{ success: boolean; mode: string }>('/setup/mode', { mode });
   },
 
+  cancelProvisioning: async () => {
+    return apiClient.post<{ success: boolean; message: string }>('/setup/cancel', {});
+  },
+
   // Analytics API
   fetchFinancialSummary: async (startDate: string, endDate: string) => {
     const res = await apiClient.get<{ success: boolean; totalRevenue: number; totalJobs: number; completedJobs: number; failedJobs: number; avgCostPerJob: number }>(`/analytics/financial/summary?startDate=${startDate}&endDate=${endDate}`);

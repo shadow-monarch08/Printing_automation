@@ -31,6 +31,21 @@ export interface ProvisionOnboardingPayload {
   source?: string;
 }
 
+interface ActiveSession {
+  id: string;
+  abortController: AbortController;
+}
+
+let activeSession: ActiveSession | null = null;
+
+export function cancelActiveProvisioning(reason: string = "Provisioning cancelled"): void {
+  if (activeSession) {
+    console.log(`[Onboarding Service] 🛑 Cancelling active provisioning session ${activeSession.id} (${reason})`);
+    activeSession.abortController.abort();
+    activeSession = null;
+  }
+}
+
 export function getSetupStatus() {
   const config = getSystemConfig();
   const isOnboarded = config ? Boolean(config.isOnboarded) : false;
@@ -120,8 +135,11 @@ export async function emitProvisioningStatus(payload: ProvisioningTelemetryPaylo
 
 async function executeProvisioningPipeline(
   payload: ProvisionOnboardingPayload,
-  provisioningState: string
+  provisioningState: string,
+  signal: AbortSignal
 ) {
+  if (signal.aborted) throw new HardwareError("PROVISIONING_CANCELLED", "Provisioning session was cancelled.");
+
   const { adminPin, shopName, wifiSsid, wifiPassword, profileName, isSaved, skipWifi, uuid } = payload;
   const port = parseInt(process.env.PORT || "3000", 10);
   const effectiveShopName = shopName?.trim() || "Modern Press";
@@ -168,12 +186,16 @@ async function executeProvisioningPipeline(
       console.warn("[Onboarding Service] Warning deactivating hotspot before station association:", hotspotErr);
     }
 
+    if (signal.aborted) throw new HardwareError("PROVISIONING_CANCELLED", "Provisioning session was cancelled.");
+
     console.log(`[Onboarding Service] Phase 1: Connecting to Wi-Fi "${targetNetwork}" (Saved: ${Boolean(isSaved || uuid)})...`);
     await wifiService.connectToWifi(wifiSsid, wifiPassword, profileName, isSaved, uuid);
     console.log(`[Onboarding Service] Phase 1 complete: Wi-Fi radio association successful.`);
   } else {
     console.log(`[Onboarding Service] Phase 1: Skipping Wi-Fi radio reconfiguration. Using active network...`);
   }
+
+  if (signal.aborted) throw new HardwareError("PROVISIONING_CANCELLED", "Provisioning session was cancelled.");
 
   // Publish Phase 2 (02/04): Negotiating WAN DHCP & DNS Lease
   await emitProvisioningStatus({
@@ -199,6 +221,8 @@ async function executeProvisioningPipeline(
       "Wi-Fi connected successfully, but no Internet access was detected on this network."
     );
   }
+
+  if (signal.aborted) throw new HardwareError("PROVISIONING_CANCELLED", "Provisioning session was cancelled.");
 
   // Publish Phase 3 (03/04): Spawning Cloudflare Quick Tunnel
   await emitProvisioningStatus({
@@ -226,6 +250,8 @@ async function executeProvisioningPipeline(
     );
   }
 
+  if (signal.aborted) throw new HardwareError("PROVISIONING_CANCELLED", "Provisioning session was cancelled.");
+
   // Publish Phase 4 (04/04): Verifying CUPS Daemons & Committing State
   let printerCount = 0;
   try {
@@ -248,6 +274,8 @@ async function executeProvisioningPipeline(
     printerCount,
     timestamp: Date.now(),
   });
+
+  if (signal.aborted) throw new HardwareError("PROVISIONING_CANCELLED", "Provisioning session was cancelled.");
 
   // 5. Persist State in SQLite
   const updates: any = {
@@ -328,6 +356,13 @@ async function executeProvisioningPipeline(
 }
 
 export async function provisionOnboarding(payload: ProvisionOnboardingPayload) {
+  cancelActiveProvisioning("New provisioning attempt initiated");
+
+  const sessionId = Math.random().toString(36).substring(2, 9);
+  const abortController = new AbortController();
+  activeSession = { id: sessionId, abortController };
+  const signal = abortController.signal;
+
   const config = getSystemConfig();
   const provisioningState = config?.provisioningState || (config?.isOnboarded ? "READY" : "FIRST_BOOT");
 
@@ -340,13 +375,13 @@ export async function provisionOnboarding(payload: ProvisionOnboardingPayload) {
 
   const modeFromPayload = payload.mode || (payload.source === "mobile" ? "MOBILE" : undefined);
   const currentMode = modeFromPayload || (await hotspotService.getOnboardingMode());
-  console.log(`[Onboarding Service] 🚀 Initiating provisioning pipeline in [${currentMode}] mode...`);
+  console.log(`[Onboarding Service] 🚀 Initiating provisioning pipeline [${sessionId}] in [${currentMode}] mode...`);
 
   const OVERALL_DEADLINE_MS = 90000; // 90 seconds overall deadline
 
   try {
     return await Promise.race([
-      executeProvisioningPipeline(payload, provisioningState),
+      executeProvisioningPipeline(payload, provisioningState, signal),
       new Promise<never>((_, reject) =>
         setTimeout(
           () => reject(new HardwareError("PROVISION_TIMEOUT", "Onboarding provisioning exceeded 90s deadline.")),
@@ -355,10 +390,15 @@ export async function provisionOnboarding(payload: ProvisionOnboardingPayload) {
       ),
     ]);
   } catch (error: any) {
+    if (signal.aborted || error.code === "PROVISIONING_CANCELLED") {
+      console.log(`[Onboarding Service] ℹ️ Provisioning session [${sessionId}] cleanly aborted.`);
+      return;
+    }
+
     const errorMsg = error.message || "Onboarding provisioning failed";
     const code = error.code || "WIFI_CONNECTION_FAILED";
 
-    console.error(`[Onboarding Service] ❌ Provisioning pipeline failed (${code}):`, errorMsg);
+    console.error(`[Onboarding Service] ❌ Provisioning pipeline [${sessionId}] failed (${code}):`, errorMsg);
 
     // 1. Immediately publish Failure Status to Redis so 127.0.0.1 displays red hazard alert without waiting on rollback
     await emitProvisioningStatus({
@@ -401,40 +441,11 @@ export async function provisionOnboarding(payload: ProvisionOnboardingPayload) {
       }
     }
 
-    // 3. Automated 10-second failure acknowledgment timer:
-    // Resets provisioning telemetry from 'failed' back to 'idle' in Redis, SQLite and EventBus
-    // so the kiosk terminal is NEVER trapped in a permanent error loop.
-    setTimeout(async () => {
-      try {
-        const currentStatusRaw = await redisConnection.get(REDIS_KEYS.wifiConnectionStatus);
-        if (currentStatusRaw) {
-          const parsed = JSON.parse(currentStatusRaw);
-          if (parsed.status === "failed") {
-            const idlePayload: ProvisioningTelemetryPayload = {
-              status: "idle",
-              phase: "IDLE",
-              step: 0,
-              totalSteps: 4,
-              progressPercent: 0,
-              message: "System idle. Ready for retry.",
-              timestamp: Date.now(),
-            };
-            await redisConnection.set(
-              REDIS_KEYS.wifiConnectionStatus,
-              JSON.stringify(idlePayload),
-              "EX",
-              REDIS_TTLS.WIFI_STATUS
-            );
-            eventBus.emit("kiosk:onboarding:status", idlePayload as any);
-            updateSystemConfig({ onboardingStage: "IDLE" });
-          }
-        }
-      } catch (timerErr) {
-        console.warn("[Onboarding Service] Failure acknowledgment timer error:", timerErr);
-      }
-    }, 10000);
-
     throw error instanceof AppError ? error : new HardwareError(code, errorMsg);
+  } finally {
+    if (activeSession?.id === sessionId) {
+      activeSession = null;
+    }
   }
 }
 

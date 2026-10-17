@@ -1,12 +1,15 @@
-// src/components/kiosk/onboarding/KioskMobileHandoffStep.tsx
-import React from 'react';
+import React, { useEffect } from 'react';
 import { useKioskStore } from '../../../stores/useKioskStore';
 import { QRCodeSVG } from 'qrcode.react';
 import { ArrowLeft, ArrowRight } from 'lucide-react';
 import { Button } from '../../shared/Button';
 
 export const KioskMobileHandoffStep: React.FC = () => {
-  const { cancelMobileMode, startScreenMode, errorMessage } = useKioskStore();
+  const { cancelMobileMode, startScreenMode, setErrorMessage } = useKioskStore();
+
+  useEffect(() => {
+    setErrorMessage(null);
+  }, [setErrorMessage]);
 
   const wifiQrPayload = 'WIFI:S:Kiosk-Hotspot;T:nopass;;';
   const portalUrl = 'http://192.168.4.1:3000/admin/setup';
@@ -78,37 +81,6 @@ export const KioskMobileHandoffStep: React.FC = () => {
           HOTSPOT: Kiosk-Hotspot
         </div>
       </div>
-
-      {/* Error Notice from Previous Attempt if any */}
-      {errorMessage && (
-        <div
-          style={{
-            background: 'rgba(255, 68, 68, 0.12)',
-            border: '1.5px solid var(--status-error, #FF4444)',
-            borderRadius: 'var(--radius-md, 4px)',
-            padding: '6px 12px',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            gap: '8px',
-            flexShrink: 0,
-          }}
-        >
-          <div style={{ fontSize: '12px', color: 'var(--status-error, #FF4444)', fontFamily: 'var(--font-mono, monospace)', fontWeight: 700 }}>
-            ⚠️ {errorMessage}
-          </div>
-          <span
-            style={{
-              fontSize: '10px',
-              color: 'var(--status-idle, #00FF88)',
-              fontFamily: 'var(--font-mono, monospace)',
-              fontWeight: 800,
-            }}
-          >
-            [HOTSPOT RESTORED]
-          </span>
-        </div>
-      )}
 
       {/* 2. Dual Clean QR Columns (Vertically Centered, Symmetrical, High Contrast) */}
       <div

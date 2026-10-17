@@ -1,5 +1,5 @@
 // src/components/kiosk/telemetry/KioskProvisioningHUD.tsx
-import React, { useEffect } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { useKioskStore } from '../../../stores/useKioskStore';
 import { api } from '../../../services/api';
 import { AlertTriangle, RefreshCw, ChevronLeft, ArrowRight } from 'lucide-react';
@@ -75,39 +75,52 @@ export const KioskProvisioningHUD: React.FC = () => {
     provisioningTelemetry?.onboardingMode === 'MOBILE' ||
     onboardingMode === 'MOBILE';
 
-  // Auto-revert back to MOBILE_HANDOFF if provisioning in mobile mode failed
-  useEffect(() => {
-    if (isFailed && isMobileMode && !kioskSummary?.isOnboarded) {
-      const timer = setTimeout(() => {
-        setStep('MOBILE_HANDOFF');
-      }, 3500);
-      return () => clearTimeout(timer);
-    }
-  }, [isFailed, isMobileMode, kioskSummary?.isOnboarded, setStep]);
+  const [secondsRemaining, setSecondsRemaining] = useState(15);
 
-  // Auto-revert back to OPERATIONAL if post-onboarding reconfiguration failed
-  useEffect(() => {
-    if (isFailed && kioskSummary?.isOnboarded) {
-      const timer = setTimeout(() => {
-        setErrorMessage(null);
-        setStep('OPERATIONAL');
-      }, 5000);
-      return () => clearTimeout(timer);
+  const handleBack = useCallback(() => {
+    setErrorMessage(null);
+    if (kioskSummary?.isOnboarded) {
+      setStep('OPERATIONAL');
+    } else if (isMobileMode) {
+      setStep('MOBILE_HANDOFF');
+    } else {
+      setStep('WIFI_SCAN');
     }
-  }, [isFailed, kioskSummary?.isOnboarded, setErrorMessage, setStep]);
+  }, [kioskSummary?.isOnboarded, isMobileMode, setErrorMessage, setStep]);
+
+  // 15-second countdown before auto-triggering return to QR / Wi-Fi list
+  useEffect(() => {
+    if (!isFailed) {
+      setSecondsRemaining(15);
+      return;
+    }
+
+    setSecondsRemaining(15);
+    const interval = setInterval(() => {
+      setSecondsRemaining((prev) => {
+        if (prev <= 1) {
+          clearInterval(interval);
+          handleBack();
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [isFailed, handleBack]);
 
   const getHumanFriendlyError = () => {
     const code = errorCode || provisioningTelemetry?.code;
-    if (code === 'WIFI_AUTH_FAILED') return 'Incorrect Wi-Fi password. Please check your credentials.';
-    if (code === 'WIFI_SAVED_PROFILE_EXPIRED') return 'Saved network credentials expired or changed. Please enter password manually.';
-    if (code === 'WIFI_NETWORK_NOT_FOUND' || code === 'SSID_NOT_FOUND') return 'Wi-Fi network signal lost. Ensure router is powered on.';
-    if (code === 'WIFI_DHCP_FAILED' || code === 'DHCP_TIMEOUT') return 'Could not obtain IP address from router (DHCP timeout).';
-    if (code === 'WIFI_TIMEOUT') return 'Connection timed out. Signal may be weak or router unresponsive.';
+    if (code === 'WIFI_AUTH_FAILED') return 'Incorrect Wi-Fi password. Please verify security key.';
+    if (code === 'WIFI_SAVED_PROFILE_EXPIRED') return 'Saved network password changed. Please enter manually.';
+    if (code === 'WIFI_NETWORK_NOT_FOUND' || code === 'SSID_NOT_FOUND') return 'Wi-Fi network out of range or not broadcasting.';
+    if (code === 'WIFI_DHCP_FAILED' || code === 'DHCP_TIMEOUT') return 'Router failed to assign IP address (DHCP error).';
     if (code === 'WIFI_RADIO_BLOCKED') return 'Wireless radio is disabled or blocked on device.';
-    if (code === 'WIFI_INTERRUPTED') return 'Wireless radio was interrupted during mode transition. Retrying...';
-    if (code === 'NO_INTERNET') return 'Connected to Wi-Fi, but no WAN internet connection detected.';
-    if (code === 'TUNNEL_FAILED') return 'Internet connected, but Cloudflare edge tunnel failed to initialize.';
-    return errorMessage || provisioningTelemetry?.error || 'Hardware connection fault encountered.';
+    if (code === 'WIFI_INTERRUPTED') return 'Wireless radio was interrupted during mode transition.';
+    if (code === 'NO_INTERNET') return 'Connected to Wi-Fi, but no internet access detected.';
+    if (code === 'TUNNEL_FAILED') return 'Internet connected, but cloud edge tunnel failed to initialize.';
+    return 'Could not connect to Wi-Fi. Please check router and retry.';
   };
 
   const getPhasePill = () => {
@@ -243,7 +256,7 @@ export const KioskProvisioningHUD: React.FC = () => {
               background: 'var(--bg-surface)',
               border: '2px solid var(--status-error, #FF4444)',
               borderRadius: 'var(--radius-lg, 6px)',
-              padding: '22px 26px',
+              padding: '24px 28px',
               display: 'flex',
               flexDirection: 'column',
               gap: '12px',
@@ -252,14 +265,14 @@ export const KioskProvisioningHUD: React.FC = () => {
           >
             <div style={{ display: 'flex', alignItems: 'center', gap: '10px', color: 'var(--status-error, #FF4444)' }}>
               <AlertTriangle size={24} />
-              <span style={{ fontSize: '18px', fontWeight: 800, fontFamily: 'var(--font-mono, monospace)' }}>
-                DIAGNOSTIC ALERT
+              <span style={{ fontSize: '18px', fontWeight: 800, fontFamily: 'var(--font-mono, monospace)', letterSpacing: '0.04em' }}>
+                CONNECTION FAILED
               </span>
             </div>
 
             <div
               style={{
-                fontSize: '15px',
+                fontSize: '16px',
                 fontWeight: 700,
                 color: 'var(--text-primary)',
                 lineHeight: 1.4,
@@ -268,79 +281,176 @@ export const KioskProvisioningHUD: React.FC = () => {
             >
               {getHumanFriendlyError()}
             </div>
-
-            {isMobileMode && (
-              <div
-                style={{
-                  padding: '8px 12px',
-                  background: 'var(--bg-primary)',
-                  border: '1px solid var(--border-default)',
-                  borderRadius: 'var(--radius-sm, 2px)',
-                  color: 'var(--status-idle, #00FF88)',
-                  fontSize: '12px',
-                  fontFamily: 'var(--font-mono, monospace)',
-                  fontWeight: 700,
-                }}
-              >
-                📶 Hotspot re-enabled. Returning to QR Code in 3 seconds...
-              </div>
-            )}
           </div>
         )}
       </div>
 
-      {/* 3. Huge Action Buttons on Error */}
+      {/* 3. Huge Action Buttons on Error with 15s Progress Overlay */}
       {isFailed && (
-        <div style={{ display: 'flex', gap: '12px' }}>
+        <div style={{ display: 'flex', gap: '12px', flexShrink: 0 }}>
           {kioskSummary?.isOnboarded ? (
-            <Button
-              variant="primary"
-              style={{ width: '100%', height: '52px', fontSize: '14px', fontWeight: 800 }}
-              onClick={() => {
-                setErrorMessage(null);
-                setStep('OPERATIONAL');
+            <button
+              onClick={handleBack}
+              style={{
+                position: 'relative',
+                overflow: 'hidden',
+                width: '100%',
+                height: '52px',
+                background: 'var(--bg-surface)',
+                border: '2px solid var(--accent-primary)',
+                borderRadius: 'var(--radius-md, 4px)',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                padding: '0 16px',
+                boxSizing: 'border-box',
               }}
             >
-              DISMISS & RETURN TO TERMINAL ➔
-            </Button>
+              <div
+                style={{
+                  position: 'absolute',
+                  left: 0,
+                  top: 0,
+                  bottom: 0,
+                  width: `${Math.min(100, Math.max(0, ((15 - secondsRemaining) / 15) * 100))}%`,
+                  background: 'rgba(255, 85, 0, 0.25)',
+                  transition: 'width 1s linear',
+                  zIndex: 0,
+                }}
+              />
+              <span
+                style={{
+                  position: 'relative',
+                  zIndex: 1,
+                  fontFamily: 'var(--font-mono, monospace)',
+                  fontSize: '14px',
+                  fontWeight: 800,
+                  color: 'var(--text-primary)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                }}
+              >
+                RETURN TO TERMINAL ({secondsRemaining}s) ➔
+              </span>
+            </button>
           ) : isMobileMode ? (
             <>
-              <Button
-                variant="ghost"
-                leftIcon={<ChevronLeft size={18} />}
-                style={{ flex: 1, height: '52px', fontSize: '14px', fontWeight: 700 }}
-                onClick={() => setStep('MOBILE_HANDOFF')}
+              <button
+                onClick={handleBack}
+                style={{
+                  position: 'relative',
+                  overflow: 'hidden',
+                  flex: 1.2,
+                  height: '52px',
+                  background: 'var(--bg-surface)',
+                  border: '2px solid var(--accent-primary)',
+                  borderRadius: 'var(--radius-md, 4px)',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  padding: '0 16px',
+                  boxSizing: 'border-box',
+                }}
               >
-                [ RETURN TO QR ]
-              </Button>
+                <div
+                  style={{
+                    position: 'absolute',
+                    left: 0,
+                    top: 0,
+                    bottom: 0,
+                    width: `${Math.min(100, Math.max(0, ((15 - secondsRemaining) / 15) * 100))}%`,
+                    background: 'rgba(255, 85, 0, 0.25)',
+                    transition: 'width 1s linear',
+                    zIndex: 0,
+                  }}
+                />
+                <span
+                  style={{
+                    position: 'relative',
+                    zIndex: 1,
+                    fontFamily: 'var(--font-mono, monospace)',
+                    fontSize: '14px',
+                    fontWeight: 800,
+                    color: 'var(--text-primary)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '8px',
+                  }}
+                >
+                  <ChevronLeft size={18} />
+                  RETURN TO QR ({secondsRemaining}s)
+                </span>
+              </button>
 
               <Button
                 variant="primary"
                 rightIcon={<ArrowRight size={18} />}
-                style={{ flex: 1.4, height: '52px', fontSize: '14px', fontWeight: 800 }}
+                style={{ flex: 1.2, height: '52px', fontSize: '14px', fontWeight: 800 }}
                 onClick={startScreenMode}
               >
-                USE ON-SCREEN INSTEAD ➔
+                CONFIGURE ON SCREEN ➔
               </Button>
             </>
           ) : (
             <>
-              <Button
-                variant="ghost"
-                leftIcon={<ChevronLeft size={18} />}
-                style={{ flex: 1, height: '52px', fontSize: '14px', fontWeight: 700 }}
-                onClick={() => setStep('WIFI_SCAN')}
+              <button
+                onClick={handleBack}
+                style={{
+                  position: 'relative',
+                  overflow: 'hidden',
+                  flex: 1.2,
+                  height: '52px',
+                  background: 'var(--bg-surface)',
+                  border: '2px solid var(--accent-primary)',
+                  borderRadius: 'var(--radius-md, 4px)',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  padding: '0 16px',
+                  boxSizing: 'border-box',
+                }}
               >
-                [ CHOOSE ANOTHER NETWORK ]
-              </Button>
+                <div
+                  style={{
+                    position: 'absolute',
+                    left: 0,
+                    top: 0,
+                    bottom: 0,
+                    width: `${Math.min(100, Math.max(0, ((15 - secondsRemaining) / 15) * 100))}%`,
+                    background: 'rgba(255, 85, 0, 0.25)',
+                    transition: 'width 1s linear',
+                    zIndex: 0,
+                  }}
+                />
+                <span
+                  style={{
+                    position: 'relative',
+                    zIndex: 1,
+                    fontFamily: 'var(--font-mono, monospace)',
+                    fontSize: '14px',
+                    fontWeight: 800,
+                    color: 'var(--text-primary)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '8px',
+                  }}
+                >
+                  <ChevronLeft size={18} />
+                  BACK TO WI-FI ({secondsRemaining}s)
+                </span>
+              </button>
 
               <Button
                 variant="primary"
                 leftIcon={<RefreshCw size={18} />}
-                style={{ flex: 1.4, height: '52px', fontSize: '14px', fontWeight: 800 }}
+                style={{ flex: 1.2, height: '52px', fontSize: '14px', fontWeight: 800 }}
                 onClick={() => submitProvisioning()}
               >
-                RETRY CONNECTION ➔
+                RETRY NOW ➔
               </Button>
             </>
           )}

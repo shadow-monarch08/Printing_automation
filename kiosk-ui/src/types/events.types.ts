@@ -87,6 +87,12 @@ export interface SystemBroadcastAlertPayload {
   timestamp: string;
 }
 
+export interface SystemTunnelUpdatedPayload {
+  url: string | null;
+  status: 'ONLINE' | 'STOPPED' | 'RECONNECTING' | 'CRASHED' | 'STARTING';
+  timestamp: number;
+}
+
 export type KioskDomainEventMap = {
   'kiosk:onboarding:status': KioskOnboardingStatusPayload;
   'kiosk:onboarding:error': KioskOnboardingErrorPayload;
@@ -97,6 +103,7 @@ export type KioskDomainEventMap = {
   'system:queue:paused': { isPaused: true; message?: string; timestamp: string };
   'system:queue:resumed': { isPaused: false; timestamp: string };
   'system:broadcast:alert': SystemBroadcastAlertPayload;
+  'system:tunnel:updated': SystemTunnelUpdatedPayload;
 };
 
 export type KioskEventName = keyof KioskDomainEventMap;
