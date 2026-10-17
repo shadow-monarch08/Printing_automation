@@ -6,6 +6,7 @@ import { getSystemConfig, updateSystemConfig } from "./app/services/config.db.se
 import { startMetricsPolling } from "./app/services/metrics.service";
 import { startQuickTunnel } from "./app/services/tunnel.service";
 import { startRecoveryMonitoring } from "./app/services/networkRecovery.service";
+import { ensureHotspotProfile } from "./app/services/hotspot.service";
 import { hydrateSystem } from "./infrastructure/boot";
 import { startCloudSync } from "./app/services/cloudSync.service";
 
@@ -42,7 +43,12 @@ async function startServer() {
     // Launch Quick Cloudflare Tunnel (guarded by security gate: isOnboarded && provisioningState === 'READY')
     startQuickTunnel(PORT);
 
-    // Launch continuous Network Recovery Daemon (guarded: operates only when provisioningState === 'READY')
+    // Pre-seed Kiosk-Hotspot profile idempotently in NetworkManager
+    ensureHotspotProfile().catch((err) => {
+      console.warn("⚠️ [Hotspot Service] Warning pre-seeding Kiosk-Hotspot profile:", err?.message || err);
+    });
+
+    // Launch continuous Network Recovery Daemon (operates whenever system is onboarded)
     startRecoveryMonitoring();
 
     // Launch Central NMS CloudSync Daemon (Channel 1 Telemetry, Channel 2 Alerts, Channel 3 EOD Audit)

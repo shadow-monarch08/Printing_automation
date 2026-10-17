@@ -370,18 +370,55 @@ export async function autoReconnectKnownWifi(): Promise<string | null> {
       await runSecureCommand("sudo", ["nmcli", "radio", "wifi", "on"], { timeout: 5000 });
     } catch {}
 
-    // 2. Fetch saved Wi-Fi connection profiles from NetworkManager
-    const { stdout } = await runSecureCommand("nmcli", ["-t", "-f", "NAME,TYPE", "connection", "show"]);
-    const savedWifiProfiles = stdout
+    // 2. Fetch saved Wi-Fi connection profiles from NetworkManager with UUID
+    const { stdout: connsOut } = await runSecureCommand("nmcli", ["-t", "-f", "NAME,UUID,TYPE", "connection", "show"]);
+    const savedProfiles = connsOut
       .split("\n")
       .map((l) => l.trim())
       .filter((l) => l && (l.includes(":802-11-wireless") || l.includes(":wifi")))
-      .map((l) => l.split(":")[0])
-      .filter((name) => name && name !== "Kiosk-Hotspot");
+      .map((l) => {
+        const [name, uuid] = l.split(":");
+        return { name, uuid };
+      })
+      .filter((p) => p.name && p.name !== "Kiosk-Hotspot");
 
-    console.log(`[WiFi Service] Found ${savedWifiProfiles.length} saved Wi-Fi profile(s):`, savedWifiProfiles);
+    if (savedProfiles.length === 0) {
+      console.log("[WiFi Service] ℹ️ Zero saved Wi-Fi profiles found. No networks to auto-reconnect.");
+      return null;
+    }
 
-    // 3. Ask NetworkManager to connect wlan0 device immediately
+    // 3. Fast visible beacon scan: check which SSIDs are broadcasting in the air right now
+    let visibleSsids = new Set<string>();
+    try {
+      const { stdout: scanOut } = await runSecureCommand("nmcli", ["-t", "-f", "SSID", "device", "wifi", "list"], { timeout: 8000 });
+      visibleSsids = new Set(scanOut.split("\n").map((s) => s.trim()).filter(Boolean));
+    } catch {
+      /* non-fatal: if scan fails, fall back to checking device connect */
+    }
+
+    // 4. Resolve the real SSIDs for saved profiles and match only against visible beacons
+    const candidateProfiles: { name: string; uuid: string; ssid: string }[] = [];
+    for (const prof of savedProfiles) {
+      try {
+        const { stdout: ssidOut } = await runSecureCommand("nmcli", ["-g", "802-11-wireless.ssid", "connection", "show", prof.uuid], { timeout: 3000 });
+        const realSsid = ssidOut.trim() || prof.name.replace(/^netplan-wlan0-/, "");
+        // If visible scan returned results, only consider profiles that are actually visible in the air!
+        if (visibleSsids.size === 0 || visibleSsids.has(realSsid)) {
+          candidateProfiles.push({ name: prof.name, uuid: prof.uuid, ssid: realSsid });
+        }
+      } catch {
+        candidateProfiles.push({ name: prof.name, uuid: prof.uuid, ssid: prof.name });
+      }
+    }
+
+    if (visibleSsids.size > 0 && candidateProfiles.length === 0) {
+      console.log(`[WiFi Service] ℹ️ None of the ${savedProfiles.length} saved profiles are broadcasting in the air. Bypassing ghost connection loop.`);
+      return null;
+    }
+
+    console.log(`[WiFi Service] Found ${candidateProfiles.length} connectable saved profile(s) in range:`, candidateProfiles.map((c) => c.ssid));
+
+    // 5. Try immediate device connection on wlan0 first
     try {
       console.log("[WiFi Service] Triggering immediate device connection on wlan0...");
       await runSecureCommand("sudo", ["nmcli", "device", "connect", "wlan0"], { timeout: 15000 });
@@ -394,15 +431,15 @@ export async function autoReconnectKnownWifi(): Promise<string | null> {
       console.warn("[WiFi Service] Immediate device connect attempt warning:", devErr);
     }
 
-    // 4. Fallback: explicitly bring up saved profiles sequentially
-    for (const profile of savedWifiProfiles) {
+    // 6. Connect to visible candidate profiles targeting UUID
+    for (const cand of candidateProfiles) {
       try {
-        console.log(`[WiFi Service] Bringing up known connection profile "${profile}"...`);
-        await runSecureCommand("sudo", ["nmcli", "connection", "up", profile], { timeout: 15000 });
-        console.log(`[WiFi Service] ✅ Successfully reconnected to saved network "${profile}"!`);
-        return profile;
+        console.log(`[WiFi Service] Activating in-range saved profile "${cand.ssid}" (UUID: ${cand.uuid})...`);
+        await runSecureCommand("sudo", ["nmcli", "connection", "up", "uuid", cand.uuid], { timeout: 20000 });
+        console.log(`[WiFi Service] ✅ Successfully reconnected to saved network "${cand.ssid}"!`);
+        return cand.ssid;
       } catch (profErr: any) {
-        console.warn(`[WiFi Service] Connection attempt to "${profile}" failed:`, profErr?.message || profErr);
+        console.warn(`[WiFi Service] Connection attempt to "${cand.ssid}" failed:`, profErr?.message || profErr);
       }
     }
   } catch (err) {

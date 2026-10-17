@@ -1,10 +1,10 @@
 import { redisConnection } from "../../infrastructure/redis";
 import { REDIS_KEYS, REDIS_TTLS } from "../../infrastructure/redisKeys";
-import { runSecureCommand } from "../utils/exec";
 import { checkInternetConnectivity, getActiveConnectionProfile } from "../utils/network.utils";
 import { getSystemConfig } from "./config.db.service";
 import { eventBus } from "../utils/eventBus";
 import { autoReconnectKnownWifi } from "./wifi.service";
+import { activateHotspot, deactivateHotspot } from "./hotspot.service";
 
 export type RecoveryState =
   | "ONLINE"
@@ -125,8 +125,8 @@ async function performConnectivityCheck(): Promise<void> {
   if (isCheckInProgress || isSuspended) return;
 
   const config = getSystemConfig();
-  // Recovery service ONLY operates in production READY state
-  if (!config?.isOnboarded || config.provisioningState !== "READY") {
+  // Recovery service operates whenever system is onboarded
+  if (!config?.isOnboarded) {
     return;
   }
 
@@ -145,10 +145,7 @@ async function performConnectivityCheck(): Promise<void> {
         if (consecutiveSuccesses >= STABLE_SUCCESS_THRESHOLD) {
           console.log(`[Network Recovery] 🌐 Stable Internet restored (${consecutiveSuccesses} consecutive checks). Safely deactivating recovery hotspot...`);
           try {
-            const activeProfile = await getActiveConnectionProfile();
-            if (activeProfile === "Kiosk-Hotspot") {
-              await runSecureCommand("sudo", ["nmcli", "connection", "down", "Kiosk-Hotspot"]);
-            }
+            await deactivateHotspot();
           } catch (downErr) {
             console.warn("[Network Recovery] Hotspot deactivation warning:", downErr);
           }
@@ -188,18 +185,15 @@ async function performConnectivityCheck(): Promise<void> {
             }
             console.warn(`[Network Recovery] ⚠️ Associated with "${reconnectedProfile}", but WAN check failed.`);
           } else {
-            console.log("[Network Recovery] ℹ️ No connectable saved Wi-Fi networks found.");
+            console.log("[Network Recovery] ℹ️ No connectable saved Wi-Fi networks found in range.");
           }
 
           // No saved network succeeded -> Activate Emergency Hotspot
           console.log("[Network Recovery] 🚨 Saved network recovery unsuccessful. Activating Emergency Kiosk-Hotspot...");
           await transitionState("HOTSPOT_ACTIVATING");
           try {
-            const activeProfile = await getActiveConnectionProfile();
-            if (activeProfile !== "Kiosk-Hotspot") {
-              await runSecureCommand("sudo", ["nmcli", "connection", "up", "Kiosk-Hotspot"], { timeout: 30000 });
-              console.log("[Network Recovery] 📶 Emergency Kiosk-Hotspot successfully activated.");
-            }
+            await activateHotspot();
+            console.log("[Network Recovery] 📶 Emergency Kiosk-Hotspot successfully activated.");
             await transitionState("HOTSPOT_ACTIVE");
           } catch (hotspotErr) {
             console.error("[Network Recovery] ❌ Failed to activate emergency hotspot:", hotspotErr);
@@ -212,10 +206,8 @@ async function performConnectivityCheck(): Promise<void> {
       } else if (currentState === "ATTEMPTING_SAVED_NETWORKS") {
         await transitionState("HOTSPOT_ACTIVATING");
         try {
-          const activeProfile = await getActiveConnectionProfile();
-          if (activeProfile !== "Kiosk-Hotspot") {
-            await runSecureCommand("sudo", ["nmcli", "connection", "up", "Kiosk-Hotspot"], { timeout: 30000 });
-          }
+          await activateHotspot();
+          console.log("[Network Recovery] 📶 Emergency Kiosk-Hotspot successfully activated.");
           await transitionState("HOTSPOT_ACTIVE");
         } catch (hotspotErr) {
           console.error("[Network Recovery] ❌ Failed to activate emergency hotspot:", hotspotErr);
