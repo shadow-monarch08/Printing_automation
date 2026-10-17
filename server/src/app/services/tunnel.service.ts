@@ -28,6 +28,7 @@ class TunnelSupervisor {
   private currentTunnelUrl: string | null = null;
   private state: TunnelState = "STOPPED";
   private isExplicitlyStopped: boolean = false;
+  private isProvisioningSession: boolean = false;
   private consecutiveCrashes: number = 0;
   private onlineStartedAt: number | null = null;
   private restartTimer: NodeJS.Timeout | null = null;
@@ -58,6 +59,9 @@ class TunnelSupervisor {
   }
 
   public shouldBeActive(): boolean {
+    if (this.isProvisioningSession) {
+      return true;
+    }
     const config = getSystemConfig();
     const isOnboarded = config ? Boolean(config.isOnboarded) : false;
     const isReady = config?.provisioningState === "READY";
@@ -75,6 +79,10 @@ class TunnelSupervisor {
   }
 
   private performWatchdogCheck(): void {
+    if (this.isProvisioningSession) {
+      return;
+    }
+
     const shouldRun = this.shouldBeActive();
 
     if (!shouldRun) {
@@ -233,6 +241,7 @@ class TunnelSupervisor {
     });
 
     // 5. Resolve any pending waiters
+    this.isProvisioningSession = false;
     const pending = [...this.waiters];
     this.waiters = [];
     for (const w of pending) {
@@ -336,6 +345,7 @@ class TunnelSupervisor {
   }
 
   public stop(): void {
+    this.isProvisioningSession = false;
     this.isExplicitlyStopped = true;
     this.currentTunnelUrl = null;
     this.state = "STOPPED";
@@ -400,7 +410,8 @@ class TunnelSupervisor {
     }
 
     this.isExplicitlyStopped = false;
-    if (this.state === "STOPPED" || this.state === "CRASHED") {
+    this.isProvisioningSession = true;
+    if (this.state === "STOPPED" || this.state === "CRASHED" || !this.tunnelProcess) {
       this.start(port);
     }
 
@@ -410,6 +421,7 @@ class TunnelSupervisor {
         if (idx !== -1) {
           this.waiters.splice(idx, 1);
         }
+        this.isProvisioningSession = false;
         reject(
           new HardwareError(
             "CLOUDFLARE_TUNNEL_TIMEOUT",
@@ -418,7 +430,17 @@ class TunnelSupervisor {
         );
       }, timeoutMs);
 
-      this.waiters.push({ resolve, reject, timer });
+      this.waiters.push({
+        resolve: (url: string) => {
+          this.isProvisioningSession = false;
+          resolve(url);
+        },
+        reject: (err: any) => {
+          this.isProvisioningSession = false;
+          reject(err);
+        },
+        timer,
+      });
     });
   }
 
