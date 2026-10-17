@@ -276,7 +276,21 @@ export async function connectToWifi(
   suspendRecoveryMonitoring();
 
   try {
-    const targetSsid = ssid || profileName;
+    let targetSsid = ssid || profileName;
+    if (!targetSsid && uuid) {
+      try {
+        const { stdout } = await runSecureCommand(
+          "nmcli",
+          ["-t", "-s", "-f", "802-11-wireless.ssid", "connection", "show", "uuid", uuid],
+          { timeout: 5000 }
+        );
+        const discoveredSsid = stdout.split(":")[1]?.trim() || stdout.trim();
+        if (discoveredSsid) {
+          targetSsid = discoveredSsid;
+        }
+      } catch {}
+    }
+
     if (!targetSsid && !uuid) {
       throw new ValidationError("VALIDATION_SSID_REQUIRED", "Wi-Fi SSID or UUID is required.");
     }
@@ -314,15 +328,29 @@ export async function connectToWifi(
       }
     }
 
-    // 3. Clean up any stale or duplicate profiles for this SSID to prevent conflict
+    // 3. Clean up any stale or duplicate profiles for this SSID/UUID before applying new credentials
     try {
+      if (uuid) {
+        console.log(`[WiFi Service] Deleting targeted profile by UUID "${uuid}" before applying new credentials...`);
+        try {
+          await runSecureCommand("sudo", ["nmcli", "connection", "delete", "uuid", uuid], { timeout: 10000 });
+        } catch {}
+      }
+
       const { stdout } = await runSecureCommand("nmcli", ["-t", "-f", "NAME,UUID", "connection", "show"], { timeout: 10000 });
       const lines = stdout.split("\n").filter(Boolean);
       for (const line of lines) {
         const [cName, cUuid] = line.split(":");
-        if ((cName === targetSsid || cName === `netplan-wlan0-${targetSsid}`) && cUuid) {
-          console.log(`[WiFi Service] Deleting stale profile "${cName}" (${cUuid})...`);
-          await runSecureCommand("sudo", ["nmcli", "connection", "delete", "uuid", cUuid], { timeout: 10000 });
+        if (
+          (cName === targetSsid ||
+            cName === `netplan-wlan0-${targetSsid}` ||
+            (uuid && cUuid === uuid)) &&
+          cUuid
+        ) {
+          console.log(`[WiFi Service] Deleting duplicate/stale profile "${cName}" (${cUuid})...`);
+          try {
+            await runSecureCommand("sudo", ["nmcli", "connection", "delete", "uuid", cUuid], { timeout: 10000 });
+          } catch {}
         }
       }
     } catch (e) {
