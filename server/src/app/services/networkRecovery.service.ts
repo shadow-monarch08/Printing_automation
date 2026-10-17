@@ -5,6 +5,7 @@ import { getSystemConfig } from "./config.db.service";
 import { eventBus } from "../utils/eventBus";
 import { autoReconnectKnownWifi } from "./wifi.service";
 import { activateHotspot, deactivateHotspot } from "./hotspot.service";
+import { ensureTunnelOnline } from "./tunnel.service";
 
 export type RecoveryState =
   | "ONLINE"
@@ -101,6 +102,9 @@ async function transitionState(nextState: RecoveryState): Promise<void> {
     currentState = nextState;
     await syncStateWithRedis();
     await emitNetworkStateChanged();
+    if (nextState === "ONLINE") {
+      ensureTunnelOnline();
+    }
   }
 }
 

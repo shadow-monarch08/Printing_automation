@@ -178,6 +178,12 @@ export interface SystemBroadcastAlertPayload {
   timestamp?: string;
 }
 
+export interface SystemTunnelUpdatedPayload {
+  url: string | null;
+  status: "ONLINE" | "STOPPED" | "RECONNECTING" | "CRASHED" | "STARTING";
+  timestamp: number;
+}
+
 /**
  * -------------------------------------------------------------
  * Event Bus Type Map
@@ -209,6 +215,7 @@ export interface EventMap {
   "system:queue:paused": SystemQueuePausedPayload;
   "system:queue:resumed": SystemQueueResumedPayload;
   "system:broadcast:alert": SystemBroadcastAlertPayload;
+  "system:tunnel:updated": SystemTunnelUpdatedPayload;
 
   // Backward Compatibility (Legacy aliases)
   "job_queued": any;
