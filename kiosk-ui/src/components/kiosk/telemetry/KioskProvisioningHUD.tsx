@@ -99,9 +99,14 @@ export const KioskProvisioningHUD: React.FC = () => {
   const getHumanFriendlyError = () => {
     const code = errorCode || provisioningTelemetry?.code;
     if (code === 'WIFI_AUTH_FAILED') return 'Incorrect Wi-Fi password. Please check your credentials.';
-    if (code === 'SSID_NOT_FOUND') return 'Wi-Fi network signal lost. Ensure router is powered on.';
-    if (code === 'DHCP_TIMEOUT') return 'Could not obtain IP address from router (DHCP timeout).';
+    if (code === 'WIFI_SAVED_PROFILE_EXPIRED') return 'Saved network credentials expired or changed. Please enter password manually.';
+    if (code === 'WIFI_NETWORK_NOT_FOUND' || code === 'SSID_NOT_FOUND') return 'Wi-Fi network signal lost. Ensure router is powered on.';
+    if (code === 'WIFI_DHCP_FAILED' || code === 'DHCP_TIMEOUT') return 'Could not obtain IP address from router (DHCP timeout).';
+    if (code === 'WIFI_TIMEOUT') return 'Connection timed out. Signal may be weak or router unresponsive.';
+    if (code === 'WIFI_RADIO_BLOCKED') return 'Wireless radio is disabled or blocked on device.';
+    if (code === 'WIFI_INTERRUPTED') return 'Wireless radio was interrupted during mode transition. Retrying...';
     if (code === 'NO_INTERNET') return 'Connected to Wi-Fi, but no WAN internet connection detected.';
+    if (code === 'TUNNEL_FAILED') return 'Internet connected, but Cloudflare edge tunnel failed to initialize.';
     return errorMessage || provisioningTelemetry?.error || 'Hardware connection fault encountered.';
   };
 

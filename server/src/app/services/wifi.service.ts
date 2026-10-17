@@ -130,7 +130,11 @@ export async function scanNetworks(): Promise<WiFiNetwork[]> {
   }
 }
 
-export function parseDetailedWifiError(rawMsg: string, targetName: string): { code: string; message: string } {
+export function parseDetailedWifiError(
+  rawMsg: string,
+  targetName: string,
+  isSaved?: boolean
+): { code: string; message: string; aliasCode?: string } {
   if (!rawMsg) {
     return {
       code: "WIFI_CONNECTION_FAILED",
@@ -140,13 +144,34 @@ export function parseDetailedWifiError(rawMsg: string, targetName: string): { co
 
   const clean = rawMsg.replace(/^Command failed:\s*sudo\s*nmcli\s*/i, "").trim();
 
-  // 1. Password / Authentication Failure
+  // 1. Saved Profile Credentials Expired or Inaccessible
+  if (
+    isSaved &&
+    (clean.includes("Secrets were required") ||
+      clean.includes("no-secrets") ||
+      clean.includes("bad-secrets"))
+  ) {
+    return {
+      code: "WIFI_SAVED_PROFILE_EXPIRED",
+      aliasCode: "WIFI_AUTH_FAILED",
+      message: `Saved Wi-Fi credentials for "${targetName}" have expired or changed. Please re-enter the password.`,
+    };
+  }
+
+  // 2. Password / Authentication / Key Handshake Failure
   if (
     clean.includes("Secrets were required") ||
     clean.includes("no-secrets") ||
+    clean.includes("bad-secrets") ||
     clean.includes("802-11-wireless-security.psk: invalid") ||
+    clean.includes("802-11-wireless-security.psk: property is invalid") ||
     clean.includes("not authorized") ||
-    clean.includes("authentication failed")
+    clean.includes("authentication failed") ||
+    clean.includes("wrong-password") ||
+    clean.includes("4-Way Handshake failed") ||
+    clean.includes("pre-shared key may be incorrect") ||
+    clean.includes("password is invalid") ||
+    clean.includes("pre-shared key is invalid")
   ) {
     return {
       code: "WIFI_AUTH_FAILED",
@@ -154,26 +179,75 @@ export function parseDetailedWifiError(rawMsg: string, targetName: string): { co
     };
   }
 
-  // 2. Network Not Found / Out of Range
+  // 3. Network Not Found / Out of Range
   if (
     clean.includes("No network with SSID") ||
+    clean.includes("No Wi-Fi network found") ||
     clean.includes("not found") ||
     clean.includes("ssid-not-found") ||
-    clean.includes("could not be found")
+    clean.includes("could not be found") ||
+    clean.includes("device not found for connection")
   ) {
     return {
       code: "WIFI_NETWORK_NOT_FOUND",
+      aliasCode: "SSID_NOT_FOUND",
       message: `Network "${targetName}" is out of range or not broadcasting.`,
     };
   }
 
-  // 3. Association / Handshake Timeout
+  // 4. Radio Hardware Disabled / Blocked
+  if (
+    clean.includes("Networking is disabled") ||
+    clean.includes("Wi-Fi is disabled") ||
+    clean.includes("wireless is disabled") ||
+    clean.includes("device is not available") ||
+    clean.includes("radio is turned off") ||
+    clean.includes("soft blocked") ||
+    clean.includes("hard blocked") ||
+    clean.includes("device not managed")
+  ) {
+    return {
+      code: "WIFI_RADIO_BLOCKED",
+      message: `Wi-Fi wireless radio is disabled or blocked on device.`,
+    };
+  }
+
+  // 5. Radio Transition / Base Connection Interrupted
+  if (
+    clean.includes("The base network connection was interrupted") ||
+    clean.includes("connection-interrupted") ||
+    clean.includes("device was disconnected")
+  ) {
+    return {
+      code: "WIFI_INTERRUPTED",
+      message: `Wireless radio was interrupted during mode transition. Please retry association.`,
+    };
+  }
+
+  // 6. DHCP Lease Acquisition Failure
+  if (
+    clean.includes("no lease") ||
+    clean.includes("IP configuration could not be reserved") ||
+    clean.includes("ip-config-unavailable") ||
+    clean.includes("dhcp") ||
+    clean.includes("dhcp4")
+  ) {
+    return {
+      code: "WIFI_DHCP_FAILED",
+      aliasCode: "DHCP_TIMEOUT",
+      message: `Connected to "${targetName}", but failed to acquire an IP address from router DHCP.`,
+    };
+  }
+
+  // 7. Association / Handshake / Supplicant Timeout
   if (
     clean.includes("Association took too long") ||
     clean.includes("association took too long") ||
     clean.includes("supplicant-timeout") ||
+    clean.includes("supplicant failed to connect") ||
     clean.includes("timed out") ||
-    clean.includes("Command timed out")
+    clean.includes("Command timed out") ||
+    clean.includes("Activation timed out")
   ) {
     return {
       code: "WIFI_TIMEOUT",
@@ -181,27 +255,15 @@ export function parseDetailedWifiError(rawMsg: string, targetName: string): { co
     };
   }
 
-  // 4. DHCP Lease Acquisition Failure
-  if (
-    clean.includes("no lease") ||
-    clean.includes("IP configuration could not be reserved") ||
-    clean.includes("dhcp")
-  ) {
-    return {
-      code: "WIFI_DHCP_FAILED",
-      message: `Connected to "${targetName}", but failed to acquire an IP address from router DHCP.`,
-    };
-  }
-
-  // 5. Fallback clean error
+  // 8. Fallback clean error
   return {
     code: "WIFI_CONNECTION_FAILED",
     message: clean || `Wi-Fi connection to "${targetName}" failed.`,
   };
 }
 
-export function formatCleanWifiError(rawMsg: string, targetName?: string): string {
-  return parseDetailedWifiError(rawMsg, targetName || "network").message;
+export function formatCleanWifiError(rawMsg: string, targetName?: string, isSaved?: boolean): string {
+  return parseDetailedWifiError(rawMsg, targetName || "network", isSaved).message;
 }
 
 export async function connectToWifi(
@@ -246,7 +308,7 @@ export async function connectToWifi(
         } catch (retryErr: any) {
           const rawMsg = retryErr?.message || String(retryErr);
           console.error(`[WiFi Service] Failed to activate saved profile "${displayName}" after retry:`, rawMsg);
-          const { code, message } = parseDetailedWifiError(rawMsg, displayName);
+          const { code, message } = parseDetailedWifiError(rawMsg, displayName, true);
           throw new HardwareError(code, message);
         }
       }
@@ -289,7 +351,7 @@ export async function connectToWifi(
     const rawMsg = rawErr?.message || String(rawErr);
     console.error(`[WiFi Service] Connection attempt to "${ssid || profileName}" failed:`, rawMsg);
 
-    const { code, message } = parseDetailedWifiError(rawMsg, ssid || profileName || "network");
+    const { code, message } = parseDetailedWifiError(rawMsg, ssid || profileName || "network", Boolean(isSaved || uuid));
     throw new HardwareError(code, message);
   } finally {
     resumeRecoveryMonitoring();
@@ -501,12 +563,12 @@ export async function reconfigureWifiPipeline(
     const rawMsg = rawErr?.message || String(rawErr);
     console.error(`[WiFi Service] ❌ Pipeline failed for "${targetNetwork}":`, rawMsg);
 
-    const { code, message } = parseDetailedWifiError(rawMsg, targetNetwork);
+    const { code, message, aliasCode } = parseDetailedWifiError(rawMsg, targetNetwork, Boolean(isSaved || uuid));
 
     // Write failure to Redis
     await redisConnection.set(
       REDIS_KEYS.wifiConnectionStatus,
-      JSON.stringify({ status: "failed", code, error: message, timestamp: Date.now() }),
+      JSON.stringify({ status: "failed", code, aliasCode, error: message, timestamp: Date.now() }),
       "EX",
       120
     );
@@ -514,6 +576,7 @@ export async function reconfigureWifiPipeline(
     // Emit error event to Kiosk Display
     eventBus.emit("kiosk:onboarding:error", {
       code,
+      aliasCode,
       error: message,
       message,
       timestamp: Date.now(),
