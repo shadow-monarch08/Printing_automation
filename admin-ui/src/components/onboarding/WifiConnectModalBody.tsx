@@ -6,7 +6,7 @@ interface WifiConnectModalBodyProps {
   ssid: string;
   isSaved?: boolean;
   closeModal: () => void;
-  onSubmit: (password: string) => void;
+  onSubmit: (password: string, isSaved: boolean) => void;
 }
 
 export function WifiConnectModalBody({ ssid, isSaved, closeModal, onSubmit }: WifiConnectModalBodyProps) {
@@ -15,7 +15,11 @@ export function WifiConnectModalBody({ ssid, isSaved, closeModal, onSubmit }: Wi
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    onSubmit(password);
+    if (isSaved && !overridePassword) {
+      onSubmit('', true);
+    } else {
+      onSubmit(password, false);
+    }
     closeModal();
   };
 
@@ -26,9 +30,10 @@ export function WifiConnectModalBody({ ssid, isSaved, closeModal, onSubmit }: Wi
       <div style={{ fontFamily: 'var(--font-mono)', fontSize: '12px', color: 'var(--accent-secondary)' }}>
         TARGET_NETWORK: [{ssid}]
       </div>
+
       {showPasswordInput ? (
         <div>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
             <label
               style={{
                 fontFamily: 'var(--font-mono)',
@@ -40,29 +45,8 @@ export function WifiConnectModalBody({ ssid, isSaved, closeModal, onSubmit }: Wi
                 margin: 0,
               }}
             >
-              [WPA2_PASSPHRASE]
+              {isSaved ? '[NEW_WPA2_PASSPHRASE]' : '[WPA2_PASSPHRASE]'}
             </label>
-            {isSaved && (
-              <button
-                type="button"
-                onClick={() => {
-                  setOverridePassword(false);
-                  setPassword('');
-                }}
-                style={{
-                  background: 'none',
-                  border: 'none',
-                  padding: 0,
-                  fontFamily: 'var(--font-mono)',
-                  fontSize: '11px',
-                  color: 'var(--text-muted, #888)',
-                  textDecoration: 'underline',
-                  cursor: 'pointer',
-                }}
-              >
-                Use saved credentials
-              </button>
-            )}
           </div>
           <ValidatedInput
             type="password"
@@ -72,42 +56,79 @@ export function WifiConnectModalBody({ ssid, isSaved, closeModal, onSubmit }: Wi
           />
         </div>
       ) : (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-          <p style={{ fontFamily: 'var(--font-mono)', fontSize: '13px', color: 'var(--text-secondary)', margin: 0 }}>
-            Profile is saved. You can connect directly without entering a password.
-          </p>
-          <div>
-            <button
-              type="button"
-              onClick={() => setOverridePassword(true)}
-              style={{
-                background: 'none',
-                border: 'none',
-                padding: 0,
-                fontFamily: 'var(--font-mono)',
-                fontSize: '11px',
-                color: 'var(--accent-primary, #00ffff)',
-                textDecoration: 'underline',
-                cursor: 'pointer',
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '4px',
-              }}
-            >
-              🔑 Enter password manually instead
-            </button>
+        <div
+          style={{
+            background: 'var(--bg-primary)',
+            border: '1.5px solid var(--border-default)',
+            borderRadius: 'var(--radius-sm)',
+            padding: '16px',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '8px',
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <span className="led-diode green" style={{ width: '8px', height: '8px' }} />
+            <span style={{ fontFamily: 'var(--font-mono)', fontSize: '12px', fontWeight: 700, color: 'var(--status-idle)' }}>
+              [SAVED_PROFILE_DETECTED]
+            </span>
           </div>
+          <p style={{ fontFamily: 'var(--font-body)', fontSize: '13px', color: 'var(--text-secondary)', margin: 0, lineHeight: 1.5 }}>
+            This network profile is saved in the system. Tap Connect to link immediately, or select Update Password to provide a new passphrase.
+          </p>
         </div>
       )}
 
+      {/* Dynamic Action Buttons */}
       <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end', marginTop: '8px' }}>
-        <Button type="button" variant="ghost" onClick={closeModal}>
-          [ ABORT / CANCEL ]
-        </Button>
-        <Button type="submit" variant="primary">
-          [ JOIN NETWORK ➔ ]
-        </Button>
+        {!isSaved ? (
+          <>
+            <Button type="button" variant="ghost" onClick={closeModal}>
+              [ ABORT / CANCEL ]
+            </Button>
+            <Button type="submit" variant="primary">
+              [ JOIN NETWORK ➔ ]
+            </Button>
+          </>
+        ) : !overridePassword ? (
+          <>
+            <Button
+              type="button"
+              variant="mechanical"
+              onClick={() => setOverridePassword(true)}
+              style={{ height: '40px' }}
+            >
+              [ 🔑 RE-ENTER / UPDATE PASS ]
+            </Button>
+            <Button type="submit" variant="primary" style={{ height: '40px' }}>
+              [ CONNECT (SAVED) ➔ ]
+            </Button>
+          </>
+        ) : (
+          <>
+            <Button
+              type="button"
+              variant="ghost"
+              onClick={() => {
+                setOverridePassword(false);
+                setPassword('');
+              }}
+              style={{ height: '40px' }}
+            >
+              [ CANCEL / USE SAVED ]
+            </Button>
+            <Button
+              type="submit"
+              variant="primary"
+              disabled={!password.trim()}
+              style={{ height: '40px' }}
+            >
+              [ UPDATE & CONNECT ➔ ]
+            </Button>
+          </>
+        )}
       </div>
     </form>
   );
 }
+

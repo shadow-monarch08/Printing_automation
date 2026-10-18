@@ -1,7 +1,7 @@
 import { runSecureCommand } from "../utils/exec";
 import { redisConnection } from "../../infrastructure/redis";
 import { REDIS_KEYS, REDIS_TTLS } from "../../infrastructure/redisKeys";
-import { checkInternetConnectivity, getActiveConnectionProfile } from "../utils/network.utils";
+import { checkInternetConnectivity, getActiveConnectionProfile, getLocalIpAddress, settleWifiRadio } from "../utils/network.utils";
 import { getSystemConfig } from "./config.db.service";
 import { eventBus } from "../utils/eventBus";
 import { autoReconnectKnownWifi } from "./wifi.service";
@@ -84,13 +84,17 @@ async function emitNetworkStateChanged(): Promise<void> {
     const isHotspot = currentState === "HOTSPOT_ACTIVE" || currentState === "RECOVERING" || currentState === "HOTSPOT_ACTIVATING";
     const internetOnline = currentState === "ONLINE";
 
+    const localIp = getLocalIpAddress();
+    const port = parseInt(process.env.PORT || "3000", 10);
+    const localAccessUrl = config?.localAccessUrl || (localIp ? `http://${localIp}:${port}/` : "http://piprint.local:3000/");
+
     eventBus.emit("kiosk:network:state_changed", {
       state: currentState,
       internetOnline,
       hotspotActive: isHotspot,
       activeProfile: activeProfile || null,
       cloudflareUrl: config?.cloudflareUrl || null,
-      localAccessUrl: config?.localAccessUrl || "http://piprint.local:3000/",
+      localAccessUrl,
       timestamp: Date.now(),
     });
   } catch (err) {
@@ -236,21 +240,33 @@ async function performConnectivityCheck(): Promise<void> {
           // Probe every 60s (4 checks * 15s) when no clients are using the emergency hotspot
           if (hotspotIdleCycles >= 4) {
             hotspotIdleCycles = 0;
-            console.log("[Network Recovery] 🔍 Hotspot idle (no clients connected for 60s). Probing for known saved networks...");
+            console.log("[Network Recovery] 🔍 Hotspot idle (no clients connected for 60s). Temporarily pausing hotspot to probe for known saved networks...");
             try {
+              // On Raspberry Pi (Broadcom single-MAC radio), wlan0 cannot scan or associate while AP mode is beaconing.
+              // Temporarily pause the hotspot without triggering autoReconnect inside deactivateHotspot
+              await deactivateHotspot({ triggerAutoReconnect: false });
+              await settleWifiRadio("wlan0", 3000);
+
               const reconnectedProfile = await autoReconnectKnownWifi();
               if (reconnectedProfile) {
                 const verified = await checkInternetConnectivity();
                 if (verified) {
-                  console.log(`[Network Recovery] ✅ Known network "${reconnectedProfile}" restored and verified. Safely deactivating hotspot...`);
-                  await deactivateHotspot();
+                  console.log(`[Network Recovery] ✅ Known network "${reconnectedProfile}" restored and verified.`);
                   consecutiveFailures = 0;
                   await transitionState("ONLINE");
                   return;
                 }
               }
+              // If no known network could connect or verify internet, restore the emergency hotspot immediately
+              console.log("[Network Recovery] ⚠️ Known networks unavailable. Restoring emergency recovery hotspot...");
+              await activateHotspot();
             } catch (probeErr) {
               console.warn("[Network Recovery] Idle probe warning:", probeErr);
+              try {
+                await activateHotspot();
+              } catch (restoreErr) {
+                console.error("[Network Recovery] ❌ Failed to restore hotspot after probe error:", restoreErr);
+              }
             }
           }
         }

@@ -86,7 +86,7 @@ export function Network() {
           ssid={network.ssid}
           isSaved={network.isSaved}
           closeModal={closeModal}
-          onSubmit={(password) => handleConnectSubmit(network.ssid, password, network.isSaved, network.profileName || undefined, network.uuid || undefined)}
+          onSubmit={(password, isSaved) => handleConnectSubmit(network.ssid, password, isSaved, network.profileName || undefined, network.uuid || undefined)}
         />
       ),
     });

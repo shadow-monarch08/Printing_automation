@@ -18,8 +18,6 @@ export function Step2WifiSetup({ shopName, adminPin, onComplete }: Step2WifiSetu
   const [networks, setNetworks] = useState<WifiNetwork[]>([]);
   const [isScanning, setIsScanning] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [isDispatched, setIsDispatched] = useState(false);
-  const [selectedSsid, setSelectedSsid] = useState('');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   const { openModal, closeModal } = useModal();
@@ -40,33 +38,7 @@ export function Step2WifiSetup({ shopName, adminPin, onComplete }: Step2WifiSetu
     fetchNetworks();
   }, []);
 
-  // Poll for provisioning outcome while mobile is awaiting result
-  useEffect(() => {
-    if (!isDispatched) return;
-
-    const interval = setInterval(async () => {
-      try {
-        const tel = await api.getProvisionStatus();
-        if (tel && tel.status) {
-          if (tel.status === 'failed') {
-            setIsDispatched(false);
-            setErrorMessage(tel.error || 'Wi-Fi connection failed. Please check your credentials and retry.');
-            fetchNetworks(); // re-scan available networks
-          } else if (tel.status === 'success') {
-            setIsDispatched(false);
-            onComplete();
-          }
-        }
-      } catch (err) {
-        /* wait for hotspot reconnection */
-      }
-    }, 2000);
-
-    return () => clearInterval(interval);
-  }, [isDispatched, onComplete]);
-
   const handleNetworkSelect = (network: WifiNetwork) => {
-    setSelectedSsid(network.ssid);
     openModal({
       title: `CONNECT_TO: [${network.ssid}]`,
       content: (
@@ -74,7 +46,7 @@ export function Step2WifiSetup({ shopName, adminPin, onComplete }: Step2WifiSetu
           ssid={network.ssid}
           isSaved={network.isSaved}
           closeModal={closeModal}
-          onSubmit={(password) => handleConnectSubmit(network.ssid, password, network.isSaved, network.profileName || undefined, network.uuid || undefined)}
+          onSubmit={(password, isSaved) => handleConnectSubmit(network.ssid, password, isSaved, network.profileName || undefined, network.uuid || undefined)}
         />
       ),
     });
@@ -98,10 +70,9 @@ export function Step2WifiSetup({ shopName, adminPin, onComplete }: Step2WifiSetu
       });
 
       setIsSubmitting(false);
-      setIsDispatched(true);
+      onComplete();
     } catch (err: any) {
       setIsSubmitting(false);
-      setIsDispatched(false);
       setErrorMessage(err?.response?.data?.error || err.message || 'Failed to dispatch configuration.');
     }
   };
@@ -113,11 +84,9 @@ export function Step2WifiSetup({ shopName, adminPin, onComplete }: Step2WifiSetu
     try {
       await api.skipWifiSetup({ adminPin, shopName });
       setIsSubmitting(false);
-      setSelectedSsid('CURRENT_ACTIVE_NETWORK');
-      setIsDispatched(true);
+      onComplete();
     } catch (err: any) {
       setIsSubmitting(false);
-      setIsDispatched(false);
       setErrorMessage(err?.response?.data?.error || err.message || 'Failed to proceed with active network.');
     }
   };
@@ -289,7 +258,7 @@ export function Step2WifiSetup({ shopName, adminPin, onComplete }: Step2WifiSetu
           <Button
             variant="ghost"
             onClick={handleSkipWifi}
-            disabled={isSubmitting || isDispatched}
+            disabled={isSubmitting}
             style={{
               width: '100%',
               height: '44px',
@@ -308,45 +277,6 @@ export function Step2WifiSetup({ shopName, adminPin, onComplete }: Step2WifiSetu
           </Button>
         )}
       </div>
-
-      {/* Dispatched Confirmation Modal Card */}
-      {isDispatched && (
-        <div className="hazard-overlay-backdrop">
-          <div className="hazard-overlay-card" style={{ maxWidth: '500px', padding: '28px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '12px' }}>
-              <span className="led-diode green" style={{ width: '14px', height: '14px' }} />
-              <h3 style={{ fontFamily: 'var(--font-mono)', fontSize: '15px', fontWeight: 700, color: 'var(--text-primary)', margin: 0 }}>
-                [ CONFIGURATION_DISPATCHED ]
-              </h3>
-            </div>
-
-            <p style={{ fontFamily: 'var(--font-body)', fontSize: '14px', color: 'var(--text-secondary)', margin: '0 0 16px 0', lineHeight: 1.6 }}>
-              The kiosk terminal has received your shop identity and network credentials for <strong>[{selectedSsid || 'TARGET_NETWORK'}]</strong>.
-            </p>
-
-            <div
-              style={{
-                background: 'var(--bg-primary)',
-                border: '2px solid var(--status-idle)',
-                borderRadius: 'var(--radius-sm)',
-                padding: '16px',
-                marginBottom: '16px',
-              }}
-            >
-              <div style={{ fontFamily: 'var(--font-mono)', fontSize: '12px', fontWeight: 700, color: 'var(--status-idle)', marginBottom: '6px' }}>
-                👉 WATCH THE 5-INCH TERMINAL DISPLAY
-              </div>
-              <div style={{ fontFamily: 'var(--font-body)', fontSize: '13px', color: 'var(--text-primary)', lineHeight: 1.5 }}>
-                Real-time 4-phase telemetry is streaming directly on the kiosk chassis screen. Once complete, your live shop QR code will be displayed for you and your customers to scan.
-              </div>
-            </div>
-
-            <div style={{ fontFamily: 'var(--font-mono)', fontSize: '11px', color: 'var(--text-secondary)', textAlign: 'center' }}>
-              You may now disconnect from the setup hotspot or close this window.
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

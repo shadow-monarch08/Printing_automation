@@ -1,5 +1,6 @@
 import { Request, Response } from "express";
 import * as wifiService from "../services/wifi.service";
+import { cancelActiveProvisioning } from "../services/onboarding.service";
 import { redisConnection } from "../../infrastructure/redis";
 import { REDIS_KEYS } from "../../infrastructure/redisKeys";
 import { ValidationError } from "../utils/errors";
@@ -33,7 +34,10 @@ export async function connectWifiNetwork(req: Request, res: Response) {
     targetNetwork,
   });
 
-  // 3. Launch resilient background pipeline with EventBus & Cloudflare re-spawn
+  // 3. Cancel any active onboarding session to eliminate conflicting radio operations
+  cancelActiveProvisioning("Admin Wi-Fi reconfiguration initiated");
+
+  // 4. Launch resilient background pipeline with EventBus & Cloudflare re-spawn
   setImmediate(async () => {
     try {
       await wifiService.reconfigureWifiPipeline(ssid, password, profileName, isSaved, uuid);

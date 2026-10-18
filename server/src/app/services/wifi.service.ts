@@ -3,7 +3,7 @@ import { runSecureCommand } from "../utils/exec";
 import { WiFiNetwork } from "../types";
 import { ValidationError, HardwareError } from "../utils/errors";
 import { suspendRecoveryMonitoring, resumeRecoveryMonitoring } from "./networkRecovery.service";
-import { getActiveConnectionProfile, verifyInternetReadiness, settleWifiRadio } from "../utils/network.utils";
+import { getActiveConnectionProfile, verifyInternetReadiness, settleWifiRadio, getLocalIpAddress } from "../utils/network.utils";
 import { eventBus } from "../utils/eventBus";
 import { stopQuickTunnel, waitForTunnelPromise } from "./tunnel.service";
 import { updateSystemConfig, getSystemConfig } from "./config.db.service";
@@ -595,10 +595,13 @@ export async function reconfigureWifiPipeline(
       120
     );
 
+    const dynamicIp = getLocalIpAddress();
+    const resolvedLocalUrl = config?.localAccessUrl || (dynamicIp ? `http://${dynamicIp}:3000/` : "http://piprint.local:3000/");
+
     // Emit Completion to Kiosk Display (switches to OPERATIONAL)
     eventBus.emit("kiosk:onboarding:done", {
       cloudflareUrl: liveTunnelUrl || "",
-      localAccessUrl: config?.localAccessUrl || "http://piprint.local:3000/",
+      localAccessUrl: resolvedLocalUrl,
       printerCount,
       nmsDeviceId: config?.nmsDeviceId || null,
       shopName,
@@ -612,7 +615,7 @@ export async function reconfigureWifiPipeline(
       hotspotActive: false,
       activeProfile,
       cloudflareUrl: liveTunnelUrl,
-      localAccessUrl: config?.localAccessUrl || "http://piprint.local:3000/",
+      localAccessUrl: resolvedLocalUrl,
       timestamp: Date.now(),
     });
 

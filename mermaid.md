@@ -151,3 +151,28 @@ flowchart TD
         REDIS -->|Instant Lookup| MATCHMAKER["Matchmaker Engine\n(Accurate Color & Duplex Dispatch)"]
     end
 ```
+
+---
+
+```mermaid
+flowchart TD
+    subgraph UI_Layer [Frontend Layer]
+        A[Ambiguity 1: WifiConnectModalBody & Contract Leak]
+        E[Ambiguity 5: Mobile Dispatched Polling Loop after Hotspot Drops]
+    end
+
+    subgraph Backend_Pipeline [Provisioning & Reconfiguration]
+        C[Ambiguity 3: Split Reconfiguration Pipelines without AbortController]
+        D[Ambiguity 4: Hardcoded piprint.local Fallback vs Real IP]
+    end
+
+    subgraph Hardware_Daemon [Kernel & Hardware Recovery]
+        B[Ambiguity 2: Broadcom Single-MAC Scanning Lock in Idle Recovery Probe]
+    end
+
+    A --> C
+    E --> C
+    C --> B
+    C --> D
+
+```
