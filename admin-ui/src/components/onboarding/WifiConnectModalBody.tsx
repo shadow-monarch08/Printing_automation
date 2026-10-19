@@ -94,13 +94,12 @@ export function WifiConnectModalBody({ ssid, isSaved, closeModal, onSubmit }: Wi
           <>
             <Button
               type="button"
-              variant="mechanical"
+              variant="ghost"
               onClick={() => setOverridePassword(true)}
-              style={{ height: '40px' }}
             >
-              [ 🔑 RE-ENTER / UPDATE PASS ]
+              [ 🔑 RE-ENTER ]
             </Button>
-            <Button type="submit" variant="primary" style={{ height: '40px' }}>
+            <Button type="submit" variant="primary">
               [ CONNECT (SAVED) ➔ ]
             </Button>
           </>
@@ -113,7 +112,6 @@ export function WifiConnectModalBody({ ssid, isSaved, closeModal, onSubmit }: Wi
                 setOverridePassword(false);
                 setPassword('');
               }}
-              style={{ height: '40px' }}
             >
               [ CANCEL / USE SAVED ]
             </Button>
@@ -121,7 +119,6 @@ export function WifiConnectModalBody({ ssid, isSaved, closeModal, onSubmit }: Wi
               type="submit"
               variant="primary"
               disabled={!password.trim()}
-              style={{ height: '40px' }}
             >
               [ UPDATE & CONNECT ➔ ]
             </Button>
