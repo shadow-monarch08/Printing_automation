@@ -16,6 +16,7 @@ import {
 } from "../utils/network.utils";
 import { ensureEnrolled, sendTelemetryHeartbeat } from "./cloudSync.service";
 import * as hotspotService from "./hotspot.service";
+import { setRecoveryOnlineImmediately } from "./networkRecovery.service";
 import { eventBus } from "../utils/eventBus";
 
 export interface ProvisionOnboardingPayload {
@@ -278,11 +279,16 @@ async function executeProvisioningPipeline(
   if (signal.aborted) throw new HardwareError("PROVISIONING_CANCELLED", "Provisioning session was cancelled.");
 
   // 5. Persist State in SQLite
+  const config = getSystemConfig();
+  const localIp = getLocalIpAddress();
+  const localAccessUrl = localIp ? `http://${localIp}:${port}/` : (config?.localAccessUrl || "http://piprint.local:3000/");
+
   const updates: any = {
     isOnboarded: true,
     provisioningState: "READY",
     shopName: effectiveShopName,
     cloudflareUrl: liveTunnelUrl,
+    localAccessUrl,
   };
   if (adminPin) {
     updates.adminPinHash = bcrypt.hashSync(adminPin, 10);
@@ -315,10 +321,6 @@ async function executeProvisioningPipeline(
   );
 
   // 7. Publish Final Success Status to Redis
-  const config = getSystemConfig();
-  const localIp = getLocalIpAddress();
-  const localAccessUrl = config?.localAccessUrl || (localIp ? `http://${localIp}:${port}` : "http://piprint.local:3000/");
-
   await emitProvisioningStatus({
     status: "success",
     phase: "SUCCESS",
@@ -337,13 +339,16 @@ async function executeProvisioningPipeline(
     timestamp: Date.now(),
   });
 
-  // Reset onboarding mode & ensure hotspot is cleanly deactivated
+  // Reset onboarding mode & ensure hotspot is cleanly deactivated WITHOUT triggering autoReconnect
   try {
     await hotspotService.setOnboardingMode("NONE");
-    await hotspotService.deactivateHotspot();
+    await hotspotService.deactivateHotspot({ triggerAutoReconnect: false });
   } catch (err) {
     /* non-fatal */
   }
+
+  // Synchronously lock recovery state to ONLINE to eliminate any QR code flip
+  await setRecoveryOnlineImmediately();
 
   return {
     success: true,

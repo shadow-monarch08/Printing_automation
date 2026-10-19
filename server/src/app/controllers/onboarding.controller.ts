@@ -110,66 +110,18 @@ export async function getProvisionStatus(_req: Request, res: Response) {
   res.json(JSON.parse(raw));
 }
 
-/**
- * Server-Sent Events (SSE) stream for zero-latency telemetry push to loopback 127.0.0.1:3000
- */
-export async function streamProvisionStatus(req: Request, res: Response) {
-  res.setHeader("Content-Type", "text/event-stream");
-  res.setHeader("Cache-Control", "no-cache, no-transform");
-  res.setHeader("Connection", "keep-alive");
-  res.setHeader("X-Accel-Buffering", "no");
-  if (typeof (res as any).flushHeaders === "function") {
-    (res as any).flushHeaders();
-  }
-
-  // Send initial state immediately
-  const raw = await redisConnection.get(REDIS_KEYS.wifiConnectionStatus);
-  const initialData = raw || JSON.stringify({
-    status: "idle",
-    phase: "IDLE",
-    step: 0,
-    totalSteps: 4,
-    progressPercent: 0,
-    message: "System idle. Awaiting configuration command.",
-    timestamp: Date.now(),
-  });
-  res.write(`data: ${initialData}\n\n`);
-
-  // EventBus reactive listener (push on event, 0ms latency)
-  const onTelemetryEvent = (eventData: any) => {
-    try {
-      const payload = eventData?.data !== undefined ? eventData.data : eventData;
-      res.write(`data: ${JSON.stringify(payload)}\n\n`);
-    } catch {}
-  };
-
-  eventBus.on("kiosk:onboarding:*", onTelemetryEvent);
-
-  // 15s SSE heartbeat to prevent connection timeout
-  const heartbeatId = setInterval(() => {
-    try {
-      res.write(": heartbeat\n\n");
-    } catch {}
-  }, 15000);
-
-  req.on("close", () => {
-    eventBus.removeListener("kiosk:onboarding:*", onTelemetryEvent);
-    clearInterval(heartbeatId);
-    res.end();
-  });
-}
-
-/**
- * Unified Kiosk chassis status endpoint for the 5-inch screen
- */
 export async function getKioskSummary(_req: Request, res: Response) {
   const config = getSystemConfig();
   const recoveryStatus = getRecoveryStatus();
   const activeProfile = await getActiveConnectionProfile();
-  const isOnline = recoveryStatus.state === "ONLINE";
+  const isHotspot = (await hotspotService.isHotspotActive()) || recoveryStatus.hotspotActive;
+  const isOnline =
+    recoveryStatus.state === "ONLINE" ||
+    Boolean(config?.isOnboarded && config?.cloudflareUrl && activeProfile && activeProfile !== "Kiosk-Hotspot" && !isHotspot);
+
   const localIp = getLocalIpAddress();
   const port = parseInt(process.env.PORT || "3000", 10);
-  const isHotspot = await hotspotService.isHotspotActive();
+  const localAccessUrl = localIp ? `http://${localIp}:${port}/` : (config?.localAccessUrl || "http://piprint.local:3000/");
   const onboardingMode = await hotspotService.getOnboardingMode();
 
   let printerCount = 0;
@@ -190,11 +142,11 @@ export async function getKioskSummary(_req: Request, res: Response) {
     nmsDeviceId: config?.nmsDeviceId || null,
     hotspotSsid: hotspotService.HOTSPOT_CONFIG.SSID,
     setupUrl: `http://192.168.4.1:${port}/admin/setup`,
-    localAccessUrl: config?.localAccessUrl || "http://piprint.local:3000/",
+    localAccessUrl,
     cloudflareUrl: config?.cloudflareUrl || null,
     internetOnline: isOnline,
     activeProfile,
-    hotspotActive: isHotspot || recoveryStatus.hotspotActive,
+    hotspotActive: isHotspot,
     onboardingMode,
     printerCount,
     provisioning,
@@ -206,17 +158,22 @@ export async function getNetworkStatus(_req: Request, res: Response) {
   const config = getSystemConfig();
   const recoveryStatus = getRecoveryStatus();
   const activeProfile = await getActiveConnectionProfile();
-  const isOnline = recoveryStatus.state === "ONLINE";
+  const isHotspot = (await hotspotService.isHotspotActive()) || recoveryStatus.hotspotActive;
+  const isOnline =
+    recoveryStatus.state === "ONLINE" ||
+    Boolean(config?.isOnboarded && config?.cloudflareUrl && activeProfile && activeProfile !== "Kiosk-Hotspot" && !isHotspot);
+
+  const localIp = getLocalIpAddress();
   const port = parseInt(process.env.PORT || "3000", 10);
-  const isHotspot = await hotspotService.isHotspotActive();
+  const localAccessUrl = localIp ? `http://${localIp}:${port}/` : (config?.localAccessUrl || "http://piprint.local:3000/");
 
   res.json({
     internetOnline: isOnline,
     recoveryState: recoveryStatus.state,
-    hotspotActive: isHotspot || recoveryStatus.hotspotActive,
+    hotspotActive: isHotspot,
     activeProfile,
     cloudflareUrl: config?.cloudflareUrl || null,
-    localAccessUrl: config?.localAccessUrl || "http://piprint.local:3000/",
+    localAccessUrl,
   });
 }
 

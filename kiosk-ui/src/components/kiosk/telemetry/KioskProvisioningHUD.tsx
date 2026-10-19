@@ -16,43 +16,10 @@ export const KioskProvisioningHUD: React.FC = () => {
     setErrorMessage,
     setStep,
     submitProvisioning,
-    fetchSummary,
     kioskSummary,
   } = useKioskStore();
 
-  // 1. SSE Stream for Real-time Hardware Telemetry
-  useEffect(() => {
-    let eventSource: EventSource | null = null;
-
-    try {
-      eventSource = new EventSource('/setup/provision-stream');
-      eventSource.onmessage = (event) => {
-        try {
-          const parsed = JSON.parse(event.data);
-          if (parsed && parsed.status) {
-            setTelemetry(parsed);
-            if (parsed.status === 'success') {
-              fetchSummary();
-            } else if (parsed.status === 'failed') {
-              setErrorMessage(parsed.error || 'Connection failed', parsed.code || 'HARDWARE_FAULT');
-            }
-          }
-        } catch {
-          /* ignore heartbeats */
-        }
-      };
-
-      eventSource.onerror = () => {
-        if (eventSource) eventSource.close();
-      };
-    } catch (err) {
-      console.warn('[ProvisioningHUD] SSE not supported:', err);
-    }
-
-    return () => {
-      if (eventSource) eventSource.close();
-    };
-  }, [setTelemetry, setErrorMessage, fetchSummary]);
+  // 1. Initial status check on mount if telemetry is null (subsequent live updates are pushed via WebSocket)
 
   // 2. Initial status check on mount if telemetry is null (subsequent updates handled by WebSocket)
   useEffect(() => {

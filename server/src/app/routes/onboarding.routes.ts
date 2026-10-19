@@ -7,7 +7,6 @@ const router = Router();
 
 router.get("/status", asyncHandler(onboardingController.getSetupStatus));
 router.get("/provision-status", asyncHandler(onboardingController.getProvisionStatus));
-router.get("/provision-stream", requireLoopbackOnly, asyncHandler(onboardingController.streamProvisionStatus));
 router.get("/kiosk-summary", requireLoopbackOnly, asyncHandler(onboardingController.getKioskSummary));
 router.get("/network-status", asyncHandler(onboardingController.getNetworkStatus));
 router.post("/provision", asyncHandler(requireNonSetupModeForSkip), asyncHandler(onboardingController.provisionSetup));
