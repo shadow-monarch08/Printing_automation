@@ -3,14 +3,19 @@ import { Button } from '../shared/Button';
 import { ValidatedInput } from '../shared/ValidatedInput';
 import { PinInput } from '../shared/PinInput';
 import { soundFx } from '../../utils/sound';
+import { useOnboardingStore } from '../../stores/useOnboardingStore';
 
 interface Step1NameAndPinProps {
-  initialShopName: string;
-  onComplete: (shopName: string, adminPin: string) => void;
+  initialShopName?: string;
+  onComplete?: (shopName: string, adminPin: string) => void;
 }
 
 export function Step1NameAndPin({ initialShopName, onComplete }: Step1NameAndPinProps) {
-  const [shopName, setShopName] = useState(initialShopName || 'Modern Press');
+  const storeShopName = useOnboardingStore((s) => s.shopName);
+  const setShopDetails = useOnboardingStore((s) => s.setShopDetails);
+  const setStep = useOnboardingStore((s) => s.setStep);
+
+  const [shopName, setShopName] = useState(initialShopName || storeShopName || 'Modern Press');
   const [pin, setPin] = useState(['', '', '', '']);
   const [confirmPin, setConfirmPin] = useState(['', '', '', '']);
   const [error, setError] = useState('');
@@ -37,7 +42,12 @@ export function Step1NameAndPin({ initialShopName, onComplete }: Step1NameAndPin
       return;
     }
 
-    onComplete(shopName.trim(), pinStr);
+    // Persist into transactional OnboardingStore and advance state machine
+    setShopDetails(shopName.trim(), pinStr);
+    if (onComplete) {
+      onComplete(shopName.trim(), pinStr);
+    }
+    setStep(2);
   };
 
   const isFormValid = shopName.trim().length > 0 && pin.join('').length === 4 && pin.join('') === confirmPin.join('');

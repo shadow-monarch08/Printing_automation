@@ -1,93 +1,53 @@
-import { useState, useEffect } from 'react';
+import { useEffect } from 'react';
 import { Button } from '../shared/Button';
 import { PaperTable } from '../shared/PaperTable';
 import { useModal } from '../../context/ModalContext';
 import { WifiConnectModalBody } from './WifiConnectModalBody';
-import { api } from '../../services/api';
 import { useAdminStore } from '../../stores/useAdminStore';
+import { useOnboardingStore } from '../../stores/useOnboardingStore';
 import type { WifiNetwork } from '../../types';
 
 interface Step2WifiSetupProps {
-  shopName: string;
-  adminPin: string;
-  onComplete: () => void;
+  shopName?: string;
+  adminPin?: string;
+  onComplete?: () => void;
 }
 
-export function Step2WifiSetup({ shopName, adminPin, onComplete }: Step2WifiSetupProps) {
+export function Step2WifiSetup({ onComplete }: Step2WifiSetupProps) {
   const provisioningState = useAdminStore((s) => s.provisioningState);
-  const [networks, setNetworks] = useState<WifiNetwork[]>([]);
-  const [isScanning, setIsScanning] = useState(false);
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  const networks = useOnboardingStore((s) => s.networks);
+  const isScanning = useOnboardingStore((s) => s.isScanning);
+  const scanNetworks = useOnboardingStore((s) => s.scanNetworks);
+  const setSelectedNetwork = useOnboardingStore((s) => s.setSelectedNetwork);
+  const isSubmitting = useOnboardingStore((s) => s.isSubmitting);
+  const submissionError = useOnboardingStore((s) => s.submissionError);
+  const clearSubmissionError = useOnboardingStore((s) => s.clearSubmissionError);
+  const skipWifiProvision = useOnboardingStore((s) => s.skipWifiProvision);
 
   const { openModal, closeModal } = useModal();
 
-  const fetchNetworks = async () => {
-    setIsScanning(true);
-    try {
-      const data = await api.scanWifiNetworks();
-      setNetworks(data);
-    } catch (err: any) {
-      console.error(err);
-    } finally {
-      setIsScanning(false);
-    }
-  };
-
   useEffect(() => {
-    fetchNetworks();
-  }, []);
+    scanNetworks();
+  }, [scanNetworks]);
 
   const handleNetworkSelect = (network: WifiNetwork) => {
+    setSelectedNetwork(network);
+    clearSubmissionError();
     openModal({
       title: `CONNECT_TO: [${network.ssid}]`,
-      content: (
-        <WifiConnectModalBody
-          ssid={network.ssid}
-          isSaved={network.isSaved}
-          closeModal={closeModal}
-          onSubmit={(password, isSaved) => handleConnectSubmit(network.ssid, password, isSaved, network.profileName || undefined, network.uuid || undefined)}
-        />
-      ),
+      content: <WifiConnectModalBody closeModal={closeModal} />,
+      onClose: () => {
+        setSelectedNetwork(null);
+        clearSubmissionError();
+      },
     });
   };
 
-  const handleConnectSubmit = async (ssid: string, password?: string, isSaved?: boolean, profileName?: string, uuid?: string) => {
-    setIsSubmitting(true);
-    setErrorMessage(null);
-
-    try {
-      await api.provisionSetup({
-        wifiSsid: ssid,
-        wifiPassword: password,
-        profileName,
-        uuid,
-        isSaved,
-        adminPin,
-        shopName,
-        mode: 'MOBILE',
-        source: 'mobile',
-      });
-
-      setIsSubmitting(false);
-      onComplete();
-    } catch (err: any) {
-      setIsSubmitting(false);
-      setErrorMessage(err?.response?.data?.error || err.message || 'Failed to dispatch configuration.');
-    }
-  };
-
   const handleSkipWifi = async () => {
-    setIsSubmitting(true);
-    setErrorMessage(null);
-
-    try {
-      await api.skipWifiSetup({ adminPin, shopName });
-      setIsSubmitting(false);
+    const success = await skipWifiProvision();
+    if (success && onComplete) {
       onComplete();
-    } catch (err: any) {
-      setIsSubmitting(false);
-      setErrorMessage(err?.response?.data?.error || err.message || 'Failed to proceed with active network.');
     }
   };
 
@@ -98,13 +58,13 @@ export function Step2WifiSetup({ shopName, adminPin, onComplete }: Step2WifiSetu
     return `[ ${filled}${empty}] ${signal}%`;
   };
 
-  const activeNetworks = networks.filter(n => n.isActive);
-  const availableNetworks = networks.filter(n => !n.isActive);
+  const activeNetworks = networks.filter((n) => n.isActive);
+  const availableNetworks = networks.filter((n) => !n.isActive);
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-      {/* Failure Recovery Error Banner */}
-      {errorMessage && (
+      {/* Top-level failure banner if modal was dismissed or skip failed */}
+      {submissionError && (
         <div
           style={{
             background: 'rgba(239, 68, 68, 0.1)',
@@ -124,11 +84,15 @@ export function Step2WifiSetup({ shopName, adminPin, onComplete }: Step2WifiSetu
                 SETUP_FAILED // HOTSPOT_RECONNECTED
               </div>
               <div style={{ fontSize: '13px', color: 'var(--text-primary)', marginTop: '2px' }}>
-                {errorMessage}
+                {submissionError}
               </div>
             </div>
           </div>
-          <Button variant="ghost" onClick={() => setErrorMessage(null)} style={{ height: '32px', fontSize: '11px' }}>
+          <Button
+            variant="ghost"
+            onClick={clearSubmissionError}
+            style={{ height: '32px', fontSize: '11px' }}
+          >
             DISMISS
           </Button>
         </div>
@@ -149,8 +113,9 @@ export function Step2WifiSetup({ shopName, adminPin, onComplete }: Step2WifiSetu
         </div>
         <Button
           variant="ghost"
-          onClick={fetchNetworks}
-          disabled={isScanning}
+          onClick={() => scanNetworks()}
+          disabled={isScanning || isSubmitting}
+          isLoading={isScanning}
           style={{ fontFamily: 'var(--font-mono)', fontSize: '11px', height: '32px' }}
         >
           <span>[ REFRESH SCAN ]</span>
@@ -211,11 +176,12 @@ export function Step2WifiSetup({ shopName, adminPin, onComplete }: Step2WifiSetu
               NO ADDITIONAL ACCESS POINTS DETECTED.
             </div>
           ) : (
-            availableNetworks.map(net => (
+            availableNetworks.map((net) => (
               <div
                 key={net.ssid}
                 className="wifi-network-item-row"
-                onClick={() => handleNetworkSelect(net)}
+                onClick={() => !isSubmitting && handleNetworkSelect(net)}
+                style={{ cursor: isSubmitting ? 'not-allowed' : 'pointer', opacity: isSubmitting ? 0.6 : 1 }}
               >
                 <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                   <span className="led-diode amber" />
@@ -243,6 +209,7 @@ export function Step2WifiSetup({ shopName, adminPin, onComplete }: Step2WifiSetu
                   </span>
                   <Button
                     variant="ghost"
+                    disabled={isSubmitting}
                     style={{ fontFamily: 'var(--font-mono)', fontSize: '10px', height: '28px', padding: '0 8px' }}
                   >
                     [ SELECT ➔ ]
@@ -259,6 +226,7 @@ export function Step2WifiSetup({ shopName, adminPin, onComplete }: Step2WifiSetu
             variant="ghost"
             onClick={handleSkipWifi}
             disabled={isSubmitting}
+            isLoading={isSubmitting}
             style={{
               width: '100%',
               height: '44px',

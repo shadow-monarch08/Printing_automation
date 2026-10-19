@@ -1,30 +1,19 @@
-import { useState, useCallback } from 'react';
+import { useEffect } from 'react';
 import { Step1NameAndPin } from '../components/onboarding/Step1NameAndPin';
 import { Step2WifiSetup } from '../components/onboarding/Step2WifiSetup';
 import { Step3Completion } from '../components/onboarding/Step3Completion';
-
-export interface OnboardingData {
-  shopName: string;
-  adminPin: string;
-  wifiSsid?: string;
-  wifiPassword?: string;
-}
+import { useOnboardingStore } from '../stores/useOnboardingStore';
 
 export function OnboardingLayout() {
-  const [currentStep, setCurrentStep] = useState<1 | 2 | 3>(1);
-  const [onboardingData, setOnboardingData] = useState<OnboardingData>({
-    shopName: 'Modern Press',
-    adminPin: '',
-  });
+  const currentStep = useOnboardingStore((s) => s.currentStep);
+  const reset = useOnboardingStore((s) => s.reset);
 
-  const handleStep1Complete = useCallback((shopName: string, adminPin: string) => {
-    setOnboardingData(prev => ({ ...prev, shopName, adminPin }));
-    setCurrentStep(2);
-  }, []);
-
-  const handleStep2Complete = useCallback(() => {
-    setCurrentStep(3);
-  }, []);
+  // Clean up sensitive draft state from browser heap upon unmounting
+  useEffect(() => {
+    return () => {
+      reset();
+    };
+  }, [reset]);
 
   return (
     <div className="onboarding-canvas">
@@ -53,29 +42,13 @@ export function OnboardingLayout() {
           </div>
         </div>
 
-        {/* Step Views */}
+        {/* Step Views (Decoupled with Zero Prop Drilling) */}
         <div style={{ padding: '24px' }}>
-          {currentStep === 1 && (
-            <Step1NameAndPin
-              initialShopName={onboardingData.shopName}
-              onComplete={handleStep1Complete}
-            />
-          )}
-
-          {currentStep === 2 && (
-            <Step2WifiSetup
-              shopName={onboardingData.shopName}
-              adminPin={onboardingData.adminPin}
-              onComplete={handleStep2Complete}
-            />
-          )}
-
-          {currentStep === 3 && (
-            <Step3Completion />
-          )}
+          {currentStep === 1 && <Step1NameAndPin />}
+          {currentStep === 2 && <Step2WifiSetup />}
+          {currentStep === 3 && <Step3Completion />}
         </div>
       </div>
     </div>
   );
 }
-
