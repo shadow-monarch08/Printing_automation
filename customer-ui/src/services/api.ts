@@ -10,9 +10,14 @@ export const api = {
   },
 
   fetchKioskStatus: async () => {
-    const data = await apiClient.get<{ isAcceptingJobs: boolean; fleetCapabilities: { color: boolean; duplex: boolean } }>('/fleet/kiosk-status');
+    const data = await apiClient.get<{
+      isAcceptingJobs: boolean;
+      fleetCapabilities: { color: boolean; duplex: boolean };
+      shopName?: string;
+    }>('/fleet/kiosk-status');
     return data;
   },
+
 
   updateAlias: async (printerName: string, alias: string) => {
     return apiClient.put<{ success: boolean; message: string }>(`/printers/${encodeURIComponent(printerName)}/alias`, { alias });
@@ -28,8 +33,18 @@ export const api = {
   },
 
   initSession: async () => {
-    return apiClient.post<{ success: boolean; sessionId: string }>('/session/init', {});
+    return apiClient.post<{
+      success: boolean;
+      sessionId: string;
+      shop?: {
+        name: string;
+        isAcceptingJobs: boolean;
+        fleetCapabilities: { color: boolean; duplex: boolean };
+        pricing?: PricingConfig;
+      };
+    }>('/session/init', {});
   },
+
 
   submitPrintJob: async (config: any) => {
     const formData = new FormData();

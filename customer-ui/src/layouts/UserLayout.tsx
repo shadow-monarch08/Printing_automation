@@ -2,9 +2,10 @@ import type { ReactNode } from 'react';
 import { FloatingControlsWidget } from '../components/user/FloatingControlsWidget';
 import { useUserPrintStore } from '../stores/useUserPrintStore';
 export function UserLayout({ children, subtitle }: { children: ReactNode; subtitle?: string }) {
-  const isAcceptingJobs = useUserPrintStore(s => s.isAcceptingJobs);
-  const shopName = 'PRINT_AUTOMATION';
+  const isAcceptingJobs = useUserPrintStore((s) => s.isAcceptingJobs);
+  const shopName = useUserPrintStore((s) => s.shopName);
   const isOffline = isAcceptingJobs === false;
+
 
   return (
     <div className="user-layout kiosk-mobile-root">

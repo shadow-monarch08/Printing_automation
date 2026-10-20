@@ -15,18 +15,14 @@ import { SystemOfflineOverlay } from './components/user/SystemOfflineOverlay';
 import { useUserPrintStore } from './stores/useUserPrintStore';
 
 function UserKioskPage() {
-  const currentStep = useUserPrintStore(s => s.currentStep);
-  const isAcceptingJobs = useUserPrintStore(s => s.isAcceptingJobs);
-  const fetchKioskStatus = useUserPrintStore(s => s.fetchKioskStatus);
-  const sessionId = useUserPrintStore(s => s.sessionId);
-  const initSession = useUserPrintStore(s => s.initSession);
+  const currentStep = useUserPrintStore((s) => s.currentStep);
+  const isAcceptingJobs = useUserPrintStore((s) => s.isAcceptingJobs);
+  const initSession = useUserPrintStore((s) => s.initSession);
 
   useEffect(() => {
-    fetchKioskStatus();
-    if (!sessionId) {
-      initSession();
-    }
-  }, [fetchKioskStatus, sessionId, initSession]);
+    initSession();
+  }, [initSession]);
+
 
   if (isAcceptingJobs === null) {
     return (

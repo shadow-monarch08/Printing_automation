@@ -6,6 +6,7 @@ import { cupsCommands } from "../../commands/cups.commands";
 import { redisConnection } from "../../infrastructure/redis";
 import { REDIS_KEYS, REDIS_TTLS } from "../../infrastructure/redisKeys";
 import { PrinterFactory } from "../../factories/printer.factory";
+import { getSystemConfig } from "../services/config.db.service";
 import { eventBus } from "../utils/eventBus";
 import { ValidationError, NotFoundError } from "../utils/errors";
 
@@ -223,10 +224,14 @@ export async function refreshCapabilities(req: Request, res: Response) {
 }
 
 export async function getKioskStatus(_req: Request, res: Response) {
+  const config = getSystemConfig();
+  const shopName = config?.shopName || "Modern Press";
+
   try {
+    const isPaused = await printMasterQueue.isPaused();
     const printers = await printerService.listPrinters();
-    const isAcceptingJobs = printers.some((p) => p.status === "idle" || p.status === "busy");
     const availablePrinters = printers.filter((p) => p.status === "idle" || p.status === "busy");
+    const isAcceptingJobs = !isPaused && availablePrinters.length > 0;
 
     let color = false;
     let duplex = false;
@@ -237,16 +242,19 @@ export async function getKioskStatus(_req: Request, res: Response) {
     }
 
     res.json({
+      shopName,
       isAcceptingJobs,
       fleetCapabilities: { color, duplex },
     });
   } catch (err: any) {
     res.json({
+      shopName,
       isAcceptingJobs: false,
       fleetCapabilities: { color: false, duplex: false },
     });
   }
 }
+
 
 export async function deletePrinter(req: Request, res: Response) {
   const name = req.params.name as string;

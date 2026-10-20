@@ -5,6 +5,7 @@ import { redisConnection } from "../../infrastructure/redis";
 import { REDIS_KEYS, REDIS_TTLS } from "../../infrastructure/redisKeys";
 import db from "../../infrastructure/database";
 import { UnauthorizedError, ValidationError } from "../utils/errors";
+import { eventBus } from "../utils/eventBus";
 
 export async function getJobs(req: Request, res: Response) {
   // 1. Check for Admin JWT Authorization Header
@@ -78,11 +79,21 @@ export async function changePriority(req: Request, res: Response) {
 
 export async function pauseGlobalQueue(_req: Request, res: Response) {
   await jobService.pauseQueue();
+  eventBus.emit("system:queue:paused", {
+    message: "Kiosk operations temporarily suspended by operator.",
+    timestamp: Date.now(),
+  });
+  eventBus.emit("admin:queue:sync", { action: "PAUSE", isQueuePaused: true });
   res.json({ success: true, message: "Global queue paused" });
 }
 
 export async function resumeGlobalQueue(_req: Request, res: Response) {
   await jobService.resumeQueue();
+  eventBus.emit("system:queue:resumed", {
+    message: "Kiosk is ready to accept print jobs.",
+    timestamp: Date.now(),
+  });
+  eventBus.emit("admin:queue:sync", { action: "RESUME", isQueuePaused: false });
   res.json({ success: true, message: "Global queue resumed" });
 }
 
@@ -93,5 +104,11 @@ export async function getQueueStatus(_req: Request, res: Response) {
 
 export async function emergencyStop(_req: Request, res: Response) {
   await jobService.emergencyStop();
+  eventBus.emit("system:queue:paused", {
+    message: "Emergency stop executed. All operations halted.",
+    timestamp: Date.now(),
+  });
+  eventBus.emit("admin:queue:sync", { action: "EMERGENCY_STOP", isQueuePaused: true });
   res.json({ success: true, message: "Emergency stop executed. All jobs wiped." });
 }
+

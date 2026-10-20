@@ -42,6 +42,7 @@ interface UserPrintState {
 
   isAcceptingJobs: boolean | null;
   fleetCapabilities: { color: boolean; duplex: boolean } | null;
+  shopName: string;
 
   initSession: () => Promise<string>;
   setFile: (file: File) => Promise<void>;
@@ -61,6 +62,7 @@ export const useUserPrintStore = create<UserPrintState>()(
     (set, get) => ({
       sessionId: '',
       currentStep: 1,
+      shopName: 'Modern Press',
 
       file: null,
       filePreview: null,
@@ -84,13 +86,19 @@ export const useUserPrintStore = create<UserPrintState>()(
         try {
           const res = await api.initSession();
           if (res?.sessionId) {
-            set({ sessionId: res.sessionId });
+            set({
+              sessionId: res.sessionId,
+              ...(res.shop?.name ? { shopName: res.shop.name } : {}),
+              ...(res.shop?.isAcceptingJobs !== undefined ? { isAcceptingJobs: res.shop.isAcceptingJobs } : {}),
+              ...(res.shop?.fleetCapabilities ? { fleetCapabilities: res.shop.fleetCapabilities } : {}),
+            });
             // Dynamic subscription to ensure socket is bound to this session
             realtimeClient.subscribeSession(res.sessionId);
             return res.sessionId;
           }
         } catch (e) {
           console.error('[Session] Failed to initialize server session:', e);
+          set({ isAcceptingJobs: false });
         }
         return get().sessionId;
       },
@@ -101,6 +109,7 @@ export const useUserPrintStore = create<UserPrintState>()(
           set({
             isAcceptingJobs: status.isAcceptingJobs,
             fleetCapabilities: status.fleetCapabilities,
+            ...(status.shopName ? { shopName: status.shopName } : {}),
           });
         } catch (e) {
           console.error('Failed to fetch kiosk status', e);
@@ -425,12 +434,14 @@ customerEventBus.on('system:queue:paused', (payload) => {
 });
 
 // 8. System Queue Resumed: Loud info toast + Status refresh
-customerEventBus.on('system:queue:resumed', () => {
+customerEventBus.on('system:queue:resumed', (payload) => {
+  useUserPrintStore.setState({ isAcceptingJobs: true });
   useUserPrintStore.getState().fetchKioskStatus();
-  toast.info('Queue Ready', 'Kiosk is ready to accept print jobs.', {
+  toast.info('Queue Ready', payload?.message || 'Kiosk is ready to accept print jobs.', {
     id: 'sys_queue_resumed',
   });
 });
+
 
 // 9. System Broadcast Alert: Shop announcement toast
 customerEventBus.on('system:broadcast:alert', (payload) => {

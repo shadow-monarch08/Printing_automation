@@ -94,7 +94,12 @@ async function handleResponse<T>(
           const initData = await initRes.json();
 
           const newSessionId = initData.sessionId;
-          useUserPrintStore.setState({ sessionId: newSessionId });
+          useUserPrintStore.setState({
+            sessionId: newSessionId,
+            ...(initData.shop?.name ? { shopName: initData.shop.name } : {}),
+            ...(initData.shop?.isAcceptingJobs !== undefined ? { isAcceptingJobs: initData.shop.isAcceptingJobs } : {}),
+            ...(initData.shop?.fleetCapabilities ? { fleetCapabilities: initData.shop.fleetCapabilities } : {}),
+          });
 
           onSessionRefreshed(newSessionId);
 
